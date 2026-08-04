@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { logger } from '../logger.js';
+import { SetupError } from '../services/credentials.js';
 import { ContainerNotFoundError } from '../services/docker.js';
 import { MapError } from '../services/maps.js';
 import { RconError } from '../services/q3protocol.js';
@@ -78,6 +79,13 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
 
   if (err instanceof ContainerNotFoundError) {
     res.status(404).json({ error: { code: 'container_missing', message: err.message } });
+    return;
+  }
+
+  if (err instanceof SetupError) {
+    res.status(err.kind === 'already-configured' ? 409 : 400).json({
+      error: { code: `setup_${err.kind.replace('-', '_')}`, message: err.message },
+    });
     return;
   }
 

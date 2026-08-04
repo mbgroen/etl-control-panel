@@ -12,8 +12,13 @@ import { DownloadsPage } from './pages/DownloadsPage';
 import { Login } from './pages/Login';
 import { LogsPage } from './pages/LogsPage';
 import { Overview } from './pages/Overview';
+import { Setup } from './pages/Setup';
 
-type Session = { status: 'checking' } | { status: 'out' } | { status: 'in'; username: string };
+type Session =
+  | { status: 'checking' }
+  | { status: 'setup'; minPasswordLength: number }
+  | { status: 'out' }
+  | { status: 'in'; username: string };
 
 export function App() {
   const [session, setSession] = useState<Session>({ status: 'checking' });
@@ -23,10 +28,29 @@ export function App() {
     // straight back to the login screen instead of leaving a dead UI.
     setUnauthorizedHandler(() => setSession({ status: 'out' }));
 
-    void api.auth
-      .session()
-      .then(({ user }) => setSession({ status: 'in', username: user.username }))
-      .catch(() => setSession({ status: 'out' }));
+    // Resolve in one pass: an existing session wins, otherwise ask whether the
+    // dashboard has been claimed yet, so a fresh install lands on setup rather
+    // than on a login form nobody has credentials for.
+    void (async () => {
+      try {
+        const { user } = await api.auth.session();
+        setSession({ status: 'in', username: user.username });
+        return;
+      } catch {
+        /* no active session — fall through */
+      }
+
+      try {
+        const status = await api.auth.status();
+        setSession(
+          status.needsSetup
+            ? { status: 'setup', minPasswordLength: status.minPasswordLength }
+            : { status: 'out' },
+        );
+      } catch {
+        setSession({ status: 'out' });
+      }
+    })();
   }, []);
 
   const logout = useCallback(async () => {
@@ -42,6 +66,17 @@ export function App() {
       <div className="flex h-full items-center justify-center bg-canvas">
         <Spinner label="Starting dashboard" />
       </div>
+    );
+  }
+
+  if (session.status === 'setup') {
+    return (
+      <ToastProvider>
+        <Setup
+          minPasswordLength={session.minPasswordLength}
+          onComplete={(username) => setSession({ status: 'in', username })}
+        />
+      </ToastProvider>
     );
   }
 

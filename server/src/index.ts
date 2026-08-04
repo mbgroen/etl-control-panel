@@ -3,11 +3,15 @@ import { createApp } from './http/app.js';
 import { attachWebSocket } from './http/ws.js';
 import { env } from './env.js';
 import { logger } from './logger.js';
+import * as credentials from './services/credentials.js';
 import * as docker from './services/docker.js';
 import { history } from './services/metrics.js';
 import { poller } from './services/poller.js';
 
 async function main(): Promise<void> {
+  // Must run before the HTTP server accepts a request: every auth decision
+  // depends on it.
+  await credentials.initialize();
   await history.load();
 
   const app = createApp();

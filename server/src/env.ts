@@ -10,11 +10,22 @@ const schema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(8080),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
-  /** Bcrypt hash of the dashboard login password. Generate with `npm run hash`. */
+  /**
+   * Credentials are optional here on purpose. Leave them unset and the
+   * dashboard runs a first-run setup wizard in the browser, which is what makes
+   * a WebUI-only install possible. Set them and they take precedence, for
+   * deployments managed as code. See services/credentials.ts.
+   */
   ADMIN_USERNAME: z.string().min(1).default('admin'),
-  ADMIN_PASSWORD_HASH: z.string().min(20, 'ADMIN_PASSWORD_HASH must be a bcrypt hash'),
-  /** Signing key for session JWTs. Rotating it invalidates every active session. */
-  SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
+  ADMIN_PASSWORD_HASH: z
+    .string()
+    .default('')
+    .refine((v) => v === '' || v.length >= 20, 'ADMIN_PASSWORD_HASH must be a bcrypt hash'),
+  /** Signing key for session JWTs. Generated and persisted when left empty. */
+  SESSION_SECRET: z
+    .string()
+    .default('')
+    .refine((v) => v === '' || v.length >= 32, 'SESSION_SECRET must be at least 32 characters'),
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
   /** Set false only when serving the dashboard over plain HTTP on a trusted LAN. */
   COOKIE_SECURE: z

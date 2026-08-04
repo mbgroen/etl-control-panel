@@ -15,6 +15,8 @@ Compose plugin, but it is plain Docker Compose and runs anywhere Docker does.
 - [What it does](#what-it-does)
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
+- [Quick install on OpenMediaVault](#quick-install-on-openmediavault)
+- [Publishing your own images](#publishing-your-own-images)
 - [Installation](#installation)
 - [Configuration reference](#configuration-reference)
 - [Using the dashboard](#using-the-dashboard)
@@ -98,7 +100,99 @@ what the dashboard lists and what clients can download.
 
 ---
 
+## Quick install on OpenMediaVault
+
+The fastest route: **no shell, no source checkout, no files to copy.** You paste
+one compose file into the OMV web interface and finish setup in the browser.
+
+It uses pre-built images from Docker Hub — see
+[Publishing your own images](#publishing-your-own-images) to build them from
+this repository under your own account.
+
+### 1. Point the plugin at a data folder
+
+*Services → Compose → Settings → **Data*** → pick a shared folder (e.g.
+`Docker-Data`). The plugin substitutes this path wherever
+`CHANGE_TO_COMPOSE_DATA_PATH` appears in a compose file.
+
+### 2. Create the stack
+
+*Services → Compose → Files → **＋***, then paste the contents of
+[`deploy/docker-compose.omv.yml`](deploy/docker-compose.omv.yml).
+
+Optionally set `RCON_PASSWORD` in that file now — it unlocks the console and
+player kick/ban. You can also leave it blank and add it later.
+
+Save, then select the file and press **Up**.
+
+### 3. Create your account
+
+Open **`http://<nas-ip>:8080`**. The dashboard asks you to create an
+administrator account — this replaces generating a password hash on the command
+line. Do it straight away: until you do, anyone who can reach that port can
+claim the dashboard.
+
+### 4. Create the server config
+
+Go to **Configuration**. On a fresh install there is no config file yet, so the
+page offers **Create default configuration** — a working objective server with a
+six-map rotation. Set your server name, RCON password and private-slot password
+there.
+
+If you set an RCON password, put the same value in the stack's `RCON_PASSWORD`
+and press **Up** again so the dashboard can reach the console.
+
+### 5. Check it over
+
+**Diagnostics** verifies the Docker socket, container names, config path and
+RCON, and names the fix for anything that is wrong.
+
+That's the whole installation. Map uploads, FastDL and rotation are all managed
+from the interface.
+
+> **Note on privileges.** This compose runs the dashboard as root so it can use
+> the Docker socket and write the game data directory regardless of ownership —
+> which is what removes the `PUID`/`PGID`/`DOCKER_GID` lookups from setup. The
+> socket is already root-equivalent, so this adds little on top of mounting it.
+> For the unprivileged variant, see the root `docker-compose.yml`, which pins a
+> user and adds the host's docker group instead.
+
+---
+
+## Publishing your own images
+
+The repository ships a GitHub Actions workflow that builds both images for
+`amd64` and `arm64` and pushes them to Docker Hub. Nothing is built on your Mac
+or your NAS, so an Apple Silicon laptop is not a problem.
+
+1. On Docker Hub: **Account settings → Personal access tokens → Generate new
+   token**, permission **Read & Write**. Copy it.
+2. On GitHub: **repo → Settings → Secrets and variables → Actions → New
+   repository secret**, twice:
+   - `DOCKERHUB_USERNAME` — your Docker Hub username
+   - `DOCKERHUB_TOKEN` — the token from step 1
+3. Push to `main` (or run the workflow manually from the **Actions** tab).
+
+It typechecks, runs the tests, then publishes:
+
+```
+<username>/etlegacy-dashboard:latest
+<username>/etlegacy-fastdl:latest
+```
+
+Tagging a release (`git tag v1.0.0 && git push --tags`) additionally publishes
+`1.0.0` and `1.0` tags, so you can pin a version in production.
+
+Then update the two `image:` lines in `deploy/docker-compose.omv.yml` to your
+username. To upgrade later: press **Pull** and then **Up** in the OMV Compose
+plugin.
+
+---
+
 ## Installation
+
+Manual installation, building from source. Use this if you want to modify the
+code or would rather not depend on a registry.
 
 ### 1. Get the files onto the host
 
@@ -126,10 +220,12 @@ cp config/etl_server.cfg.example "$DATA"/etlegacy/etmain/etl_server.cfg
 Open it and change at least `sv_hostname`, `rconpassword` and
 `sv_privatePassword`. The dashboard can edit everything else later.
 
-### 4. Generate credentials
+### 4. Credentials (optional)
 
-The dashboard stores a **bcrypt hash**, never your password. Build the image and
-use its built-in generator:
+You can skip this entirely — leave `ADMIN_PASSWORD_HASH` and `SESSION_SECRET`
+empty and the dashboard will ask you to create an account on first visit.
+
+To manage them declaratively instead, build the image and use the generator:
 
 ```bash
 docker compose build dashboard
@@ -137,7 +233,8 @@ docker compose run --rm --no-deps --entrypoint node dashboard dist/cli/hashPassw
 ```
 
 It prompts for a password and prints an `ADMIN_PASSWORD_HASH` and a random
-`SESSION_SECRET`. Keep both.
+`SESSION_SECRET`. Values set in the environment take precedence over any account
+created through the wizard.
 
 ### 5. Fill in the environment
 
@@ -202,8 +299,8 @@ list. The ones that matter most:
 |---|---|---|
 | `COMPOSE_DATA_PATH` | — | **Required.** Host directory holding `etlegacy/` and `dashboard/` |
 | `ADMIN_USERNAME` | `admin` | Dashboard login |
-| `ADMIN_PASSWORD_HASH` | — | **Required.** Bcrypt hash; generate as shown above |
-| `SESSION_SECRET` | — | **Required.** 32+ bytes. Changing it signs everyone out |
+| `ADMIN_PASSWORD_HASH` | empty | Optional. Empty ⇒ first-run wizard in the browser |
+| `SESSION_SECRET` | empty | Optional. Generated and persisted when empty |
 | `RCON_PASSWORD` | empty | Must match `rconpassword` in the server config, or the console and player admin stay disabled |
 | `COOKIE_SECURE` | `false` | Set `true` **only** behind HTTPS — otherwise sign-in silently fails |
 | `SERVER_CONFIG_NAME` | `etl_server.cfg` | Filename the game server execs, inside `etmain` |
@@ -412,6 +509,9 @@ curl -b jar -X POST http://localhost:8080/api/console/rcon \
 | Symptom | Cause and fix |
 |---|---|
 | Sign-in does nothing, no error | `COOKIE_SECURE=true` on plain HTTP. Set it to `false`, or serve over HTTPS |
+| Forgot the dashboard password | Delete `credentials.json` from the dashboard data directory and restart the container — the setup wizard runs again |
+| Setup wizard reappears after a restart | `STATE_PATH` is not on a persistent volume. Check the `dashboard` bind mount |
+| Configuration page says no config exists | Press **Create default configuration**, or check that `ETMAIN_PATH` is the directory the game server mounts |
 | "Container does not exist" | `ETL_CONTAINER` does not match `container_name` in the compose file |
 | Docker socket check fails | Socket not mounted, or `DOCKER_GID` is wrong. Check `getent group docker \| cut -d: -f3` |
 | Server shows offline but players are on it | The dashboard cannot reach `etlegacy:27960`. Confirm both containers share the `etlegacy` network |

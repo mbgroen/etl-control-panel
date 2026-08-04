@@ -1,9 +1,8 @@
-import bcrypt from 'bcryptjs';
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import type { IncomingMessage } from 'node:http';
 import { env } from '../env.js';
-import { logger } from '../logger.js';
+import * as credentials from '../services/credentials.js';
 
 /**
  * Session handling.
@@ -24,7 +23,7 @@ interface SessionClaims {
 }
 
 export function issueToken(username: string): string {
-  return jwt.sign({ sub: username }, env.SESSION_SECRET, {
+  return jwt.sign({ sub: username }, credentials.sessionSecret(), {
     expiresIn: `${env.SESSION_TTL_HOURS}h`,
     issuer: 'etlegacy-dashboard',
   });
@@ -32,7 +31,7 @@ export function issueToken(username: string): string {
 
 export function verifyToken(token: string): SessionClaims | null {
   try {
-    return jwt.verify(token, env.SESSION_SECRET, {
+    return jwt.verify(token, credentials.sessionSecret(), {
       issuer: 'etlegacy-dashboard',
     }) as SessionClaims;
   } catch {
@@ -41,21 +40,7 @@ export function verifyToken(token: string): SessionClaims | null {
 }
 
 export async function verifyCredentials(username: string, password: string): Promise<boolean> {
-  // Always run the bcrypt compare, even for an unknown username, so response
-  // time does not reveal whether the username was right.
-  const hash = env.ADMIN_PASSWORD_HASH;
-  const passwordOk = await bcrypt.compare(password, hash).catch((err) => {
-    logger.error({ err }, 'bcrypt comparison failed — is ADMIN_PASSWORD_HASH a valid hash?');
-    return false;
-  });
-  return passwordOk && timingSafeEqual(username, env.ADMIN_USERNAME);
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+  return credentials.verify(username, password);
 }
 
 export function setSessionCookie(res: Response, token: string): void {

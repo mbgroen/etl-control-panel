@@ -97,8 +97,8 @@ export function Login({ onSuccess }: { onSuccess: (username: string) => void }) 
         </form>
 
         <p className="mt-4 text-center text-[11px] text-faint">
-          Credentials are set with <code className="font-mono">ADMIN_USERNAME</code> and{' '}
-          <code className="font-mono">ADMIN_PASSWORD_HASH</code> in your <code className="font-mono">.env</code>
+          Locked out? Delete <code className="font-mono">credentials.json</code> from the dashboard
+          data directory to run setup again.
         </p>
       </div>
     </div>

@@ -1,0 +1,134 @@
+# =============================================================================
+# Builds both container images and publishes them to Docker Hub.
+#
+# Runs on GitHub's machines, so no local Docker is needed — which also sidesteps
+# the architecture mismatch between an Apple Silicon Mac and an amd64 NAS: both
+# platforms are built here and published under one tag.
+#
+# Requires two repository secrets (Settings → Secrets and variables → Actions):
+#   DOCKERHUB_USERNAME  your Docker Hub username
+#   DOCKERHUB_TOKEN     an access token from hub.docker.com → Account settings
+#                       → Personal access tokens (scope: Read & Write)
+# =============================================================================
+
+name: Publish images
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    # Skip rebuilds for documentation-only changes.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+env:
+  DASHBOARD_IMAGE: etlegacy-dashboard
+  FASTDL_IMAGE: etlegacy-fastdl
+
+jobs:
+  verify:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            web/package-lock.json
+
+      - name: Install and verify server
+        working-directory: server
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+      - name: Install and build web
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+  publish:
+    name: Build and push
+    runs-on: ubuntu-latest
+    # Never publish an image that failed its own checks.
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Derive tags for the dashboard image
+        id: dashboard-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DASHBOARD_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+
+      - name: Build and push the dashboard image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.dashboard-meta.outputs.tags }}
+          labels: ${{ steps.dashboard-meta.outputs.labels }}
+          # Layer cache in the Actions cache keeps rebuilds to a couple of minutes.
+          cache-from: type=gha,scope=dashboard
+          cache-to: type=gha,scope=dashboard,mode=max
+
+      - name: Derive tags for the FastDL image
+        id: fastdl-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FASTDL_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+
+      - name: Build and push the FastDL image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./fastdl
+          file: ./fastdl/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.fastdl-meta.outputs.tags }}
+          labels: ${{ steps.fastdl-meta.outputs.labels }}
+          cache-from: type=gha,scope=fastdl
+          cache-to: type=gha,scope=fastdl,mode=max
+
+      - name: Summarise
+        run: |
+          {
+            echo "### Images published"
+            echo
+            echo '```'
+            echo "${{ steps.dashboard-meta.outputs.tags }}"
+            echo "${{ steps.fastdl-meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

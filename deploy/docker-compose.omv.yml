@@ -1,0 +1,119 @@
+# =============================================================================
+# ET: Legacy server + dashboard + FastDL — OpenMediaVault edition
+#
+# Paste this whole file into OMV: Services → Compose → Files → ＋
+# CHANGE_TO_COMPOSE_DATA_PATH is replaced automatically by the plugin with the
+# shared folder you selected under Compose → Settings → Data.
+#
+# Nothing else is required. No source checkout, no files on disk, no shell.
+# The dashboard asks you to create an admin account the first time you open it.
+#
+# Ports:
+#   27960/udp  game server
+#   8080/tcp   dashboard
+#   8081/tcp   FastDL (map downloads)
+# =============================================================================
+
+name: etlegacy
+
+services:
+  # ---------------------------------------------------------------------------
+  # The game server.
+  # ---------------------------------------------------------------------------
+  etlegacy:
+    container_name: etlegacy-server
+    image: etlegacy/server:latest
+    volumes:
+      - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy/etmain:/legacy/server/etmain
+      - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy/legacy:/legacy/server/legacy
+    ports:
+      - "27960:27960/udp"
+    networks:
+      - etlegacy
+    restart: unless-stopped
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        # Without a cap a chatty server will fill the disk over months.
+        max-size: "10m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # Dashboard — web UI and API.
+  # ---------------------------------------------------------------------------
+  dashboard:
+    container_name: etlegacy-dashboard
+    image: mbgroen/etlegacy-dashboard:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      # Read-write: the dashboard edits the server config and installs maps.
+      - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy:/data/etlegacy
+      # Dashboard state: admin account, config backups, activity history.
+      - CHANGE_TO_COMPOSE_DATA_PATH/dashboard:/data/dashboard
+      # Container start/stop/restart and log streaming.
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Set this to the same value as "rconpassword" in your server config to
+      # unlock the console and player kick/ban. Everything else works without it.
+      RCON_PASSWORD: ""
+
+      # Optional: pre-fills the FastDL address. You can also just type it in the
+      # dashboard later. Use the NAS's LAN IP — not localhost.
+      FASTDL_BASE_URL: ""
+
+      ETL_HOST: etlegacy
+      ETL_PORT: 27960
+      ETL_CONTAINER: etlegacy-server
+      FASTDL_CONTAINER: etlegacy-fastdl
+      ETMAIN_PATH: /data/etlegacy/etmain
+      LEGACY_PATH: /data/etlegacy/legacy
+      STATE_PATH: /data/dashboard
+      SERVER_CONFIG_NAME: etl_server.cfg
+
+    # Runs as root so it can use the Docker socket and write to the game data
+    # directory whatever their ownership — which is what removes the PUID/PGID
+    # and docker-group lookups from installation. The socket is already
+    # root-equivalent, so this grants little beyond what the mount does; see the
+    # README for the hardened, unprivileged alternative.
+    user: "0:0"
+
+    depends_on:
+      - etlegacy
+    networks:
+      - etlegacy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # FastDL — HTTP map downloads.
+  #
+  # Always created so the dashboard can start and stop it on demand. Its
+  # restart policy honours a manual stop, so switching it off in the dashboard
+  # survives a reboot.
+  # ---------------------------------------------------------------------------
+  fastdl:
+    container_name: etlegacy-fastdl
+    image: mbgroen/etlegacy-fastdl:latest
+    ports:
+      - "8081:80"
+    volumes:
+      # Read-only: this container serves files, it never changes them.
+      - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy:/srv/fastdl:ro
+    networks:
+      - etlegacy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  etlegacy:
+    driver: bridge

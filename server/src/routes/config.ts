@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { env } from '../env.js';
 import { ApiError, asyncHandler } from '../http/errors.js';
+import { DEFAULT_SERVER_CONFIG } from '../services/defaultConfig.js';
 import { poller } from '../services/poller.js';
 import { rcon } from '../services/q3protocol.js';
 import {
   applyCvarUpdates,
   buildRotation,
   configExists,
+  CONFIG_PATH,
   listBackups,
   maskSecrets,
   MASK,
@@ -41,6 +43,33 @@ configRouter.get(
       rotation: parseRotation(snapshot.content),
       problems: validateConfig(snapshot.content),
     });
+  }),
+);
+
+/**
+ * Writes a starter config when none exists.
+ *
+ * Completes the WebUI-only install: without this, a fresh deployment leaves the
+ * operator needing shell access just to place a file. Refuses to overwrite,
+ * so it can never clobber an existing configuration.
+ */
+configRouter.post(
+  '/initialize',
+  asyncHandler(async (_req, res) => {
+    if (await configExists()) {
+      throw new ApiError(
+        409,
+        'config_exists',
+        'A configuration file already exists — edit it instead of recreating it.',
+      );
+    }
+
+    const result = await saveConfig(DEFAULT_SERVER_CONFIG, {
+      note: 'Default configuration created',
+      force: true,
+    });
+
+    res.status(201).json({ ...result, path: CONFIG_PATH });
   }),
 );
 

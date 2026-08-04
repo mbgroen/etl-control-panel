@@ -63,9 +63,12 @@ services:
       PORT: 8080
       LOG_LEVEL: ${LOG_LEVEL:-info}
 
+      # Optional. Leave empty and the dashboard runs a first-run setup wizard in
+      # the browser, storing the account in the state directory. Set them to
+      # manage credentials declaratively instead; they then take precedence.
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
-      SESSION_SECRET: ${SESSION_SECRET}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
 

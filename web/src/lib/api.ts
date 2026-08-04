@@ -87,11 +87,25 @@ const json = (body: unknown): RequestInit => ({ body: JSON.stringify(body) });
 
 export const api = {
   auth: {
+    status: () =>
+      request<{ needsSetup: boolean; managedByEnvironment: boolean; minPasswordLength: number }>(
+        '/auth/status',
+      ),
     session: () => request<{ user: { username: string } }>('/auth/session'),
+    setup: (username: string, password: string) =>
+      request<{ user: { username: string } }>('/auth/setup', {
+        method: 'POST',
+        ...json({ username, password }),
+      }),
     login: (username: string, password: string) =>
       request<{ user: { username: string } }>('/auth/login', {
         method: 'POST',
         ...json({ username, password }),
+      }),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      request<{ ok: boolean }>('/auth/password', {
+        method: 'POST',
+        ...json({ currentPassword, newPassword }),
       }),
     logout: () => request<void>('/auth/logout', { method: 'POST' }),
   },
@@ -131,6 +145,8 @@ export const api = {
 
   config: {
     get: () => request<ConfigPayload>('/config'),
+    initialize: () =>
+      request<{ revision: string; path: string }>('/config/initialize', { method: 'POST' }),
     save: (body: {
       content: string;
       expectedRevision?: string;

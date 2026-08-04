@@ -74,18 +74,7 @@ export function ConfigPage() {
 
   if (loading && !config) return <Spinner label="Loading configuration" />;
 
-  if (loadError) {
-    return (
-      <Panel>
-        <EmptyState
-          icon={<AlertCircle size={26} aria-hidden />}
-          title="Configuration not available"
-          description={loadError}
-          action={<Button onClick={() => void load()}>Try again</Button>}
-        />
-      </Panel>
-    );
-  }
+  if (loadError) return <MissingConfig message={loadError} onRetry={load} />;
 
   if (!config) return null;
 
@@ -126,6 +115,58 @@ export function ConfigPage() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Shown when etmain holds no config yet — the normal state right after a fresh
+ * install. Offers to write a working starter file rather than telling the
+ * operator to go find a shell, which is the whole point of a WebUI install.
+ */
+function MissingConfig({ message, onRetry }: { message: string; onRetry: () => Promise<void> }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const create = async () => {
+    setBusy(true);
+    try {
+      await api.config.initialize();
+      toast.success('Configuration created', 'Set your server name and passwords below.');
+      await onRetry();
+    } catch (err) {
+      toast.error(
+        'Could not create the configuration',
+        err instanceof ApiError ? err.message : 'Unexpected error',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const missing = message.toLowerCase().includes('no ') || message.toLowerCase().includes('not found');
+
+  return (
+    <Panel>
+      <EmptyState
+        icon={<FileCode2 size={26} aria-hidden />}
+        title={missing ? 'No server configuration yet' : 'Configuration not available'}
+        description={
+          missing
+            ? 'Create a starter config with sensible defaults and a working six-map rotation. You can change everything afterwards, and each save is backed up.'
+            : message
+        }
+        action={
+          <div className="flex flex-wrap justify-center gap-2">
+            {missing && (
+              <Button variant="primary" loading={busy} onClick={() => void create()}>
+                Create default configuration
+              </Button>
+            )}
+            <Button onClick={() => void onRetry()}>Try again</Button>
+          </div>
+        }
+      />
+    </Panel>
+  );
+}
 
 function ProblemList({ problems }: { problems: ConfigProblem[] }) {
   if (problems.length === 0) return null;
