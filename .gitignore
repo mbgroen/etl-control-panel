@@ -1,0 +1,22 @@
+# Secrets — never commit a filled-in environment file
+.env
+.env.*
+!.env.example
+
+# Dependencies & build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Runtime data produced by the stack
+data/
+appdata/
+*.log
+
+# Editors & OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp

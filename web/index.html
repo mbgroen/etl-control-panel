@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="description" content="Monitor and control an ET: Legacy game server" />
+    <title>ET: Legacy Server Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e3a343'/%3E%3Cpath d='M9 22V10h13v3.2h-9.3v1.6H21v3.1h-8.3v1.9H22V22z' fill='%230a0e13'/%3E%3C/svg%3E" />
+    <script>
+      // Applied before first paint so a reload never flashes the wrong theme.
+      (function () {
+        try {
+          var stored = localStorage.getItem('etl-theme');
+          var theme =
+            stored ||
+            (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          /* private mode — fall back to the dark default in the markup */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

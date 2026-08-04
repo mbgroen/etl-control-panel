@@ -1,0 +1,137 @@
+# =============================================================================
+# ET: Legacy server + management dashboard + FastDL
+#
+# Copy .env.example to .env and fill it in before starting. On OpenMediaVault,
+# paste this file into Services → Compose → Files and put the variables in the
+# "Environment" box of the same file (OMV writes them to the .env alongside it).
+#
+#   docker compose up -d
+#
+# Ports published:
+#   27960/udp  game server
+#   8080/tcp   dashboard  (change with DASHBOARD_PORT)
+#   8081/tcp   FastDL     (change with FASTDL_PORT)
+# =============================================================================
+
+name: etlegacy
+
+services:
+  # ---------------------------------------------------------------------------
+  # The game server itself.
+  # ---------------------------------------------------------------------------
+  etlegacy:
+    container_name: etlegacy-server
+    image: etlegacy/server:latest
+    volumes:
+      - ${COMPOSE_DATA_PATH}/etlegacy/etmain:/legacy/server/etmain
+      - ${COMPOSE_DATA_PATH}/etlegacy/legacy:/legacy/server/legacy
+    ports:
+      - "${GAME_PORT:-27960}:27960/udp"
+    networks:
+      - etlegacy
+    restart: unless-stopped
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        # Without a cap, a chatty server fills the NAS disk over months.
+        max-size: "10m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # Dashboard: REST API, WebSocket, and the web UI.
+  # ---------------------------------------------------------------------------
+  dashboard:
+    container_name: etlegacy-dashboard
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Prefer a published image once you have one:
+    # image: ghcr.io/mbgroen/etlegacy-dashboard:latest
+    ports:
+      - "${DASHBOARD_PORT:-8080}:8080"
+    volumes:
+      # Read-write: the dashboard edits the server config and installs pk3s.
+      - ${COMPOSE_DATA_PATH}/etlegacy:/data/etlegacy
+      # Dashboard-owned state: config backups and the activity history.
+      - ${COMPOSE_DATA_PATH}/dashboard:/data/dashboard
+      # Container lifecycle control. See the security note in the README —
+      # swap this for a socket proxy if the dashboard is exposed beyond a LAN.
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
+      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+
+      ETL_CONTAINER: etlegacy-server
+      FASTDL_CONTAINER: etlegacy-fastdl
+      # Service name on the shared network — not localhost, and not the host IP.
+      ETL_HOST: etlegacy
+      ETL_PORT: 27960
+      RCON_PASSWORD: ${RCON_PASSWORD}
+
+      # Must resolve to the same host directory the game server mounts, or the
+      # dashboard will edit a config the server never reads.
+      ETMAIN_PATH: /data/etlegacy/etmain
+      LEGACY_PATH: /data/etlegacy/legacy
+      STATE_PATH: /data/dashboard
+      SERVER_CONFIG_NAME: ${SERVER_CONFIG_NAME:-etl_server.cfg}
+
+      FASTDL_BASE_URL: ${FASTDL_BASE_URL:-}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-256}
+      POLL_INTERVAL_SEC: ${POLL_INTERVAL_SEC:-10}
+    # Runs unprivileged. PUID/PGID must be able to write the etmain bind mount.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    group_add:
+      # The host's docker group, so the socket is usable without running as root.
+      # Find it with: getent group docker | cut -d: -f3
+      - "${DOCKER_GID:-999}"
+    depends_on:
+      - etlegacy
+    networks:
+      - etlegacy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # FastDL: HTTP downloads for custom maps.
+  #
+  # Always defined so the dashboard can start and stop it on demand. Its
+  # "unless-stopped" policy means a stop from the dashboard survives a reboot.
+  # ---------------------------------------------------------------------------
+  fastdl:
+    container_name: etlegacy-fastdl
+    image: nginx:1.27-alpine
+    ports:
+      - "${FASTDL_PORT:-8081}:80"
+    volumes:
+      # Read-only: this container serves content, it never modifies it.
+      - ${COMPOSE_DATA_PATH}/etlegacy:/srv/fastdl:ro
+      - ./fastdl/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - etlegacy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  etlegacy:
+    driver: bridge
