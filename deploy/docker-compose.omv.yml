@@ -24,8 +24,19 @@ services:
     container_name: etlegacy-server
     image: etlegacy/server:latest
     volumes:
+      # Only etmain is bind-mounted. The image ships nothing here but config
+      # templates, so the mount is what gives the server its map library.
       - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy/etmain:/legacy/server/etmain
-      - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy/legacy:/legacy/server/legacy
+      #
+      # Do NOT mount /legacy/server/legacy. The image bakes the whole Legacy
+      # mod in there — qagame.mp.x86_64.so (the game module the engine dlopens),
+      # legacy_v<version>.pk3, and the Lua and omni-bot trees — and a bind mount
+      # of an empty host directory hides all of it. Docker seeds a mount from
+      # the image only for *named volumes*, never for bind mounts, so the mod
+      # silently disappears and the server dies on startup with "VM_Create on
+      # game failed". The image itself says as much: it declares etmain as a
+      # volume and legacy as not — the mod is image-managed and upgrades with
+      # the image.
     ports:
       - "27960:27960/udp"
     networks:
