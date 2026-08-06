@@ -2,6 +2,8 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pinoHttp } from 'pino-http';
@@ -21,6 +23,27 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 /** The built SPA is copied next to the compiled server in the Docker image. */
 const STATIC_ROOT = path.resolve(here, '../../public');
 
+/**
+ * CSP hashes for the inline <script> blocks in the built index.html.
+ *
+ * The shell runs a small inline script that applies the saved theme before
+ * first paint, so a reload never flashes the wrong one. Hashing it at startup
+ * keeps 'unsafe-inline' out of script-src and cannot drift: edit the script and
+ * the hash follows on the next boot.
+ */
+function inlineScriptHashes(): string[] {
+  try {
+    const html = readFileSync(path.join(STATIC_ROOT, 'index.html'), 'utf8');
+    const inline = html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi);
+    return [...inline].map(
+      (match) => `'sha256-${createHash('sha256').update(match[1] ?? '', 'utf8').digest('base64')}'`,
+    );
+  } catch {
+    // No built SPA beside the server — in development Vite serves it instead.
+    return [];
+  }
+}
+
 export function createApp(): express.Express {
   const app = express();
 
@@ -37,11 +60,22 @@ export function createApp(): express.Express {
           // The SPA is bundled with hashed assets; styles come from the same
           // origin, and 'unsafe-inline' is needed only for the boot style tag.
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
+          // 'self' covers the hashed bundles; the hashes cover the theme script
+          // inlined into index.html. Without them that script is refused and
+          // the page loads with the default theme.
+          scriptSrc: ["'self'", ...inlineScriptHashes()],
           imgSrc: ["'self'", 'data:'],
           connectSrc: ["'self'", 'ws:', 'wss:'],
           objectSrc: ["'none'"],
           frameAncestors: ["'none'"],
+          // Helmet turns this on by default, and on a plain-HTTP deployment it
+          // is fatal: the browser rewrites every asset request to https://,
+          // nothing is listening there, and the SPA never loads — a blank page
+          // whose only symptom is a TLS error in the console. It stays off
+          // unless the dashboard is actually served over HTTPS. Note that
+          // localhost is exempt from upgrading, so this only ever breaks real
+          // deployments, never a developer's own machine.
+          upgradeInsecureRequests: env.COOKIE_SECURE ? [] : null,
         },
       },
       // Assets are same-origin only; the strict default breaks nothing here.

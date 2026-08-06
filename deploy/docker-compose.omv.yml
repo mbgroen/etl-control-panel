@@ -55,7 +55,11 @@ services:
   # ---------------------------------------------------------------------------
   dashboard:
     container_name: etlegacy-dashboard
-    image: mbgroen/etlegacy-dashboard:latest
+    # Pinned rather than :latest. These tags are published by hand while the
+    # GitHub Actions outage keeps CI from building them, so :latest does not
+    # currently track this file. Move both images back to :latest once CI is
+    # publishing again, and press Pull then Up to pick up new releases.
+    image: mbgroen/etlegacy-dashboard:1.0.2
     ports:
       - "8080:8080"
     volumes:
@@ -110,7 +114,8 @@ services:
   # ---------------------------------------------------------------------------
   fastdl:
     container_name: etlegacy-fastdl
-    image: mbgroen/etlegacy-fastdl:latest
+    # Pinned to match the dashboard; see the note on its image line.
+    image: mbgroen/etlegacy-fastdl:1.0.2
     ports:
       - "8081:80"
     volumes:
