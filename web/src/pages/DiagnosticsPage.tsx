@@ -1,5 +1,6 @@
 import { CheckCircle2, RefreshCw, Wrench, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { AccountPanel } from '../components/AccountPanel';
 import { Badge, Button, Panel, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { formatDuration } from '../lib/format';
@@ -18,6 +19,9 @@ export function DiagnosticsPage() {
   const { snapshot } = useLive();
   const [checks, setChecks] = useState<HealthCheck[] | null>(null);
   const [info, setInfo] = useState<SystemInfo | null>(null);
+  const [account, setAccount] = useState<{ username: string; managedByEnvironment: boolean } | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -26,6 +30,18 @@ export function DiagnosticsPage() {
       const [health, systemInfo] = await Promise.all([api.system.health(), api.system.info()]);
       setChecks(health.checks);
       setInfo(systemInfo);
+
+      // Separate call: a failure here should not blank the health checks, which
+      // are the reason someone opened this page.
+      try {
+        const session = await api.auth.session();
+        setAccount({
+          username: session.user.username,
+          managedByEnvironment: session.managedByEnvironment ?? false,
+        });
+      } catch {
+        setAccount(null);
+      }
     } catch {
       // A failing health endpoint still returns a body with the checks; a hard
       // failure here means the API itself is down, which the shell already shows.
@@ -92,6 +108,13 @@ export function DiagnosticsPage() {
           ))}
         </ul>
       </Panel>
+
+      {account && (
+        <AccountPanel
+          username={account.username}
+          managedByEnvironment={account.managedByEnvironment}
+        />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Runtime configuration" bodyClassName="p-0">

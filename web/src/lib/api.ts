@@ -91,7 +91,8 @@ export const api = {
       request<{ needsSetup: boolean; managedByEnvironment: boolean; minPasswordLength: number }>(
         '/auth/status',
       ),
-    session: () => request<{ user: { username: string } }>('/auth/session'),
+    session: () =>
+      request<{ user: { username: string }; managedByEnvironment?: boolean }>('/auth/session'),
     setup: (username: string, password: string) =>
       request<{ user: { username: string } }>('/auth/setup', {
         method: 'POST',
