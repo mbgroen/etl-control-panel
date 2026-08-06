@@ -161,9 +161,15 @@ from the interface.
 
 ## Publishing your own images
 
-The repository ships a GitHub Actions workflow that builds both images for
-`amd64` and `arm64` and pushes them to Docker Hub. Nothing is built on your Mac
-or your NAS, so an Apple Silicon laptop is not a problem.
+The repository ships a GitHub Actions workflow that builds both images and
+pushes them to Docker Hub. Nothing is built on your Mac or your NAS, so an
+Apple Silicon laptop is not a problem.
+
+It targets `linux/amd64` by default — what an x86 NAS runs. Building `arm64`
+as well means emulating it through QEMU on GitHub's runners, roughly tripling
+the build time, so it is opt-in: pick a different platform set from the
+**Run workflow** menu. Check what your host needs with `uname -m` (`x86_64` ⇒
+amd64, `aarch64` ⇒ arm64).
 
 1. On Docker Hub: **Account settings → Personal access tokens → Generate new
    token**, permission **Read & Write**. Copy it.

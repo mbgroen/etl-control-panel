@@ -2,8 +2,8 @@
 # Builds both container images and publishes them to Docker Hub.
 #
 # Runs on GitHub's machines, so no local Docker is needed — which also sidesteps
-# the architecture mismatch between an Apple Silicon Mac and an amd64 NAS: both
-# platforms are built here and published under one tag.
+# the architecture mismatch between an Apple Silicon Mac and an amd64 NAS: the
+# image is built for the target platform regardless of what you develop on.
 #
 # Requires two repository secrets (Settings → Secrets and variables → Actions):
 #   DOCKERHUB_USERNAME  your Docker Hub username
@@ -22,6 +22,16 @@ on:
       - '**.md'
       - 'docs/**'
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Target platforms to build'
+        required: false
+        default: linux/amd64
+        type: choice
+        options:
+          - linux/amd64
+          - linux/amd64,linux/arm64
+          - linux/arm64
 
 env:
   DASHBOARD_IMAGE: etlegacy-dashboard
@@ -31,6 +41,7 @@ jobs:
   verify:
     name: Typecheck and test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -60,10 +71,26 @@ jobs:
     runs-on: ubuntu-latest
     # Never publish an image that failed its own checks.
     needs: verify
+    # Fail fast rather than sitting in a queue burning the Actions quota, which
+    # on a private repository is metered.
+    timeout-minutes: 45
+    env:
+      # amd64 only by default: that is what an x86 NAS runs, and arm64 would have
+      # to be emulated through QEMU on GitHub's runners — roughly triple the
+      # build time for an artefact nothing here would use. Pick a different set
+      # per run from the "Run workflow" menu, or change the fallback below if
+      # your host is ARM (check with `uname -m`).
+      #
+      # The literal is repeated rather than read from a workflow-level env var
+      # because the env context is not available inside a job's own env block.
+      PLATFORMS: ${{ inputs.platforms || 'linux/amd64' }}
     steps:
       - uses: actions/checkout@v4
 
+      # Only needed to emulate a foreign architecture. Skipped for a native
+      # amd64-only build, where it would just add a step for nothing.
       - name: Set up QEMU
+        if: contains(env.PLATFORMS, 'arm')
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Buildx
@@ -91,7 +118,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ steps.dashboard-meta.outputs.tags }}
           labels: ${{ steps.dashboard-meta.outputs.labels }}
@@ -115,7 +142,7 @@ jobs:
         with:
           context: ./fastdl
           file: ./fastdl/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ steps.fastdl-meta.outputs.tags }}
           labels: ${{ steps.fastdl-meta.outputs.labels }}
