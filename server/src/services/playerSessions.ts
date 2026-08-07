@@ -36,8 +36,12 @@ const MAX_HISTORY = 500;
  * A single dropped status reply — one lost UDP packet — would otherwise end
  * everyone's session and start a new one, turning one evening into a shredded
  * list of two-minute visits.
+ *
+ * Kept short because it is dead time: someone who has left is in neither list
+ * until it elapses. Four missed polls at the default interval is already far
+ * more tolerance than a lost packet needs.
  */
-const ABSENCE_GRACE_MS = 90_000;
+const ABSENCE_GRACE_MS = 45_000;
 
 export interface PlayerSession {
   id: string;
@@ -194,10 +198,19 @@ export async function observe(players: PlayerStatus[], observedAt = new Date()):
   }
 }
 
-/** Sessions in progress, longest-connected first. */
+/**
+ * Sessions in progress, longest-connected first.
+ *
+ * Only players seen in the most recent poll. A session inside its grace period
+ * is still open — so a dropped reply does not split the visit — but it is not
+ * reported as playing, because it isn't: the Overview reads the live server
+ * directly, and the two pages contradicting each other is worse than a brief
+ * gap before the visit shows up under earlier ones.
+ */
 export function current(): PlayerSession[] {
   const nowIso = new Date().toISOString();
   return [...open.values()]
+    .filter((session) => session.missingSince === null)
     .map(({ missingSince: _missingSince, ...session }) => ({
       ...session,
       seconds: secondsBetween(session.joinedAt, nowIso),
