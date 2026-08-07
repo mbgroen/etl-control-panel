@@ -1,0 +1,58 @@
+# =============================================================================
+# Keeps each image's Docker Hub page in step with this repository.
+#
+# Docker Hub's overview is the landing page for anyone who finds an image
+# without the repository, so the text lives in version control rather than in a
+# web form where it would quietly drift out of date.
+#
+# Separate from the image build on purpose: rewriting a description is instant
+# and has nothing to do with producing an image, so it should not sit behind a
+# multi-minute build — and the build workflow ignores docs/ and *.md changes, so
+# editing these files would never trigger it anyway.
+#
+# Uses the same DOCKERHUB_USERNAME / DOCKERHUB_TOKEN secrets as the build.
+# Note that Docker Hub's description API is fussier than its registry: if this
+# fails with 401 while pushes succeed, the token lacks account-level rights —
+# regenerate it with the broadest scope, or use an account password.
+# =============================================================================
+
+name: Docker Hub description
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/dockerhub-*.md'
+      - '.github/workflows/dockerhub-description.yml'
+  # So the pages can be republished on demand without touching a file.
+  workflow_dispatch:
+
+env:
+  DASHBOARD_IMAGE: etlegacy-dashboard
+  FASTDL_IMAGE: etlegacy-fastdl
+
+jobs:
+  describe:
+    name: Push overviews to Docker Hub
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dashboard
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DASHBOARD_IMAGE }}
+          short-description: 'Web control panel for a Wolfenstein: Enemy Territory (ET: Legacy) game server'
+          readme-filepath: ./docs/dockerhub-dashboard.md
+
+      - name: FastDL
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FASTDL_IMAGE }}
+          short-description: 'nginx HTTP download server (FastDL) for ET: Legacy map packages'
+          readme-filepath: ./docs/dockerhub-fastdl.md

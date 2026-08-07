@@ -21,7 +21,7 @@ describe('fastdl baseUrlSchema', () => {
   // The dashboard's own hint renders "host:port/etmain/<map>.pk3", so typing it
   // without a scheme is the natural thing to do — and used to fail validation.
   it('adds http:// when the scheme was left off', () => {
-    assert.equal(parse('192.168.0.100:8081'), 'http://192.168.0.100:8081');
+    assert.equal(parse('192.168.1.50:8081'), 'http://192.168.1.50:8081');
     assert.equal(parse('nas.local:8081'), 'http://nas.local:8081');
   });
 

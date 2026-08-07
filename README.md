@@ -6,7 +6,19 @@ server, edit the server config safely, manage custom maps, and run an optional
 HTTP download (FastDL) server — all from a browser on your LAN.
 
 It is plain Docker Compose and runs anywhere Docker does — a NAS, a home server,
-a VPS, or your laptop.
+a VPS, or a spare machine. No prior experience of running an ET server is
+assumed: the dashboard writes a working config for you, and everything after
+that is done in the browser.
+
+Ready-built images, no account needed:
+
+| Image | Purpose |
+|---|---|
+| [`mbgroen/etlegacy-dashboard`](https://hub.docker.com/r/mbgroen/etlegacy-dashboard) | This control panel |
+| [`mbgroen/etlegacy-fastdl`](https://hub.docker.com/r/mbgroen/etlegacy-fastdl) | HTTP map downloads for clients |
+
+The game server itself comes from the official
+[`etlegacy/server`](https://hub.docker.com/r/etlegacy/server) image.
 
 ---
 
@@ -205,15 +217,25 @@ from the interface.
 
 ## Publishing your own images
 
-The repository ships a GitHub Actions workflow that builds both images and
-pushes them to Docker Hub. Nothing is built on your Mac or your NAS, so an
-Apple Silicon laptop is not a problem.
+You do not need to — the images above are public and ready to use. Publish your
+own if you want to modify the dashboard, or would rather not depend on someone
+else's registry account.
 
-It targets `linux/amd64` by default — what an x86 NAS runs. Building `arm64`
-as well means emulating it through QEMU on GitHub's runners, roughly tripling
-the build time, so it is opt-in: pick a different platform set from the
-**Run workflow** menu. Check what your host needs with `uname -m` (`x86_64` ⇒
-amd64, `aarch64` ⇒ arm64).
+The repository ships a GitHub Actions workflow that builds both images and
+pushes them to Docker Hub. The build runs on GitHub's machines, so it does not
+matter what you develop on: the image is built for the target platform
+regardless of your own computer's architecture.
+
+It targets `linux/amd64` by default, which is what nearly every NAS and server
+runs. Building `arm64` as well means emulating it through QEMU on GitHub's
+runners — roughly triple the build time — so it is opt-in: pick a different
+platform set from the **Run workflow** menu. Check what your server needs by
+running `uname -m` **on the server**, not on your own machine:
+
+| `uname -m` says | Build for | Typical hardware |
+|---|---|---|
+| `x86_64` | `linux/amd64` (default) | Intel/AMD NAS, most home servers, VPS |
+| `aarch64` | `linux/arm64` | Raspberry Pi 4/5, ARM VPS, some newer NAS |
 
 1. On Docker Hub: **Account settings → Personal access tokens → Generate new
    token**, permission **Read & Write**. Copy it.
@@ -251,7 +273,7 @@ code or would rather not depend on a registry.
 ### 1. Get the files onto the host
 
 ```bash
-cd /srv/dev-disk-by-uuid-xxxxxxxx/appdata   # your data disk
+cd /srv/appdata          # wherever you keep persistent data
 git clone https://github.com/mbgroen/etlegacy_dashboard.git
 cd etlegacy_dashboard
 ```
@@ -453,6 +475,15 @@ password is set somewhere.
 ---
 
 ## Using the dashboard
+
+> **New to ET servers? What RCON is.** "Remote console" is the game engine's
+> own admin channel: you send a password plus a command over the network, and
+> the server runs it as though it had been typed at its console. It is what
+> kicking, banning, changing map and reading the live player list all go
+> through. Set `rconpassword` on the **Configuration** page and the dashboard
+> handles the rest — it reads the password from the config, so there is nothing
+> to copy anywhere and no restart. Without it the dashboard still shows status
+> and manages files; only the live-control features are unavailable.
 
 **Overview** — status, players, trends, and the start/stop/restart controls.
 Kick and ban appear once RCON is configured, since they need slot numbers that
