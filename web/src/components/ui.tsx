@@ -1,5 +1,5 @@
-import { Loader2 } from 'lucide-react';
-import { forwardRef } from 'react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { forwardRef, useId, useState } from 'react';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
 
 /**
@@ -183,6 +183,71 @@ export function Input({ className = '', ...rest }: InputHTMLAttributes<HTMLInput
       className={`h-9 w-full rounded-md border border-line bg-sunken px-3 text-[13px] text-body placeholder:text-faint transition-colors focus:border-accent focus:outline-none disabled:opacity-50 ${className}`}
       {...rest}
     />
+  );
+}
+
+interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+  /**
+   * When set, revealing is disabled and this explains why. Used where the field
+   * holds a placeholder for a stored secret rather than the secret itself, so
+   * revealing it would show the placeholder and teach the reader nothing.
+   */
+  revealDisabledReason?: string;
+}
+
+/**
+ * A password field that can be unmasked.
+ *
+ * Typing a long password blind — and then a second time to confirm it — is how
+ * people end up locked out by a typo they cannot see. Masked by default, since
+ * that is what the field is for; the toggle is opt-in, per field, and resets
+ * nowhere else.
+ *
+ * The button is deliberately a real <button type="button">: inside a form, a
+ * bare <button> submits, which would fire the login attempt on the first click.
+ */
+export function PasswordInput({
+  className = '',
+  revealDisabledReason,
+  disabled,
+  ...rest
+}: PasswordInputProps) {
+  const [revealed, setRevealed] = useState(false);
+  const hintId = useId();
+  const canReveal = !revealDisabledReason && !disabled;
+  const showing = revealed && canReveal;
+
+  return (
+    <div className="relative">
+      <input
+        {...rest}
+        disabled={disabled}
+        type={showing ? 'text' : 'password'}
+        aria-describedby={revealDisabledReason ? hintId : rest['aria-describedby']}
+        // Room for the button, so a long value does not run underneath it.
+        className={`h-9 w-full rounded-md border border-line bg-sunken pl-3 pr-10 text-[13px] text-body placeholder:text-faint transition-colors focus:border-accent focus:outline-none disabled:opacity-50 ${className}`}
+      />
+
+      <button
+        type="button"
+        onClick={() => setRevealed((previous) => !previous)}
+        disabled={!canReveal}
+        // Announced rather than shown: the icon alone does not say what it does,
+        // and the state matters more than the control's name.
+        aria-label={showing ? 'Hide password' : 'Show password'}
+        aria-pressed={showing}
+        title={revealDisabledReason ?? (showing ? 'Hide password' : 'Show password')}
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-muted transition-colors hover:text-body focus:text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {showing ? <EyeOff size={15} aria-hidden /> : <Eye size={15} aria-hidden />}
+      </button>
+
+      {revealDisabledReason && (
+        <span id={hintId} className="sr-only">
+          {revealDisabledReason}
+        </span>
+      )}
+    </div>
   );
 }
 

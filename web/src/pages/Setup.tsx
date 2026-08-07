@@ -1,6 +1,6 @@
 import { Check, ShieldAlert, UserPlus, X } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
-import { Button, Field, Input } from '../components/ui';
+import { Button, Field, Input, PasswordInput } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 
 /**
@@ -93,9 +93,8 @@ export function Setup({ minPasswordLength, onComplete }: {
           </Field>
 
           <Field label="Password" htmlFor="setup-password">
-            <Input
+            <PasswordInput
               id="setup-password"
-              type="password"
               autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -104,9 +103,8 @@ export function Setup({ minPasswordLength, onComplete }: {
           </Field>
 
           <Field label="Confirm password" htmlFor="setup-confirm">
-            <Input
+            <PasswordInput
               id="setup-confirm"
-              type="password"
               autoComplete="new-password"
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}

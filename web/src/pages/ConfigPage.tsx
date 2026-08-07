@@ -20,6 +20,7 @@ import {
   Field,
   Input,
   Panel,
+  PasswordInput,
   Select,
   Spinner,
   Toggle,
@@ -40,6 +41,24 @@ import type { BackupEntry, ConfigPayload, ConfigProblem, RconHandover } from '..
  */
 
 const MASK = '••••••••';
+
+/**
+ * Real values of the secret cvars, read out of the raw config text.
+ *
+ * The API masks secrets in its structured cvar list but returns the file itself
+ * verbatim in the same response, because the raw editor cannot work without it.
+ * So this reads what the browser already holds rather than asking for anything
+ * extra — no additional endpoint, and nothing crosses the wire that was not
+ * crossing it already.
+ */
+function secretValues(content: string): Record<string, string> {
+  const values: Record<string, string> = {};
+  const line = /^[ \t]*set[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]+"([^"]*)"/gm;
+  for (const match of content.matchAll(line)) {
+    values[(match[1] ?? '').toLowerCase()] = match[2] ?? '';
+  }
+  return values;
+}
 
 /**
  * Tells the operator what happened to the rcon password, if they changed it.
@@ -229,8 +248,19 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
   const initial = useMemo(() => {
     const map: Record<string, string> = {};
     for (const cvar of config.cvars) map[cvar.key.toLowerCase()] = cvar.value;
+
+    // The cvar list arrives with secrets replaced by a row of bullets, but the
+    // same response carries the raw file, so the real values are already here.
+    // Seeding them means a password field holds its actual password: masked by
+    // the input, revealable with the eye, and correctly seen as unchanged when
+    // left alone. Substituting the mask instead made every one of those true
+    // only by accident, and required special-casing focus to avoid appending to
+    // a row of bullets that was never the password.
+    for (const [key, value] of Object.entries(secretValues(config.content))) {
+      if (map[key] === MASK) map[key] = value;
+    }
     return map;
-  }, [config.cvars]);
+  }, [config.cvars, config.content]);
 
   const [values, setValues] = useState<Record<string, string>>(initial);
   const [saving, setSaving] = useState(false);
@@ -373,22 +403,23 @@ function CvarField({
             </option>
           ))}
         </Select>
+      ) : spec.kind === 'password' ? (
+        <PasswordInput
+          id={`cvar-${spec.key}`}
+          value={value}
+          autoComplete="off"
+          onChange={(event) => onChange(event.target.value)}
+        />
       ) : (
         <Input
           id={`cvar-${spec.key}`}
-          type={spec.kind === 'password' ? 'password' : spec.kind === 'number' ? 'number' : 'text'}
+          type={spec.kind === 'number' ? 'number' : 'text'}
           inputMode={spec.kind === 'number' ? 'numeric' : undefined}
           min={spec.min}
           max={spec.max}
           value={value}
-          autoComplete={spec.kind === 'password' ? 'new-password' : 'off'}
-          placeholder={spec.kind === 'password' && value === MASK ? MASK : undefined}
+          autoComplete="off"
           onChange={(event) => onChange(event.target.value)}
-          onFocus={(event) => {
-            // Clear the mask on focus so typing replaces rather than appends to
-            // a row of bullets that is not the real password.
-            if (spec.kind === 'password' && event.target.value === MASK) onChange('');
-          }}
         />
       )}
     </Field>

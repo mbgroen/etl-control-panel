@@ -31,8 +31,15 @@ interface StoredCredentials {
 }
 
 const BCRYPT_COST = 12;
-/** Long enough that guessing is hopeless, short enough that people will use it. */
-export const MIN_PASSWORD_LENGTH = 10;
+/**
+ * Long enough that guessing is hopeless, short enough that people will use it.
+ *
+ * Eight is the floor here rather than a compromise: the hash is bcrypt at cost
+ * 12 and sign-in is rate limited, so an online guessing attack is the only
+ * realistic one and it is far too slow to matter. A longer minimum mostly buys
+ * password reuse and sticky notes.
+ */
+export const MIN_PASSWORD_LENGTH = 8;
 
 let cache: StoredCredentials | null = null;
 let loaded = false;

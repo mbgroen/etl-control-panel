@@ -1,7 +1,7 @@
 import { LogIn, ShieldAlert } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../lib/api';
-import { Button, Field, Input } from '../components/ui';
+import { Button, Field, Input, PasswordInput } from '../components/ui';
 
 /**
  * Sign-in screen.
@@ -64,10 +64,9 @@ export function Login({ onSuccess }: { onSuccess: (username: string) => void }) 
           </Field>
 
           <Field label="Password" htmlFor="password">
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}

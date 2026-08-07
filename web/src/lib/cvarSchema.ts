@@ -104,7 +104,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         key: 'rconpassword',
         label: 'RCON password',
         kind: 'password',
-        hint: 'Also set RCON_PASSWORD in the dashboard environment so the console keeps working.',
+        hint: 'Unlocks the console and player kick/ban. The dashboard picks this up immediately — nothing to copy elsewhere, no restart.',
         appliesOn: 'immediately',
       },
     ],

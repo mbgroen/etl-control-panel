@@ -2,7 +2,7 @@ import { KeyRound, Lock } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../lib/api';
 import { useToast } from '../lib/toast';
-import { Button, Field, Input, Panel } from './ui';
+import { Button, Field, Panel, PasswordInput } from './ui';
 
 /**
  * Password change for the operator account.
@@ -14,7 +14,7 @@ import { Button, Field, Input, Panel } from './ui';
 export function AccountPanel({
   username,
   managedByEnvironment,
-  minPasswordLength = 10,
+  minPasswordLength = 8,
 }: {
   username: string;
   managedByEnvironment: boolean;
@@ -78,9 +78,8 @@ export function AccountPanel({
     <Panel title="Account" description={`Signed in as ${username}`}>
       <form onSubmit={submit} className="flex max-w-md flex-col gap-4">
         <Field label="Current password" htmlFor="pw-current">
-          <Input
+          <PasswordInput
             id="pw-current"
-            type="password"
             autoComplete="current-password"
             value={current}
             onChange={(event) => setCurrent(event.target.value)}
@@ -88,9 +87,8 @@ export function AccountPanel({
         </Field>
 
         <Field label="New password" htmlFor="pw-new" hint={`At least ${minPasswordLength} characters`}>
-          <Input
+          <PasswordInput
             id="pw-new"
-            type="password"
             autoComplete="new-password"
             value={next}
             onChange={(event) => setNext(event.target.value)}
@@ -102,9 +100,8 @@ export function AccountPanel({
           htmlFor="pw-confirm"
           error={problems[0]}
         >
-          <Input
+          <PasswordInput
             id="pw-confirm"
-            type="password"
             autoComplete="new-password"
             value={confirm}
             onChange={(event) => setConfirm(event.target.value)}

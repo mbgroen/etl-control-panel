@@ -507,8 +507,14 @@ to read something, and pausing buffers rather than drops lines.
 - *Backups* — every save is snapshotted first. The 30 most recent are kept, as
   plain files you can also recover with `cp`.
 
-Passwords show as `••••••••` and are never sent to the browser. Leaving a
-password field untouched leaves it unchanged.
+Password fields are masked, with a reveal button so you can check what you
+typed. Leaving one untouched leaves it unchanged.
+
+Be aware that the raw config — passwords included — is sent to the browser, as
+it must be for the raw editor to work. Anyone who can sign in to the dashboard
+can read every password in the server config, exactly as they could by opening
+the file on the host. The masking is there to keep secrets off the screen in
+passing, not to withhold them from an administrator.
 
 **Maps & FastDL** — the pk3 library and the download server. See below.
 
