@@ -308,26 +308,69 @@ export function parseRconStatus(output: string): { map: string; players: PlayerS
   const players: PlayerStatus[] = [];
 
   for (const line of lines) {
-    // num score ping name lastmsg address qport rate
-    const match =
-      /^\s*(\d+)\s+(-?\d+)\s+(\d+)\s+(.*?)\s+(\d+)\s+((?:\d{1,3}\.){3}\d{1,3}:\d+|loopback|bot)\s+(\d+)\s+(\d+)\s*$/.exec(
-        line,
-      );
-    if (!match) continue;
-
-    const name = (match[4] ?? '').trim();
-    players.push({
-      slot: Number.parseInt(match[1] ?? '0', 10),
-      name,
-      nameClean: stripColors(name),
-      score: Number.parseInt(match[2] ?? '0', 10),
-      ping: Number.parseInt(match[3] ?? '0', 10),
-      address: match[6] ?? null,
-      rate: Number.parseInt(match[8] ?? '0', 10) || null,
-    });
+    const player = parseRconStatusRow(line);
+    if (player) players.push(player);
   }
 
   return { map, players };
+}
+
+const isUnsignedInteger = (token: string): boolean => /^\d+$/.test(token);
+
+/**
+ * Parses one row of the rcon `status` table.
+ *
+ * The engine prints `%3i %5i %4i %-*s %7i %-21s %5i %5i %i` — num, score, ping,
+ * name, lastmsg, address, qport, rate, lastConnectTime. Two properties of that
+ * make a single anchored regex the wrong tool: the name column is variable
+ * width and may contain spaces, and the number of trailing integer columns
+ * differs between engine versions and mods (ET:Legacy appends lastConnectTime;
+ * stock ET does not). Matching a fixed field count silently yields *no players
+ * at all* rather than a visibly wrong row, which is a miserable failure to
+ * diagnose from the UI.
+ *
+ * So anchor on the address instead. Every column to its right is an integer and
+ * the address never is — it holds an IPv4 or IPv6 address, `loopback`, or `bot`
+ * — which makes the last non-integer token the address, whatever follows it.
+ * The name is then everything between the ping and the lastmsg that precedes it.
+ */
+function parseRconStatusRow(line: string): PlayerStatus | null {
+  const tokens = line.trim().split(/\s+/);
+  // At minimum: num, score, ping, name, lastmsg, address, qport.
+  if (tokens.length < 7) return null;
+  // Skips the header, the dashed separator, and any surrounding prose.
+  if (!isUnsignedInteger(tokens[0] ?? '')) return null;
+  if (!/^-?\d+$/.test(tokens[1] ?? '')) return null;
+
+  // Index 5 is the earliest an address can sit — anything before it would leave
+  // no room for a name, and index 2 may be a non-numeric ping state.
+  let addressAt = -1;
+  for (let index = tokens.length - 1; index >= 5; index--) {
+    if (!isUnsignedInteger(tokens[index] ?? '')) {
+      addressAt = index;
+      break;
+    }
+  }
+  if (addressAt === -1) return null;
+
+  const name = tokens.slice(3, addressAt - 1).join(' ');
+  if (!name) return null;
+
+  // Connecting, demo and zombie clients print DEMO/CNCT/ZMBI here instead of a
+  // number. They are still real occupants of a slot, so report them with an
+  // unknown ping rather than dropping the row.
+  const ping = Number.parseInt(tokens[2] ?? '', 10);
+  const rate = Number.parseInt(tokens[addressAt + 2] ?? '', 10);
+
+  return {
+    slot: Number.parseInt(tokens[0] ?? '0', 10),
+    name,
+    nameClean: stripColors(name),
+    score: Number.parseInt(tokens[1] ?? '0', 10),
+    ping: Number.isNaN(ping) ? 0 : ping,
+    address: tokens[addressAt] ?? null,
+    rate: Number.isNaN(rate) || rate === 0 ? null : rate,
+  };
 }
 
 /** Waits for the server to answer getstatus again, e.g. after a restart. */
