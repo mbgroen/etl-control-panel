@@ -10,21 +10,28 @@
 # multi-minute build — and the build workflow ignores docs/ and *.md changes, so
 # editing these files would never trigger it anyway.
 #
-# Uses the same DOCKERHUB_USERNAME / DOCKERHUB_TOKEN secrets as the build.
-# Note that Docker Hub's description API is fussier than its registry: if this
-# fails with 401 while pushes succeed, the token lacks account-level rights —
-# regenerate it with the broadest scope, or use an account password.
+# MANUAL ONLY, and disabled unless a DOCKERHUB_PASSWORD secret exists.
+#
+# Docker Hub's description endpoint is not part of the registry API: a personal
+# access token authenticates fine (which is why image pushes work) and is then
+# refused with 403 on the metadata PATCH. Editing a description requires account
+# credentials, so this cannot run on the same token the build uses.
+#
+# That leaves two options, and neither should happen by accident:
+#
+#   1. Paste docs/dockerhub-*.md into the Docker Hub web UI by hand. No
+#      credentials anywhere, and it takes a minute per image.
+#   2. Add a DOCKERHUB_PASSWORD secret and run this workflow. Weigh it up
+#      first: an account password in CI is broader access than the scoped token
+#      beside it, and it cannot be limited to one repository.
+#
+# Left on workflow_dispatch rather than a push trigger so it does not fail on
+# every documentation change for anyone who has not made that choice.
 # =============================================================================
 
 name: Docker Hub description
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/dockerhub-*.md'
-      - '.github/workflows/dockerhub-description.yml'
-  # So the pages can be republished on demand without touching a file.
   workflow_dispatch:
 
 env:
@@ -36,6 +43,9 @@ jobs:
     name: Push overviews to Docker Hub
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Skipped rather than failed when the password secret is absent, so running
+    # this by mistake is a no-op instead of a red cross.
+    if: ${{ secrets.DOCKERHUB_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,7 +53,7 @@ jobs:
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DASHBOARD_IMAGE }}
           short-description: 'Web control panel for a Wolfenstein: Enemy Territory (ET: Legacy) game server'
           readme-filepath: ./docs/dockerhub-dashboard.md
@@ -52,7 +62,7 @@ jobs:
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FASTDL_IMAGE }}
           short-description: 'nginx HTTP download server (FastDL) for ET: Legacy map packages'
           readme-filepath: ./docs/dockerhub-fastdl.md
