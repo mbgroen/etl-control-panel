@@ -161,7 +161,15 @@ systemRouter.get(
     ];
 
     const degraded = checks.some((c) => !c.ok && !('optional' in c && c.optional));
-    res.status(degraded ? 503 : 200).json({ status: degraded ? 'degraded' : 'ok', checks });
+
+    // Deliberately 200 even when degraded. The *request* succeeded — a report
+    // of what is broken is exactly what this endpoint is for, and answering
+    // 503 made clients treat the report itself as a failure and discard it,
+    // blanking the one page that could explain the problem. The payload's
+    // `status` carries the health; the HTTP status carries whether the call
+    // worked. (The unauthenticated /healthz probe is what container
+    // orchestration watches, and it is unaffected by this.)
+    res.json({ status: degraded ? 'degraded' : 'ok', checks });
   }),
 );
 

@@ -2,7 +2,7 @@ import { CheckCircle2, RefreshCw, Wrench, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { AccountPanel } from '../components/AccountPanel';
 import { Badge, Button, Panel, Spinner } from '../components/ui';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { formatDuration } from '../lib/format';
 import { useLive } from '../lib/live';
 import type { HealthCheck, SystemInfo } from '../lib/types';
@@ -23,32 +23,43 @@ export function DiagnosticsPage() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const [health, systemInfo] = await Promise.all([api.system.health(), api.system.info()]);
-      setChecks(health.checks);
-      setInfo(systemInfo);
+    setLoadError(null);
 
-      // Separate call: a failure here should not blank the health checks, which
-      // are the reason someone opened this page.
-      try {
-        const session = await api.auth.session();
-        setAccount({
-          username: session.user.username,
-          managedByEnvironment: session.managedByEnvironment ?? false,
-        });
-      } catch {
-        setAccount(null);
-      }
-    } catch {
-      // A failing health endpoint still returns a body with the checks; a hard
-      // failure here means the API itself is down, which the shell already shows.
+    // Each panel loads independently. Sharing one try/catch meant a single
+    // failing request blanked every panel on the page — including the runtime
+    // configuration, which needs nothing from the health checks.
+    const [health, systemInfo, session] = await Promise.allSettled([
+      api.system.health(),
+      api.system.info(),
+      api.auth.session(),
+    ]);
+
+    if (health.status === 'fulfilled') {
+      setChecks(health.value.checks);
+    } else {
       setChecks(null);
-    } finally {
-      setLoading(false);
+      setLoadError(
+        health.reason instanceof ApiError
+          ? health.reason.message
+          : 'The dashboard could not reach its own API.',
+      );
     }
+
+    setInfo(systemInfo.status === 'fulfilled' ? systemInfo.value : null);
+    setAccount(
+      session.status === 'fulfilled'
+        ? {
+            username: session.value.user.username,
+            managedByEnvironment: session.value.managedByEnvironment ?? false,
+          }
+        : null,
+    );
+
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -59,15 +70,20 @@ export function DiagnosticsPage() {
 
   const failing = checks?.filter((check) => !check.ok && !check.optional).length ?? 0;
 
+  // "No failures" and "no results" are different things. Counting a failed load
+  // as zero failures reported a green all-clear on a page that had loaded
+  // nothing, which is the most misleading state this screen could be in.
+  const description = !checks
+    ? (loadError ?? 'The checks could not be loaded.')
+    : failing === 0
+      ? 'Everything the dashboard needs is available.'
+      : `${failing} check${failing === 1 ? '' : 's'} need attention.`;
+
   return (
     <div className="flex flex-col gap-4">
       <Panel
         title="System checks"
-        description={
-          failing === 0
-            ? 'Everything the dashboard needs is available.'
-            : `${failing} check${failing === 1 ? '' : 's'} need attention.`
-        }
+        description={description}
         actions={
           <Button size="sm" icon={<RefreshCw size={13} aria-hidden />} onClick={() => void load()}>
             Re-run
@@ -75,6 +91,12 @@ export function DiagnosticsPage() {
         }
         bodyClassName="p-0"
       >
+        {!checks && (
+          <p className="px-4 py-3 text-xs text-danger">
+            No results to show. Re-run the checks, and if this persists look at the dashboard
+            container logs.
+          </p>
+        )}
         <ul className="divide-y divide-line">
           {(checks ?? []).map((check) => (
             <li key={check.id} className="flex items-start gap-3 px-4 py-3">
