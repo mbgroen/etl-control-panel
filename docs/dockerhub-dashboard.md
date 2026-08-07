@@ -57,7 +57,7 @@ since 2003, so the files are a free download.
 | `ETL_CONTAINER` | `etlegacy-server` | Container to start/stop and read logs from |
 | `ETMAIN_PATH` | `/data/etlegacy/etmain` | Game data directory inside this container |
 | `STATE_PATH` | `/data/dashboard` | Admin account, config backups, activity history |
-| `MAX_UPLOAD_MB` | `256` | Upload ceiling for `.pk3` files |
+| `MAX_UPLOAD_MB` | `256` | Initial upload limit; editable in the UI afterwards |
 | `COOKIE_SECURE` | `false` | Set `true` only when serving over HTTPS |
 
 The full list is in

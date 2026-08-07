@@ -29,7 +29,16 @@ import { api, ApiError } from '../lib/api';
 import { APPLIES_LABEL, CVAR_SECTIONS, type CvarSpec } from '../lib/cvarSchema';
 import { formatDateTime, formatRelative, prettifyMapName } from '../lib/format';
 import { useToast } from '../lib/toast';
-import type { BackupEntry, ConfigPayload, ConfigProblem, RconHandover } from '../lib/types';
+import type {
+  BackupEntry,
+  ConfigPayload,
+  ConfigProblem,
+  DashboardSettings,
+  RconHandover,
+} from '../lib/types';
+
+/** Matches the server's fallback, shown so the field explains its own default. */
+const DEFAULT_UPLOAD_MB = 256;
 
 /**
  * Server configuration.
@@ -80,13 +89,17 @@ function reportRconHandover(
   }
 }
 
-type Tab = 'settings' | 'rotation' | 'raw' | 'backups';
+type Tab = 'settings' | 'rotation' | 'raw' | 'backups' | 'dashboard';
 
 const TABS: { id: Tab; label: string; icon: typeof SlidersHorizontal }[] = [
   { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
   { id: 'rotation', label: 'Map rotation', icon: ListOrdered },
   { id: 'raw', label: 'Raw file', icon: FileCode2 },
   { id: 'backups', label: 'Backups', icon: History },
+  // Last, and named for what it configures. Everything to its left edits the
+  // game server's config file; this edits the dashboard itself, and mixing the
+  // two in one form would imply a save writes both.
+  { id: 'dashboard', label: 'Dashboard', icon: SlidersHorizontal },
 ];
 
 export function ConfigPage() {
@@ -149,6 +162,7 @@ export function ConfigPage() {
       {tab === 'rotation' && <RotationTab config={config} onSaved={load} />}
       {tab === 'raw' && <RawTab config={config} onSaved={load} />}
       {tab === 'backups' && <BackupsTab onRestored={load} />}
+      {tab === 'dashboard' && <DashboardTab />}
     </div>
   );
 }
@@ -805,5 +819,118 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
         onCancel={() => setPending(null)}
       />
     </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Dashboard preferences.
+ *
+ * Deliberately its own tab. The other three edit etl_server.cfg — they share a
+ * revision, a backup and a save button — while these are the dashboard's own
+ * settings, stored separately. Putting them in the same form would suggest one
+ * save writes both, and would put a setting at risk of being reverted by
+ * restoring a server-config backup.
+ */
+function DashboardTab() {
+  const toast = useToast();
+  const [settings, setSettings] = useState<DashboardSettings | null>(null);
+  const [value, setValue] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const current = await api.system.settings();
+      setSettings(current);
+      setValue(String(current.maxUploadMb));
+    } catch (err) {
+      toast.error('Could not load settings', err instanceof ApiError ? err.message : 'Unexpected error');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading && !settings) return <Spinner label="Loading settings" />;
+  if (!settings) return null;
+
+  const { minUploadMb, maxUploadMb: ceiling } = settings.limits;
+  const parsed = Number(value);
+  const valid = Number.isInteger(parsed) && parsed >= minUploadMb && parsed <= ceiling;
+  const changed = valid && parsed !== settings.maxUploadMb;
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const saved = await api.system.saveSettings({ maxUploadMb: parsed });
+      setSettings(saved);
+      setValue(String(saved.maxUploadMb));
+      toast.success('Settings saved', `Uploads may now be up to ${saved.maxUploadMb} MB.`);
+    } catch (err) {
+      toast.error('Could not save', err instanceof ApiError ? err.message : 'Unexpected error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Panel
+      title="Dashboard settings"
+      description="Preferences for the dashboard itself. These are not part of the server config and are not affected by restoring a backup."
+    >
+      <div className="flex max-w-md flex-col gap-4">
+        <Field
+          label="Maximum upload size"
+          htmlFor="max-upload-mb"
+          error={
+            value !== '' && !valid
+              ? `Enter a whole number between ${minUploadMb} and ${ceiling}`
+              : undefined
+          }
+          hint={
+            <>
+              Per <code className="font-mono">.pk3</code> file, in megabytes. Default
+              {' '}{DEFAULT_UPLOAD_MB} MB, which fits the largest stock pak. The ceiling is{' '}
+              {ceiling} MB: an upload is written to temporary space before it is moved into
+              etmain, so allow roughly twice the file size in free disk while it transfers.
+            </>
+          }
+        >
+          <div className="flex items-center gap-2">
+            <Input
+              id="max-upload-mb"
+              type="number"
+              inputMode="numeric"
+              min={minUploadMb}
+              max={ceiling}
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              className="max-w-32"
+            />
+            <span className="text-[13px] text-muted">MB</span>
+          </div>
+        </Field>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="primary" loading={saving} disabled={!changed} onClick={() => void save()}>
+            Save
+          </Button>
+          {changed && (
+            <Button onClick={() => setValue(String(settings.maxUploadMb))} disabled={saving}>
+              Discard
+            </Button>
+          )}
+          {!changed && value !== '' && valid && (
+            <span className="text-xs text-muted">Applies to the next upload — no restart needed.</span>
+          )}
+        </div>
+      </div>
+    </Panel>
   );
 }

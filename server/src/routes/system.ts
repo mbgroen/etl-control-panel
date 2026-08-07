@@ -1,10 +1,17 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from '../env.js';
 import { asyncHandler } from '../http/errors.js';
 import * as docker from '../services/docker.js';
+import {
+  MAX_UPLOAD_MB_CEILING,
+  MIN_UPLOAD_MB,
+  readSettings,
+  writeSettings,
+} from '../services/dashboardSettings.js';
 import { rcon, RconError } from '../services/q3protocol.js';
 import { resolveRconPassword } from '../services/rconCredentials.js';
 import { configExists, CONFIG_PATH } from '../services/serverConfig.js';
@@ -177,19 +184,50 @@ systemRouter.get(
 systemRouter.get(
   '/info',
   asyncHandler(async (_req, res) => {
-    const credential = await resolveRconPassword();
+    const [credential, settings] = await Promise.all([resolveRconPassword(), readSettings()]);
     res.json({
       version: VERSION,
       gameServer: { host: env.ETL_HOST, port: env.ETL_PORT, container: env.ETL_CONTAINER },
       fastdl: { container: env.FASTDL_CONTAINER, suggestedBaseUrl: env.FASTDL_BASE_URL },
       paths: { etmain: env.ETMAIN_PATH, legacy: env.LEGACY_PATH, config: CONFIG_PATH },
-      limits: { maxUploadMb: env.MAX_UPLOAD_MB },
+      limits: { maxUploadMb: settings.maxUploadMb, maxUploadMbCeiling: MAX_UPLOAD_MB_CEILING },
       pollIntervalSec: env.POLL_INTERVAL_SEC,
       rconConfigured: credential.source !== 'none',
       // Which of the two possible sources supplied it, so the UI can say where
       // to change it instead of guessing.
       rconSource: credential.source,
     });
+  }),
+);
+
+/**
+ * Dashboard preferences.
+ *
+ * Separate from /config, which owns the game server's cvar file. These are the
+ * dashboard's own settings and are stored in its state directory, so restoring
+ * an old server-config backup cannot change them.
+ */
+systemRouter.get(
+  '/settings',
+  asyncHandler(async (_req, res) => {
+    const settings = await readSettings();
+    res.json({ ...settings, limits: { minUploadMb: MIN_UPLOAD_MB, maxUploadMb: MAX_UPLOAD_MB_CEILING } });
+  }),
+);
+
+const settingsSchema = z.object({
+  maxUploadMb: z.coerce
+    .number()
+    .int('Whole megabytes only')
+    .min(MIN_UPLOAD_MB, `Must be at least ${MIN_UPLOAD_MB} MB`)
+    .max(MAX_UPLOAD_MB_CEILING, `Must be ${MAX_UPLOAD_MB_CEILING} MB or less`),
+});
+
+systemRouter.patch(
+  '/settings',
+  asyncHandler(async (req, res) => {
+    const settings = await writeSettings(settingsSchema.parse(req.body));
+    res.json({ ...settings, limits: { minUploadMb: MIN_UPLOAD_MB, maxUploadMb: MAX_UPLOAD_MB_CEILING } });
   }),
 );
 

@@ -403,7 +403,7 @@ list. The ones that matter most:
 | `PUID` / `PGID` | `1000` / `100` | Must be able to write `etmain` |
 | `DOCKER_GID` | `999` | Host `docker` group GID |
 | `POLL_INTERVAL_SEC` | `10` | Status poll frequency |
-| `MAX_UPLOAD_MB` | `256` | Per-file `.pk3` upload limit |
+| `MAX_UPLOAD_MB` | `256` | *Initial* per-file `.pk3` upload limit. Change it under **Configuration → Dashboard**; once set there, the stored value wins |
 
 ### Adding the base game files
 
@@ -691,7 +691,7 @@ curl -b jar -X POST http://localhost:8085/api/console/rcon \
 | "Bad rconpassword" | The running server holds an older password than the config. Restart the game server so it re-reads the config |
 | Config saves fail with a permission error | `PUID`/`PGID` cannot write `etmain`. Compare with `stat -c '%u %g' …/etmain` |
 | Config edits have no effect | Cvar is latched — check the badge on the field. Restart, or the file is not the one the server execs (`SERVER_CONFIG_NAME`) |
-| Uploads fail at ~100% | File exceeds `MAX_UPLOAD_MB` |
+| Uploads fail at ~100% | The file is over the upload limit — the error names it. Raise it under **Configuration → Dashboard** (up to 2048 MB) |
 | FastDL test fails | The base URL is not reachable from outside the host. Use the LAN/public IP, not `localhost`, and check the port is published and forwarded |
 | FastDL returns 403 for maps that exist | The pk3 files are not world-readable, so nginx cannot open them. See [FastDL file permissions](#fastdl-file-permissions) |
 | Clients still download slowly | The game server has not re-read the config. Restart it, or run `exec etl_server.cfg` in the console |

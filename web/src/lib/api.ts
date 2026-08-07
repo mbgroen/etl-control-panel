@@ -3,6 +3,7 @@ import type {
   CommandGroup,
   ConfigPayload,
   ConfigProblem,
+  DashboardSettings,
   FastdlPayload,
   HealthCheck,
   HistoryPayload,
@@ -115,6 +116,9 @@ export const api = {
   system: {
     health: () => request<{ status: string; checks: HealthCheck[] }>('/system/health'),
     info: () => request<SystemInfo>('/system/info'),
+    settings: () => request<DashboardSettings>('/system/settings'),
+    saveSettings: (body: { maxUploadMb: number }) =>
+      request<DashboardSettings>('/system/settings', { method: 'PATCH', ...json(body) }),
     logs: (service: 'game' | 'fastdl', tail = 300) =>
       request<{ service: string; lines: string[] }>(`/system/logs/${service}?tail=${tail}`),
   },

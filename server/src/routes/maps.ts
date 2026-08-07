@@ -1,10 +1,12 @@
 import { Router } from 'express';
+import type { RequestHandler } from 'express';
 import multer from 'multer';
 import os from 'node:os';
 import { z } from 'zod';
 import { env } from '../env.js';
 import { ApiError, asyncHandler } from '../http/errors.js';
 import { logger } from '../logger.js';
+import { readSettings } from '../services/dashboardSettings.js';
 import {
   assertSafePk3Name,
   checksum,
@@ -16,26 +18,82 @@ import {
 
 export const mapsRouter = Router();
 
+const MAX_FILES_PER_UPLOAD = 8;
+
 /**
  * Uploads land in a temp directory first and are only moved into etmain once
  * the transfer completes, so an aborted upload can never leave a truncated pk3
  * where the game server or a downloading client would find it.
+ *
+ * Built per request rather than once at module load, because the size limit is
+ * now editable from the dashboard: a multer instance created at boot would hold
+ * whatever the limit was then, and raising it would appear to do nothing until
+ * the container was restarted.
  */
-const upload = multer({
-  dest: os.tmpdir(),
-  limits: {
-    fileSize: env.MAX_UPLOAD_MB * 1024 * 1024,
-    files: 8,
-  },
-  fileFilter: (_req, file, cb) => {
-    try {
-      assertSafePk3Name(file.originalname);
-      cb(null, true);
-    } catch (err) {
-      cb(err instanceof Error ? err : new Error('Rejected file'));
-    }
-  },
-});
+function uploadMiddleware(): RequestHandler {
+  return (req, res, next) => {
+    void readSettings()
+      .then((settings) =>
+        multer({
+          dest: os.tmpdir(),
+          limits: {
+            fileSize: settings.maxUploadMb * 1024 * 1024,
+            files: MAX_FILES_PER_UPLOAD,
+          },
+          fileFilter: (_request, file, cb) => {
+            try {
+              assertSafePk3Name(file.originalname);
+              cb(null, true);
+            } catch (err) {
+              cb(err instanceof Error ? err : new Error('Rejected file'));
+            }
+          },
+        }).array('files', MAX_FILES_PER_UPLOAD)(req, res, (err: unknown) => {
+          if (!err) {
+            next();
+            return;
+          }
+
+          // Multer's own errors are the ones an operator can act on, and they
+          // reached the generic handler as "Something went wrong" — useless
+          // when the fix is a number they can change two clicks away.
+          if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+              next(
+                new ApiError(
+                  413,
+                  'file_too_large',
+                  `That file is larger than the ${settings.maxUploadMb} MB upload limit. Raise it under Configuration → Dashboard, or upload a smaller package.`,
+                ),
+              );
+              return;
+            }
+            if (err.code === 'LIMIT_FILE_COUNT') {
+              next(
+                new ApiError(
+                  400,
+                  'too_many_files',
+                  `Up to ${MAX_FILES_PER_UPLOAD} files can be uploaded at once.`,
+                ),
+              );
+              return;
+            }
+          }
+
+          // Anything else here is a fileFilter rejection, which already carries
+          // a message written for the operator.
+          next(
+            new ApiError(
+              400,
+              'rejected_file',
+              err instanceof Error ? err.message : 'The upload was rejected',
+            ),
+          );
+        }),
+      )
+      .catch(next);
+  };
+}
 
 mapsRouter.get(
   '/',
@@ -47,7 +105,7 @@ mapsRouter.get(
 
 mapsRouter.post(
   '/upload',
-  upload.array('files', 8),
+  uploadMiddleware(),
   asyncHandler(async (req, res) => {
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
     if (files.length === 0) {

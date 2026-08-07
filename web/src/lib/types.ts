@@ -131,12 +131,18 @@ export interface HealthCheck {
   optional?: boolean;
 }
 
+/** Dashboard preferences, stored in its own state directory. */
+export interface DashboardSettings {
+  maxUploadMb: number;
+  limits: { minUploadMb: number; maxUploadMb: number };
+}
+
 export interface SystemInfo {
   version: string;
   gameServer: { host: string; port: number; container: string };
   fastdl: { container: string; suggestedBaseUrl: string };
   paths: { etmain: string; legacy: string; config: string };
-  limits: { maxUploadMb: number };
+  limits: { maxUploadMb: number; maxUploadMbCeiling: number };
   pollIntervalSec: number;
   rconConfigured: boolean;
   /** Which source supplied the password, so the UI can point at the right one. */
