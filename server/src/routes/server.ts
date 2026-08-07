@@ -6,6 +6,7 @@ import * as docker from '../services/docker.js';
 import { history } from '../services/metrics.js';
 import { poller } from '../services/poller.js';
 import { parseRconStatus, rcon, RconError, stripColors } from '../services/q3protocol.js';
+import { resolveRconPassword } from '../services/rconCredentials.js';
 
 export const serverRouter = Router();
 
@@ -51,13 +52,14 @@ serverRouter.get(
     const snapshot = poller.current();
     const publicPlayers = snapshot?.game.status.players ?? [];
 
-    if (!env.RCON_PASSWORD) {
+    const credential = await resolveRconPassword();
+    if (credential.source === 'none') {
       res.json({ players: publicPlayers, detailed: false });
       return;
     }
 
     try {
-      const output = await rcon(target, env.RCON_PASSWORD, 'status');
+      const output = await rcon(target, credential.password, 'status');
       const parsed = parseRconStatus(output);
       // Merge: rcon gives slot/address, the UDP query is the more reliable
       // source of score when a mod reformats the status table.
@@ -101,12 +103,13 @@ serverRouter.post(
             ? `mute ${slot}`
             : `unmute ${slot}`;
 
-    const output = await rcon(target, env.RCON_PASSWORD, command);
+    const { password } = await resolveRconPassword();
+    const output = await rcon(target, password, command);
 
     // A kick reason is delivered as a separate chat line; the engine's
     // clientkick takes no reason argument.
     if ((action === 'kick' || action === 'ban') && safeReason) {
-      await rcon(target, env.RCON_PASSWORD, `say "${safeReason}"`).catch(() => undefined);
+      await rcon(target, password, `say "${safeReason}"`).catch(() => undefined);
     }
 
     res.json({ ok: true, action, slot, output: stripColors(output) });

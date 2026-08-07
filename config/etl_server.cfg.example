@@ -29,11 +29,14 @@ set g_password      ""      // empty = public server
 // Reserved slots. These are subtracted from the public pool: with 20 max and 2
 // private, 18 people can join without the password.
 set sv_privateClients  "2"
-set sv_privatePassword "CHANGE_ME"
+set sv_privatePassword ""   // set this to use the reserved slots
 
-// Required by the dashboard console and by player kick/ban.
-// Set the SAME value as RCON_PASSWORD in your .env file.
-set rconpassword    "CHANGE_ME"
+// Required by the dashboard console and by player kick/ban. Left empty on
+// purpose: a placeholder that ships in a public repository is a known password
+// on every server whose operator did not get round to changing it. Set it on
+// the dashboard's Configuration page — it is picked up immediately, and the
+// running server is moved onto it without a restart.
+set rconpassword    ""
 
 set sv_floodProtect "1"     // rate-limit chat/command spam from one client
 

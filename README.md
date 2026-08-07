@@ -92,6 +92,9 @@ what the dashboard lists and what clients can download.
   server should be public).
 - **TCP port 8080** for the dashboard, and **8081** if you use FastDL.
 - Roughly **400 MB of disk** for the images, plus whatever your maps need.
+- **The base game data** — `pak0.pk3`, `pak1.pk3`, `pak2.pk3` and `mp_bin.pk3`.
+  The server image does not ship these and cannot start a map without them; see
+  [Adding the base game files](#adding-the-base-game-files).
 
 > **Upgrading an existing server?** This stack manages the same `etmain`
 > directory your current server uses. Point `COMPOSE_DATA_PATH` at your existing
@@ -128,8 +131,9 @@ real install put it on your data disk:
 echo 'COMPOSE_DATA_PATH=/srv/appdata' > .env
 ```
 
-Optionally set `RCON_PASSWORD` in the compose file now — it unlocks the console
-and player kick/ban. You can leave it blank and add it later.
+Leave `RCON_PASSWORD` blank. It is optional — you set the RCON password on the
+Configuration page in step 5, and the dashboard reads it from the server config
+from then on.
 
 > **Using a Docker management UI?** Many — Portainer, Dockge, the compose
 > plugins built into NAS operating systems — let you paste a compose file
@@ -159,12 +163,17 @@ page offers **Create default configuration** — a working objective server with
 six-map rotation. Set your server name, RCON password and private-slot password
 there.
 
-If you set an RCON password, put the same value in the compose file's
-`RCON_PASSWORD` and run `docker compose up -d` again so the dashboard can reach
-the console. See [Keeping RCON in sync](#keeping-rcon-in-sync) — this is the
-single most common thing to get wrong.
+The RCON password you set here is picked up by the dashboard automatically —
+there is nothing to copy into the compose file and nothing to restart. See
+[The RCON password](#the-rcon-password).
 
-### 6. Check it over
+### 6. Add the base game files
+
+If `etmain` is empty, do [Adding the base game files](#adding-the-base-game-files)
+now — the server cannot load a map without them. Skip this if you pointed
+`COMPOSE_DATA_PATH` at an existing installation.
+
+### 7. Check it over
 
 **Diagnostics** verifies the Docker socket, container names, config path and
 RCON, and names the fix for anything that is wrong.
@@ -249,8 +258,9 @@ mkdir -p "$DATA"/etlegacy/{etmain,legacy} "$DATA"/dashboard
 cp config/etl_server.cfg.example "$DATA"/etlegacy/etmain/etl_server.cfg
 ```
 
-Open it and change at least `sv_hostname`, `rconpassword` and
-`sv_privatePassword`. The dashboard can edit everything else later.
+Open it and change at least `sv_hostname`. Passwords are empty by default and
+are best set on the dashboard's Configuration page, which applies the RCON
+password to the running server for you.
 
 ### 4. Credentials (optional)
 
@@ -336,7 +346,7 @@ list. The ones that matter most:
 | `ADMIN_USERNAME` | `admin` | Dashboard login |
 | `ADMIN_PASSWORD_HASH` | empty | Optional. Empty ⇒ first-run wizard in the browser |
 | `SESSION_SECRET` | empty | Optional. Generated and persisted when empty |
-| `RCON_PASSWORD` | empty | Must match `rconpassword` in the server config, or the console and player admin stay disabled |
+| `RCON_PASSWORD` | empty | **Optional override.** Used only when the server config has no `rconpassword` of its own — see [The RCON password](#the-rcon-password) |
 | `COOKIE_SECURE` | `false` | Set `true` **only** behind HTTPS — otherwise sign-in silently fails |
 | `SERVER_CONFIG_NAME` | `etl_server.cfg` | Filename the game server execs, inside `etmain` |
 | `FASTDL_BASE_URL` | empty | Pre-fills the FastDL URL field. Must be reachable **by players** |
@@ -345,24 +355,72 @@ list. The ones that matter most:
 | `POLL_INTERVAL_SEC` | `10` | Status poll frequency |
 | `MAX_UPLOAD_MB` | `256` | Per-file `.pk3` upload limit |
 
-### Keeping RCON in sync
+### Adding the base game files
 
-`RCON_PASSWORD` (dashboard) and `rconpassword` (game server) are two copies of
-one secret, and changing it touches **three** places — miss any one and the
-console stops authenticating:
+The `etlegacy/server` image contains the engine and the Legacy mod, but **no
+game data** — its `etmain` holds only config templates. Enemy Territory's own
+assets are a separate thing, and without them the server starts and then dies
+with `Loaded entities from maps/…` failures or an empty map list.
 
-1. **The config file** — the Configuration page writes `rconpassword` to
-   `etl_server.cfg`.
-2. **The running game server**, which still holds the old value in memory.
-   Restart it, or run `exec etl_server.cfg` in the console while the old
-   password still works.
-3. **The dashboard**, via `RCON_PASSWORD` in your `.env` or compose file,
-   followed by `docker compose up -d dashboard`.
+Four files are needed, from the `etmain` directory of any Wolfenstein: Enemy
+Territory installation:
 
-Do them in that order and the console keeps working throughout. Change only the
-first and you get "authentication failed" with a config that looks correct —
-restoring a config backup fixes it because it puts the old password back in
-step 1, re-matching the two you did not change.
+```
+pak0.pk3     ~229 MB
+pak1.pk3     ~50 KB
+pak2.pk3     ~88 KB
+mp_bin.pk3   ~1.6 MB
+```
+
+ET has been freeware since 2003, so you do not need to own anything: the full
+game is a free download from Splash Damage or the ET: Legacy site. Copy them out
+of an existing install or a fresh download — a desktop client works fine, since
+these are the same files.
+
+**You can upload them from the dashboard.** Go to **Maps & FastDL → Add map
+packages** and drop all four in. The default upload ceiling is 256 MB, which
+`pak0.pk3` fits under, and uploads are written world-readable so FastDL can
+serve them straight away. If you would rather copy them in over the shell, put
+them in `<data path>/etlegacy/etmain/` and make them readable:
+
+```bash
+chmod o+r <data path>/etlegacy/etmain/*.pk3
+```
+
+Either way, **restart the game server afterwards** — the engine indexes pk3
+files at start-up, so files added while it is running are not seen:
+
+```bash
+docker compose restart etlegacy
+```
+
+### The RCON password
+
+**Set it on the Configuration page and nothing else is required.** The server
+config is the single source of truth: the dashboard reads `rconpassword` from
+the same file the game server does, so the two cannot drift apart.
+
+Changing it is safe while the server is running. On save, the dashboard moves
+the live server onto the new password *using the old one, while it is still
+valid*, so the file, the running server and the dashboard all change together —
+no restart, and no window where the console locks you out. The save reports
+what happened, including when it could not do the handover (server offline, or
+no previous password to authenticate with) and what remains to be done.
+
+`RCON_PASSWORD` is now **optional**. Set it only if the dashboard cannot read
+the config, or if you would rather keep the secret out of a file the UI can
+display; it is used when the config has no `rconpassword` of its own. If both
+are set to different values the config wins, and Diagnostics says so rather
+than leaving you to work out which one is in play.
+
+Diagnostics checks the credential by actually authenticating against the running
+server, so "RCON credentials: ok" means commands will work — not merely that a
+password is set somewhere.
+
+> **Upgrading from an earlier version?** Nothing to do. An existing
+> `RCON_PASSWORD` keeps working exactly as before. You can delete it once
+> `rconpassword` is set in the config, and Diagnostics will confirm which source
+> is in use.
 
 ---
 
@@ -563,8 +621,8 @@ curl -b jar -X POST http://localhost:8080/api/console/rcon \
 | "Container does not exist" | `ETL_CONTAINER` does not match `container_name` in the compose file |
 | Docker socket check fails | Socket not mounted, or `DOCKER_GID` is wrong. Check `getent group docker \| cut -d: -f3` |
 | Server shows offline but players are on it | The dashboard cannot reach `etlegacy:27960`. Confirm both containers share the `etlegacy` network |
-| Console says RCON is not configured | Set `RCON_PASSWORD` in `.env` to match `rconpassword`, then `docker compose up -d dashboard` |
-| "Bad rconpassword" | The two copies have drifted apart. Make them match |
+| Console says RCON is not set | Set `rconpassword` on the Configuration page — it takes effect immediately, with no restart |
+| "Bad rconpassword" | The running server holds an older password than the config. Restart the game server so it re-reads the config |
 | Config saves fail with a permission error | `PUID`/`PGID` cannot write `etmain`. Compare with `stat -c '%u %g' …/etmain` |
 | Config edits have no effect | Cvar is latched — check the badge on the field. Restart, or the file is not the one the server execs (`SERVER_CONFIG_NAME`) |
 | Uploads fail at ~100% | File exceeds `MAX_UPLOAD_MB` |

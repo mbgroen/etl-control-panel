@@ -139,6 +139,18 @@ export interface SystemInfo {
   limits: { maxUploadMb: number };
   pollIntervalSec: number;
   rconConfigured: boolean;
+  /** Which source supplied the password, so the UI can point at the right one. */
+  rconSource: 'config' | 'environment' | 'none';
+}
+
+/**
+ * Result of moving the running server onto a new rcon password.
+ *
+ * Present only when a save actually changed the password; null otherwise.
+ */
+export interface RconHandover {
+  ok: boolean;
+  message: string;
 }
 
 export interface HistorySample {

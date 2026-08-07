@@ -2,14 +2,17 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { env } from '../env.js';
 import { ApiError, asyncHandler } from '../http/errors.js';
+import { logger } from '../logger.js';
 import { DEFAULT_SERVER_CONFIG } from '../services/defaultConfig.js';
 import { poller } from '../services/poller.js';
 import { rcon } from '../services/q3protocol.js';
+import { canSendAsRconArgument, resolveRconPassword } from '../services/rconCredentials.js';
 import {
   applyCvarUpdates,
   buildRotation,
   configExists,
   CONFIG_PATH,
+  cvarMap,
   listBackups,
   maskSecrets,
   MASK,
@@ -87,10 +90,15 @@ configRouter.put(
   asyncHandler(async (req, res) => {
     const { content, expectedRevision, note, force, reload } = saveSchema.parse(req.body);
 
+    // Captured before the write so the old password is still available to
+    // authenticate the handover below.
+    const previous = await readConfig().catch(() => null);
+
     const result = await saveConfig(content, { expectedRevision, note, force });
+    const rconPassword = previous ? await handOverRconPassword(previous.content, content) : null;
     const reloaded = reload ? await reloadServerConfig() : null;
 
-    res.json({ ...result, reloaded });
+    res.json({ ...result, reloaded, rconPassword });
   }),
 );
 
@@ -126,10 +134,13 @@ configRouter.patch(
       note: `Updated ${Object.keys(effective).join(', ')}`,
     });
 
+    // Before the reload, so the running server is already on the new password
+    // when the config is re-exec'd rather than being locked out by it.
+    const rconPassword = await handOverRconPassword(current.content, next);
     const reloaded = reload ? await reloadServerConfig() : null;
     await poller.refresh();
 
-    res.json({ ...result, applied: Object.keys(effective), reloaded });
+    res.json({ ...result, applied: Object.keys(effective), reloaded, rconPassword });
   }),
 );
 
@@ -184,24 +195,97 @@ configRouter.post(
   asyncHandler(async (req, res) => {
     const id = z.string().regex(/^[A-Za-z0-9\-]+$/).parse(req.params.id);
     const content = await readBackup(id);
+    const previous = await readConfig().catch(() => null);
     // Restoring takes its own backup first, so a mistaken restore is reversible.
     const result = await saveConfig(content, { note: `Restored from backup ${id}`, force: true });
-    res.json({ ...result, restoredFrom: id });
+    // A backup carries whatever password was in force when it was taken, so a
+    // restore moves the password just as surely as an edit does.
+    const rconPassword = previous ? await handOverRconPassword(previous.content, content) : null;
+    res.json({ ...result, restoredFrom: id, rconPassword });
   }),
 );
 
 /** Asks the live server to re-read the config without a full restart. */
 async function reloadServerConfig(): Promise<{ ok: boolean; message: string }> {
-  if (!env.RCON_PASSWORD) {
+  const credential = await resolveRconPassword();
+  if (credential.source === 'none') {
     return { ok: false, message: 'No rcon password configured, so the server was not reloaded' };
   }
   try {
-    await rcon(target, env.RCON_PASSWORD, `exec ${env.SERVER_CONFIG_NAME}`);
+    await rcon(target, credential.password, `exec ${env.SERVER_CONFIG_NAME}`);
     return { ok: true, message: 'Config re-executed on the running server' };
   } catch (err) {
     return {
       ok: false,
       message: err instanceof Error ? err.message : 'Reload failed',
+    };
+  }
+}
+
+export interface RconHandover {
+  ok: boolean;
+  message: string;
+}
+
+/**
+ * Moves the running server onto a new rcon password at the moment it changes.
+ *
+ * Writing a new `rconpassword` to the config leaves three copies disagreeing:
+ * the file has the new one, the running server still holds the old one in
+ * memory until something re-execs the config, and the dashboard needs whichever
+ * the server will actually accept. Left alone that window never closes on its
+ * own, and it locks the operator out of the console — the one place they would
+ * go to fix it.
+ *
+ * The way out is to do the handover while the *old* password is still valid:
+ * authenticate with it and set the cvar live. After this returns ok the file,
+ * the server and the dashboard all agree, with no restart and no gap.
+ *
+ * Returns null when the password did not change, so callers can stay quiet.
+ */
+async function handOverRconPassword(
+  previousContent: string,
+  nextContent: string,
+): Promise<RconHandover | null> {
+  const previous = (cvarMap(previousContent).rconpassword ?? '').trim();
+  const next = (cvarMap(nextContent).rconpassword ?? '').trim();
+
+  if (previous === next) return null;
+
+  if (!previous) {
+    // Nothing to authenticate with — the server has no rcon password set yet,
+    // so it cannot be told about the new one.
+    return {
+      ok: false,
+      message:
+        'Saved. The running server has no rcon password yet, so restart it (or re-exec the config) to start using this one.',
+    };
+  }
+
+  if (!canSendAsRconArgument(next)) {
+    return {
+      ok: false,
+      message:
+        'Saved. This password contains a quote, semicolon or newline, which cannot be sent over rcon safely — restart the server to apply it.',
+    };
+  }
+
+  try {
+    // Quoted so a password containing spaces survives the console parser.
+    await rcon(target, previous, `rconpassword "${next}"`);
+    logger.info('rcon password handed over to the running server');
+    return {
+      ok: true,
+      message: next
+        ? 'Applied to the running server immediately — no restart needed.'
+        : 'RCON is now disabled on the running server.',
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: `Saved, but the running server could not be updated (${
+        err instanceof Error ? err.message : 'unknown error'
+      }). It still expects the previous password until you restart it.`,
     };
   }
 }

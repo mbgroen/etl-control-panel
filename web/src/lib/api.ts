@@ -8,6 +8,7 @@ import type {
   HistoryPayload,
   MapsPayload,
   Player,
+  RconHandover,
   RconResult,
   Snapshot,
   SystemInfo,
@@ -155,15 +156,23 @@ export const api = {
       force?: boolean;
       reload?: boolean;
     }) =>
-      request<{ revision: string; backupId: string | null; problems: ConfigProblem[] }>('/config', {
+      request<{
+        revision: string;
+        backupId: string | null;
+        problems: ConfigProblem[];
+        rconPassword: RconHandover | null;
+      }>('/config', {
         method: 'PUT',
         ...json(body),
       }),
     patch: (updates: Record<string, string>, expectedRevision?: string, reload = false) =>
-      request<{ revision: string; applied: string[] }>('/config/cvars', {
-        method: 'PATCH',
-        ...json({ updates, expectedRevision, reload }),
-      }),
+      request<{ revision: string; applied: string[]; rconPassword: RconHandover | null }>(
+        '/config/cvars',
+        {
+          method: 'PATCH',
+          ...json({ updates, expectedRevision, reload }),
+        },
+      ),
     validate: (content: string) =>
       request<{ problems: ConfigProblem[] }>('/config/validate', {
         method: 'POST',
@@ -177,7 +186,10 @@ export const api = {
     backups: () => request<{ backups: BackupEntry[] }>('/config/backups'),
     backup: (id: string) => request<{ id: string; content: string }>(`/config/backups/${id}`),
     restore: (id: string) =>
-      request<{ revision: string }>(`/config/backups/${id}/restore`, { method: 'POST' }),
+      request<{ revision: string; rconPassword: RconHandover | null }>(
+        `/config/backups/${id}/restore`,
+        { method: 'POST' },
+      ),
   },
 
   maps: {

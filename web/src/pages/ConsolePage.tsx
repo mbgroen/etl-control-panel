@@ -1,5 +1,6 @@
 import { CornerDownLeft, Eraser, ShieldAlert, Terminal } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Badge, Button, EmptyState, Panel } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { formatClock } from '../lib/format';
@@ -131,9 +132,11 @@ export function ConsolePage() {
           <div className="flex items-start gap-2 border-b border-warn/30 bg-warn-soft px-4 py-2.5 text-xs text-warn">
             <ShieldAlert size={15} className="mt-px shrink-0" aria-hidden />
             <span>
-              No rcon password is configured. Set <code className="font-mono">RCON_PASSWORD</code> in the
-              dashboard environment to match <code className="font-mono">rconpassword</code> in your server
-              config, then restart the dashboard container.
+              No rcon password is set. Add <code className="font-mono">rconpassword</code> on the{' '}
+              <Link to="/configuration" className="font-medium underline underline-offset-2">
+                Configuration
+              </Link>{' '}
+              page — the console starts working straight away, with no restart.
             </span>
           </div>
         )}

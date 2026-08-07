@@ -28,7 +28,7 @@ import { api, ApiError } from '../lib/api';
 import { APPLIES_LABEL, CVAR_SECTIONS, type CvarSpec } from '../lib/cvarSchema';
 import { formatDateTime, formatRelative, prettifyMapName } from '../lib/format';
 import { useToast } from '../lib/toast';
-import type { BackupEntry, ConfigPayload, ConfigProblem } from '../lib/types';
+import type { BackupEntry, ConfigPayload, ConfigProblem, RconHandover } from '../lib/types';
 
 /**
  * Server configuration.
@@ -40,6 +40,26 @@ import type { BackupEntry, ConfigPayload, ConfigProblem } from '../lib/types';
  */
 
 const MASK = '••••••••';
+
+/**
+ * Tells the operator what happened to the rcon password, if they changed it.
+ *
+ * Changing it used to break the console silently, and the breakage only showed
+ * up later on a different page — so the one moment worth reporting is the save
+ * itself. A warning here is not an error: the config was written either way,
+ * and the message says what remains to be done.
+ */
+function reportRconHandover(
+  handover: RconHandover | null,
+  toast: ReturnType<typeof useToast>,
+): void {
+  if (!handover) return;
+  if (handover.ok) {
+    toast.success('RCON password updated', handover.message);
+  } else {
+    toast.warning('RCON password needs one more step', handover.message);
+  }
+}
 
 type Tab = 'settings' | 'rotation' | 'raw' | 'backups';
 
@@ -230,6 +250,7 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
     try {
       const updates = Object.fromEntries(changed);
       const result = await api.config.patch(updates, config.revision, reload);
+      reportRconHandover(result.rconPassword, toast);
       toast.success(
         `Saved ${result.applied.length} setting${result.applied.length === 1 ? '' : 's'}`,
         reload ? 'The running server was asked to re-read its config.' : undefined,
@@ -577,13 +598,14 @@ function RawTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Pro
   const save = async (force = false) => {
     setSaving(true);
     try {
-      await api.config.save({
+      const result = await api.config.save({
         content,
         expectedRevision: config.revision,
         force,
         reload,
         note: 'Edited in the raw editor',
       });
+      reportRconHandover(result.rconPassword, toast);
       toast.success('Configuration saved', 'A backup of the previous version was kept.');
       await onSaved();
     } catch (err) {
@@ -681,7 +703,8 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
     if (!pending) return;
     setBusy(true);
     try {
-      await api.config.restore(pending.id);
+      const result = await api.config.restore(pending.id);
+      reportRconHandover(result.rconPassword, toast);
       toast.success('Configuration restored', 'The version you replaced was backed up first.');
       await onRestored();
       await load();

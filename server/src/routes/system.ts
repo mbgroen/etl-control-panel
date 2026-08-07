@@ -2,7 +2,62 @@ import { Router } from 'express';
 import { env } from '../env.js';
 import { asyncHandler } from '../http/errors.js';
 import * as docker from '../services/docker.js';
+import { rcon, RconError } from '../services/q3protocol.js';
+import { resolveRconPassword } from '../services/rconCredentials.js';
 import { configExists, CONFIG_PATH } from '../services/serverConfig.js';
+
+const rconTarget = { host: env.ETL_HOST, port: env.ETL_PORT, timeoutMs: env.RCON_TIMEOUT_MS };
+
+interface RconCheck {
+  ok: boolean;
+  detail: string;
+  remedy: string | null;
+}
+
+/**
+ * Proves the rcon credential works, rather than that one exists.
+ *
+ * Checking only whether a password is set answers the wrong question: the
+ * failure operators actually hit is a password that is present but no longer
+ * matches the running server. That reported "Configured" while every console
+ * command failed, which is worse than no check at all.
+ */
+async function checkRcon(): Promise<RconCheck> {
+  const credential = await resolveRconPassword();
+
+  if (credential.source === 'none') {
+    return {
+      ok: false,
+      detail: 'Not set — console and player admin are disabled',
+      remedy:
+        'Set rconpassword on the Configuration page. The dashboard picks it up straight away; no restart and no environment variable needed.',
+    };
+  }
+
+  const from = credential.source === 'config' ? 'the server config' : 'RCON_PASSWORD';
+  const ignored = credential.environmentIgnored
+    ? ' RCON_PASSWORD is also set to a different value and is being ignored — remove it to avoid confusion.'
+    : '';
+
+  try {
+    await rcon(rconTarget, credential.password, 'serverinfo');
+    return { ok: true, detail: `Authenticated using ${from}.${ignored}`, remedy: null };
+  } catch (err) {
+    if (err instanceof RconError && err.kind === 'bad-password') {
+      return {
+        ok: false,
+        detail: `The running server rejected the password from ${from}.`,
+        remedy:
+          'The running server still holds an older password. Restart the game server so it re-reads the config, then check again.',
+      };
+    }
+    return {
+      ok: false,
+      detail: err instanceof Error ? err.message : 'RCON check failed',
+      remedy: 'Confirm the game server is running and reachable from the dashboard container.',
+    };
+  }
+}
 
 export const systemRouter = Router();
 
@@ -17,11 +72,12 @@ export const systemRouter = Router();
 systemRouter.get(
   '/health',
   asyncHandler(async (_req, res) => {
-    const [dockerPing, gameContainer, fastdlContainer, hasConfig] = await Promise.all([
+    const [dockerPing, gameContainer, fastdlContainer, hasConfig, rconCheck] = await Promise.all([
       docker.ping(),
       docker.inspect('game').catch(() => null),
       docker.inspect('fastdl').catch(() => null),
       configExists(),
+      checkRcon(),
     ]);
 
     const checks = [
@@ -59,11 +115,9 @@ systemRouter.get(
       {
         id: 'rcon',
         label: 'RCON credentials',
-        ok: env.RCON_PASSWORD !== '',
-        detail: env.RCON_PASSWORD ? 'Configured' : 'Not set — console and player admin are disabled',
-        remedy: env.RCON_PASSWORD
-          ? null
-          : 'Set RCON_PASSWORD in the dashboard environment to match rconpassword in the server config.',
+        ok: rconCheck.ok,
+        detail: rconCheck.detail,
+        remedy: rconCheck.remedy,
       },
       {
         id: 'fastdl_container',
@@ -85,17 +139,24 @@ systemRouter.get(
 );
 
 /** Non-secret runtime configuration, so the UI can label paths and ports. */
-systemRouter.get('/info', (_req, res) => {
-  res.json({
-    version: process.env.npm_package_version ?? '1.0.0',
-    gameServer: { host: env.ETL_HOST, port: env.ETL_PORT, container: env.ETL_CONTAINER },
-    fastdl: { container: env.FASTDL_CONTAINER, suggestedBaseUrl: env.FASTDL_BASE_URL },
-    paths: { etmain: env.ETMAIN_PATH, legacy: env.LEGACY_PATH, config: CONFIG_PATH },
-    limits: { maxUploadMb: env.MAX_UPLOAD_MB },
-    pollIntervalSec: env.POLL_INTERVAL_SEC,
-    rconConfigured: env.RCON_PASSWORD !== '',
-  });
-});
+systemRouter.get(
+  '/info',
+  asyncHandler(async (_req, res) => {
+    const credential = await resolveRconPassword();
+    res.json({
+      version: process.env.npm_package_version ?? '1.0.0',
+      gameServer: { host: env.ETL_HOST, port: env.ETL_PORT, container: env.ETL_CONTAINER },
+      fastdl: { container: env.FASTDL_CONTAINER, suggestedBaseUrl: env.FASTDL_BASE_URL },
+      paths: { etmain: env.ETMAIN_PATH, legacy: env.LEGACY_PATH, config: CONFIG_PATH },
+      limits: { maxUploadMb: env.MAX_UPLOAD_MB },
+      pollIntervalSec: env.POLL_INTERVAL_SEC,
+      rconConfigured: credential.source !== 'none',
+      // Which of the two possible sources supplied it, so the UI can say where
+      // to change it instead of guessing.
+      rconSource: credential.source,
+    });
+  }),
+);
 
 /** Log tail for the initial paint; the live feed arrives over the WebSocket. */
 systemRouter.get(

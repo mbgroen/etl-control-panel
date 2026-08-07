@@ -5,6 +5,7 @@ import { env } from '../env.js';
 import { ApiError, asyncHandler } from '../http/errors.js';
 import { logger } from '../logger.js';
 import { rcon, stripColors } from '../services/q3protocol.js';
+import { resolveRconPassword } from '../services/rconCredentials.js';
 
 export const consoleRouter = Router();
 
@@ -58,16 +59,17 @@ consoleRouter.post(
       throw new ApiError(403, 'command_blocked', blocked.hint);
     }
 
-    if (!env.RCON_PASSWORD) {
+    const credential = await resolveRconPassword();
+    if (credential.source === 'none') {
       throw new ApiError(
         503,
         'rcon_no_password',
-        'No rcon password is configured. Set RCON_PASSWORD in the dashboard environment.',
+        'No rcon password is set. Add one on the Configuration page and the console starts working immediately.',
       );
     }
 
     const startedAt = Date.now();
-    const output = await rcon(target, env.RCON_PASSWORD, command);
+    const output = await rcon(target, credential.password, command);
 
     // The command itself is logged; its output is not, since `status` and
     // friends contain player IP addresses.
@@ -87,9 +89,10 @@ consoleRouter.post(
  * Curated commands surfaced as one-click actions in the console UI, so the
  * common operations do not require memorising engine cvars.
  */
-consoleRouter.get('/commands', (_req, res) => {
+consoleRouter.get('/commands', asyncHandler(async (_req, res) => {
+  const credential = await resolveRconPassword();
   res.json({
-    available: env.RCON_PASSWORD !== '',
+    available: credential.source !== 'none',
     groups: [
       {
         name: 'Match',
@@ -118,4 +121,4 @@ consoleRouter.get('/commands', (_req, res) => {
       },
     ],
   });
-});
+}));
