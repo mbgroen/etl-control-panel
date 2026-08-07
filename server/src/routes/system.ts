@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { env } from '../env.js';
 import { asyncHandler } from '../http/errors.js';
 import * as docker from '../services/docker.js';
@@ -7,6 +10,30 @@ import { resolveRconPassword } from '../services/rconCredentials.js';
 import { configExists, CONFIG_PATH } from '../services/serverConfig.js';
 
 const rconTarget = { host: env.ETL_HOST, port: env.ETL_PORT, timeoutMs: env.RCON_TIMEOUT_MS };
+
+/**
+ * The version reported to the UI.
+ *
+ * npm_package_version is populated only when the process is started by an npm
+ * script, and the image runs `node dist/index.js` directly — so it was always
+ * undefined and the dashboard showed a hardcoded 1.0.0 whatever was released.
+ * Read package.json instead; the Dockerfile copies it beside dist exactly so it
+ * is available at run time. Both the compiled and the source layout put it two
+ * directories up from here.
+ */
+const VERSION: string = (() => {
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const parsed: unknown = JSON.parse(
+      readFileSync(path.resolve(here, '../../package.json'), 'utf8'),
+    );
+    const version = (parsed as { version?: unknown }).version;
+    if (typeof version === 'string' && version) return version;
+  } catch {
+    /* fall through — a missing package.json must not stop the server booting */
+  }
+  return 'unknown';
+})();
 
 interface RconCheck {
   ok: boolean;
@@ -144,7 +171,7 @@ systemRouter.get(
   asyncHandler(async (_req, res) => {
     const credential = await resolveRconPassword();
     res.json({
-      version: process.env.npm_package_version ?? '1.0.0',
+      version: VERSION,
       gameServer: { host: env.ETL_HOST, port: env.ETL_PORT, container: env.ETL_CONTAINER },
       fastdl: { container: env.FASTDL_CONTAINER, suggestedBaseUrl: env.FASTDL_BASE_URL },
       paths: { etmain: env.ETMAIN_PATH, legacy: env.LEGACY_PATH, config: CONFIG_PATH },
