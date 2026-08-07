@@ -12,14 +12,17 @@
 
 name: Publish images
 
+# Releases only. Both a branch push and a tag push used to match, so every
+# release built the same commit twice — two runs, two identical images, and a
+# tag list that made it look like something differed. Publishing on tags alone
+# means one build per release and one image per version.
+#
+# A push to main no longer publishes anything, which is the point: an image now
+# corresponds to a version someone chose to release, not to whatever happened
+# to land on the branch.
 on:
   push:
-    branches: [main]
     tags: ['v*']
-    # Skip rebuilds for documentation-only changes.
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
   workflow_dispatch:
     inputs:
       platforms:
@@ -84,6 +87,32 @@ jobs:
       PLATFORMS: ${{ inputs.platforms || 'linux/amd64' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Every tag, so the step below can tell whether this release is the
+          # newest one.
+          fetch-depth: 0
+
+      # Whether :latest should move.
+      #
+      # Publishing an older version's tag — a backport, or a rebuild of
+      # something historical — must not pull :latest backwards onto it. That
+      # has happened here once already, silently. So :latest follows only the
+      # highest version in the repository; a manual run is taken as a
+      # deliberate publish and moves it too.
+      - name: Decide whether this is the newest release
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo 'latest=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          newest=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          if [ "${GITHUB_REF_NAME}" = "$newest" ]; then
+            echo 'latest=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'latest=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::${GITHUB_REF_NAME} is not the newest release ($newest), so :latest is left alone."
+          fi
 
       # Only needed to emulate a foreign architecture. Skipped for a native
       # amd64-only build, where it would just add a step for nothing.
@@ -106,11 +135,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DASHBOARD_IMAGE }}
           tags: |
-            # Only a push to the default branch moves :latest. The
-            # is_default_branch shorthand also matches tag pushes, so
-            # publishing an older version's tag would quietly drag :latest
-            # backwards onto it — which is exactly what happened once.
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=raw,value=latest,enable=${{ steps.release.outputs.latest == 'true' }}
             # Full version only. A floating x.y tag looks like a pin but moves
             # under you on the next patch, which is the worst of both: neither
             # reproducible nor current. :latest is the moving target, and a
@@ -141,11 +166,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FASTDL_IMAGE }}
           tags: |
-            # Only a push to the default branch moves :latest. The
-            # is_default_branch shorthand also matches tag pushes, so
-            # publishing an older version's tag would quietly drag :latest
-            # backwards onto it — which is exactly what happened once.
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=raw,value=latest,enable=${{ steps.release.outputs.latest == 'true' }}
             # Full version only. A floating x.y tag looks like a pin but moves
             # under you on the next patch, which is the worst of both: neither
             # reproducible nor current. :latest is the moving target, and a

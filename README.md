@@ -244,17 +244,30 @@ running `uname -m` **on the server**, not on your own machine:
    repository secret**, twice:
    - `DOCKERHUB_USERNAME` — your Docker Hub username
    - `DOCKERHUB_TOKEN` — the token from step 1
-3. Push to `main` (or run the workflow manually from the **Actions** tab).
+3. Tag a release and push the tag:
 
-It typechecks, runs the tests, then publishes:
-
-```
-<username>/etlegacy-dashboard:latest
-<username>/etlegacy-fastdl:latest
+```bash
+git tag v1.0.0 && git push origin v1.0.0
 ```
 
-Tagging a release (`git tag v1.0.0 && git push --tags`) additionally publishes
-`1.0.0` and `1.0` tags, so you can pin a version in production.
+It typechecks, runs the tests, then publishes two tags per image:
+
+```
+<username>/etlegacy-dashboard:1.0.0     the exact version — never moves
+<username>/etlegacy-dashboard:latest    the newest release
+```
+
+**Pushing to `main` publishes nothing.** Images are built for releases only, so
+one exists for every version someone chose to publish and for nothing else.
+That also means a documentation commit no longer rebuilds and republishes
+`latest` for no reason.
+
+`latest` follows the *highest* version tag. Publishing an older tag — a
+backport, or a rebuild of something historical — leaves `latest` alone rather
+than quietly pulling it backwards.
+
+To publish without tagging, use **Run workflow** on the Actions tab; a manual
+run is treated as deliberate and does move `latest`.
 
 Then update the two `image:` lines in
 [`deploy/docker-compose.yml`](deploy/docker-compose.yml) to your username. To
