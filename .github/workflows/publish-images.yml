@@ -111,8 +111,11 @@ jobs:
             # publishing an older version's tag would quietly drag :latest
             # backwards onto it — which is exactly what happened once.
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            # Full version only. A floating x.y tag looks like a pin but moves
+            # under you on the next patch, which is the worst of both: neither
+            # reproducible nor current. :latest is the moving target, and a
+            # three-part version is the one that never changes meaning.
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             # No per-commit tag: it added one registry tag per push for
             # something nobody browses. The commit is still recorded in the
             # image itself, as the org.opencontainers.image.revision label that
@@ -143,8 +146,11 @@ jobs:
             # publishing an older version's tag would quietly drag :latest
             # backwards onto it — which is exactly what happened once.
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            # Full version only. A floating x.y tag looks like a pin but moves
+            # under you on the next patch, which is the worst of both: neither
+            # reproducible nor current. :latest is the moving target, and a
+            # three-part version is the one that never changes meaning.
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             # No per-commit tag: it added one registry tag per push for
             # something nobody browses. The commit is still recorded in the
             # image itself, as the org.opencontainers.image.revision label that

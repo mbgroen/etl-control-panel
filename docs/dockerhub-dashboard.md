@@ -73,8 +73,13 @@ Docker socket for container control and log streaming.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `1.3.0`, `1.3` | Pin to an exact version or a minor series |
-| `sha-<commit>` | The precise commit that produced the image |
+| `1.1.0` | An exact version. Never moves — use this to pin |
+
+Every image records the commit it was built from:
+
+```bash
+docker inspect <image> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+```
 
 Built for `linux/amd64`. Multi-arch builds are available from the workflow in
 the repository if you run on ARM.

@@ -83,8 +83,13 @@ is the quickest way to tell the two apart.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `1.3.0`, `1.3` | Pin to an exact version or a minor series |
-| `sha-<commit>` | The precise commit that produced the image |
+| `1.1.0` | An exact version. Never moves — use this to pin |
+
+Every image records the commit it was built from:
+
+```bash
+docker inspect <image> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+```
 
 Built for `linux/amd64`. Based on `nginx:1.27-alpine`; the download
 configuration is baked in, so no config file needs mounting.
