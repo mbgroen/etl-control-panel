@@ -10,7 +10,7 @@
 #
 # Ports published:
 #   27960/udp  game server
-#   8080/tcp   dashboard  (change with DASHBOARD_PORT)
+#   8085/tcp   dashboard  (change with DASHBOARD_PORT)
 #   8081/tcp   FastDL     (change with FASTDL_PORT)
 # =============================================================================
 
@@ -61,7 +61,7 @@ services:
     # Prefer a published image once you have one:
     # image: ghcr.io/mbgroen/etlegacy-dashboard:latest
     ports:
-      - "${DASHBOARD_PORT:-8080}:8080"
+      - "${DASHBOARD_PORT:-8085}:8080"
     volumes:
       # Read-write: the dashboard edits the server config and installs pk3s.
       - ${COMPOSE_DATA_PATH}/etlegacy:/data/etlegacy

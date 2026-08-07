@@ -19,7 +19,7 @@
 #
 # Ports:
 #   27960/udp  game server
-#   8080/tcp   dashboard
+#   8085/tcp   dashboard   (set DASHBOARD_PORT to move it)
 #   8081/tcp   FastDL (map downloads)
 # =============================================================================
 
@@ -69,7 +69,11 @@ services:
     # "docker compose pull && docker compose up -d".
     image: mbgroen/etlegacy-dashboard:latest
     ports:
-      - "8080:8080"
+      # Published on 8085 by default: 8080 is one of the most contended ports
+      # on a home server — NAS UIs, UniFi controllers and countless other
+      # services claim it. The container still listens on 8080 inside; only the
+      # host side moves, so nothing internal has to change.
+      - "${DASHBOARD_PORT:-8085}:8080"
     volumes:
       # Read-write: the dashboard edits the server config and installs maps.
       - ${COMPOSE_DATA_PATH:-./data}/etlegacy:/data/etlegacy

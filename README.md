@@ -50,7 +50,7 @@ width, and ships light and dark themes.
 
 ```
                         ┌──────────────────────────────┐
-   browser  ──HTTP/WS──▶│  etlegacy-dashboard  :8080   │
+   browser  ──HTTP/WS──▶│  etlegacy-dashboard  :8085   │
                         │  Node 22 · Express · React   │
                         └──┬──────────┬────────────┬───┘
                            │          │            │
@@ -90,7 +90,8 @@ what the dashboard lists and what clients can download.
   disk.
 - **UDP port 27960** reachable by players (port-forwarded on your router if the
   server should be public).
-- **TCP port 8080** for the dashboard, and **8081** if you use FastDL.
+- **TCP port 8085** for the dashboard (moved off the much-contended 8080;
+  change it with `DASHBOARD_PORT`), and **8081** if you use FastDL.
 - Roughly **400 MB of disk** for the images, plus whatever your maps need.
 - **The base game data** — `pak0.pk3`, `pak1.pk3`, `pak2.pk3` and `mp_bin.pk3`.
   The server image does not ship these and cannot start a map without them; see
@@ -163,7 +164,7 @@ docker compose up -d
 
 ### 4. Create your account
 
-Open **`http://<host-ip>:8080`**. The dashboard asks you to create an
+Open **`http://<host-ip>:8085`**. The dashboard asks you to create an
 administrator account — this replaces generating a password hash on the command
 line. Do it straight away: until you do, anyone who can reach that port can
 claim the dashboard.
@@ -336,7 +337,7 @@ docker compose up -d
 docker compose ps
 ```
 
-Open **`http://<host-ip>:8080`** and sign in.
+Open **`http://<host-ip>:8085`** and sign in.
 
 Go to **Diagnostics** first — it verifies the Docker socket, the container
 names, the config path and the RCON credentials, and tells you how to fix
@@ -622,13 +623,13 @@ Client → server: `{type:'subscribe'|'unsubscribe', channel}` where channel is
 **Example**
 
 ```bash
-curl -c jar -X POST http://localhost:8080/api/auth/login \
+curl -c jar -X POST http://localhost:8085/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"…"}'
 
-curl -b jar http://localhost:8080/api/server/status | jq '.game.status.players'
+curl -b jar http://localhost:8085/api/server/status | jq '.game.status.players'
 
-curl -b jar -X POST http://localhost:8080/api/console/rcon \
+curl -b jar -X POST http://localhost:8085/api/console/rcon \
   -H 'Content-Type: application/json' \
   -d '{"command":"say Server restarting in 5 minutes"}'
 ```
