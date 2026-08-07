@@ -113,7 +113,11 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
+            # No per-commit tag: it added one registry tag per push for
+            # something nobody browses. The commit is still recorded in the
+            # image itself, as the org.opencontainers.image.revision label that
+            # metadata-action emits, so any image can still be traced back:
+            #   docker inspect <image> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 
       - name: Build and push the dashboard image
         uses: docker/build-push-action@v6
@@ -141,7 +145,11 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
+            # No per-commit tag: it added one registry tag per push for
+            # something nobody browses. The commit is still recorded in the
+            # image itself, as the org.opencontainers.image.revision label that
+            # metadata-action emits, so any image can still be traced back:
+            #   docker inspect <image> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 
       - name: Build and push the FastDL image
         uses: docker/build-push-action@v6
