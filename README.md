@@ -100,6 +100,18 @@ what the dashboard lists and what clients can download.
 > directory your current server uses. Point `COMPOSE_DATA_PATH` at your existing
 > data location and your maps and config carry over untouched.
 
+> **Coming from a version before 1.2.0?** The dashboard state directory is now
+> called `etlegacy-dashboard/` instead of `dashboard/`, so both directories this
+> stack owns are named after it. Rename it before starting the new version, or
+> the dashboard finds no account and reopens the setup wizard:
+>
+> ```bash
+> mv "$DATA"/dashboard "$DATA"/etlegacy-dashboard
+> ```
+>
+> Nothing is lost if you start it first — the old directory is still there. Stop
+> the stack, rename it, and start again.
+
 ---
 
 ## Quick install
@@ -247,10 +259,25 @@ cd etlegacy_dashboard
 
 ```bash
 # Substitute your own data path
-export DATA=/srv/dev-disk-by-uuid-xxxxxxxx/appdata
+export DATA=/srv/appdata
 
-mkdir -p "$DATA"/etlegacy/{etmain,legacy} "$DATA"/dashboard
+mkdir -p "$DATA"/etlegacy/{etmain,legacy} "$DATA"/etlegacy-dashboard
 ```
+
+Two directories, deliberately siblings:
+
+```
+$DATA/
+├── etlegacy/                game data, mounted into FastDL
+│   ├── etmain/              maps and server config   (served over HTTP)
+│   └── legacy/              Legacy mod data          (served over HTTP)
+└── etlegacy-dashboard/      admin account, config backups, activity history
+```
+
+The split is the point: FastDL is the service you publish to the internet, and
+it only ever mounts `etmain/` and `legacy/`. Keeping dashboard state out of that
+tree means the credential store is not merely blocked from being served — it is
+not present in the container at all.
 
 ### 3. Install a server config
 
@@ -342,7 +369,7 @@ list. The ones that matter most:
 
 | Variable | Default | Notes |
 |---|---|---|
-| `COMPOSE_DATA_PATH` | — | **Required.** Host directory holding `etlegacy/` and `dashboard/` |
+| `COMPOSE_DATA_PATH` | — | **Required.** Host directory holding `etlegacy/` (game data) and `etlegacy-dashboard/` (dashboard state) |
 | `ADMIN_USERNAME` | `admin` | Dashboard login |
 | `ADMIN_PASSWORD_HASH` | empty | Optional. Empty ⇒ first-run wizard in the browser |
 | `SESSION_SECRET` | empty | Optional. Generated and persisted when empty |
@@ -617,6 +644,7 @@ curl -b jar -X POST http://localhost:8080/api/console/rcon \
 | Sign-in does nothing, no error | `COOKIE_SECURE=true` on plain HTTP. Set it to `false`, or serve over HTTPS |
 | Forgot the dashboard password | Delete `credentials.json` from the dashboard data directory and restart the container — the setup wizard runs again |
 | Setup wizard reappears after a restart | `STATE_PATH` is not on a persistent volume. Check the `dashboard` bind mount |
+| Setup wizard reappears after upgrading | The state directory was renamed in 1.2.0. `mv <data>/dashboard <data>/etlegacy-dashboard` and restart — nothing was deleted |
 | Configuration page says no config exists | Press **Create default configuration**, or check that `ETMAIN_PATH` is the directory the game server mounts |
 | "Container does not exist" | `ETL_CONTAINER` does not match `container_name` in the compose file |
 | Docker socket check fails | Socket not mounted, or `DOCKER_GID` is wrong. Check `getent group docker \| cut -d: -f3` |

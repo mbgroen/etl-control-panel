@@ -74,7 +74,13 @@ services:
       # Read-write: the dashboard edits the server config and installs maps.
       - ${COMPOSE_DATA_PATH:-./data}/etlegacy:/data/etlegacy
       # Dashboard state: admin account, config backups, activity history.
-      - ${COMPOSE_DATA_PATH:-./data}/dashboard:/data/dashboard
+      #
+      # Deliberately a sibling of etlegacy/ rather than a directory inside it.
+      # The game data tree is bind-mounted into the FastDL container, which is
+      # usually the one service published to the internet, so keeping the
+      # credential store outside that tree means no nginx rule stands between
+      # this file and the public — it is simply not there to be served.
+      - ${COMPOSE_DATA_PATH:-./data}/etlegacy-dashboard:/data/dashboard
       # Container start/stop/restart and log streaming.
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -127,8 +133,15 @@ services:
     ports:
       - "8081:80"
     volumes:
-      # Read-only: this container serves files, it never changes them.
-      - ${COMPOSE_DATA_PATH:-./data}/etlegacy:/srv/fastdl:ro
+      # Read-only, and only the two directories nginx actually serves — not the
+      # whole data tree. dashboard/ lives alongside these and holds the admin
+      # credential store and config backups, which have no business being
+      # inside a container published to the internet. nginx would refuse to
+      # serve them anyway (it allowlists .pk3 under these two paths), but a
+      # mount is a stronger boundary than a location block: what is not mounted
+      # cannot be served by a later misconfiguration.
+      - ${COMPOSE_DATA_PATH:-./data}/etlegacy/etmain:/srv/fastdl/etmain:ro
+      - ${COMPOSE_DATA_PATH:-./data}/etlegacy/legacy:/srv/fastdl/legacy:ro
     networks:
       - etlegacy
     restart: unless-stopped
