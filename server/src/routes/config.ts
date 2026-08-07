@@ -13,6 +13,7 @@ import {
   configExists,
   CONFIG_PATH,
   cvarMap,
+  deleteBackup,
   listBackups,
   maskSecrets,
   MASK,
@@ -202,6 +203,31 @@ configRouter.post(
     // restore moves the password just as surely as an edit does.
     const rconPassword = previous ? await handOverRconPassword(previous.content, content) : null;
     res.json({ ...result, restoredFrom: id, rconPassword });
+  }),
+);
+
+const backupIdSchema = z.string().regex(/^[A-Za-z0-9-]+$/, 'Invalid backup id');
+
+configRouter.delete(
+  '/backups/:id',
+  asyncHandler(async (req, res) => {
+    await deleteBackup(backupIdSchema.parse(req.params.id));
+    res.status(204).end();
+  }),
+);
+
+/**
+ * Deletes several at once.
+ *
+ * A separate endpoint rather than repeated DELETEs so that clearing a dozen
+ * backups is one action with one confirmation, and one line in the log.
+ */
+configRouter.post(
+  '/backups/delete',
+  asyncHandler(async (req, res) => {
+    const { ids } = z.object({ ids: z.array(backupIdSchema).min(1).max(100) }).parse(req.body);
+    await Promise.all(ids.map((id) => deleteBackup(id)));
+    res.json({ deleted: ids.length });
   }),
 );
 

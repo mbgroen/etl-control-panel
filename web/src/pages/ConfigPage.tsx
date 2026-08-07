@@ -727,12 +727,16 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
   const [backups, setBackups] = useState<BackupEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<BackupEntry | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       setBackups((await api.config.backups()).backups);
+      // Anything selected may no longer exist after a reload.
+      setSelected(new Set());
     } catch {
       setBackups([]);
     } finally {
@@ -761,6 +765,31 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
     }
   };
 
+  const toggle = (id: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      const { deleted } = await api.config.deleteBackups([...selected]);
+      toast.success(
+        `Deleted ${deleted} backup${deleted === 1 ? '' : 's'}`,
+        'The configuration itself is unchanged.',
+      );
+      await load();
+    } catch (err) {
+      toast.error('Could not delete', err instanceof ApiError ? err.message : 'Unexpected error');
+    } finally {
+      setBusy(false);
+      setConfirmDelete(false);
+    }
+  };
+
   if (loading) return <Spinner label="Loading backups" />;
 
   return (
@@ -768,6 +797,24 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
       <Panel
         title="Configuration history"
         description="A snapshot is taken automatically before every save. The 30 most recent are kept."
+        actions={
+          selected.size > 0 ? (
+            <>
+              <span className="text-xs text-muted">{selected.size} selected</span>
+              <Button size="sm" onClick={() => setSelected(new Set())}>
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                icon={<Trash2 size={13} aria-hidden />}
+                onClick={() => setConfirmDelete(true)}
+              >
+                Delete
+              </Button>
+            </>
+          ) : undefined
+        }
         bodyClassName="p-0"
       >
         {backups.length === 0 ? (
@@ -780,6 +827,13 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
           <ul className="divide-y divide-line">
             {backups.map((backup) => (
               <li key={backup.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={selected.has(backup.id)}
+                  onChange={() => toggle(backup.id)}
+                  className="size-4 shrink-0 accent-[var(--accent-solid)]"
+                  aria-label={`Select the backup from ${formatDateTime(backup.createdAt)}`}
+                />
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] text-body">{formatDateTime(backup.createdAt)}</p>
                   <p className="truncate text-xs text-muted">
@@ -817,6 +871,17 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
         loading={busy}
         onConfirm={() => void restore()}
         onCancel={() => setPending(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        tone="danger"
+        title={`Delete ${selected.size} backup${selected.size === 1 ? '' : 's'}?`}
+        description="This removes the snapshots only — the configuration in use is not touched. Deleted backups cannot be recovered."
+        confirmLabel="Delete"
+        loading={busy}
+        onConfirm={() => void remove()}
+        onCancel={() => setConfirmDelete(false)}
       />
     </>
   );

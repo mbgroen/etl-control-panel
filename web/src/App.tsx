@@ -12,6 +12,7 @@ import { DownloadsPage } from './pages/DownloadsPage';
 import { Login } from './pages/Login';
 import { LogsPage } from './pages/LogsPage';
 import { Overview } from './pages/Overview';
+import { PlayersPage } from './pages/PlayersPage';
 import { Setup } from './pages/Setup';
 
 type Session =
@@ -97,6 +98,7 @@ export function App() {
           <AppShell onLogout={() => void logout()}>
             <Routes>
               <Route path="/" element={<Overview />} />
+              <Route path="/players" element={<PlayersPage />} />
               <Route path="/console" element={<ConsolePage />} />
               <Route path="/logs" element={<LogsPage />} />
               <Route path="/configuration" element={<ConfigPage />} />

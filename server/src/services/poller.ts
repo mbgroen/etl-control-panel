@@ -3,7 +3,9 @@ import { env } from '../env.js';
 import { logger } from '../logger.js';
 import * as docker from './docker.js';
 import { history } from './metrics.js';
-import { getServerStatus, type ServerStatus } from './q3protocol.js';
+import * as playerSessions from './playerSessions.js';
+import { getServerStatus, parseRconStatus, rcon, type PlayerStatus, type ServerStatus } from './q3protocol.js';
+import { resolveRconPassword } from './rconCredentials.js';
 import { cvarMap, readConfig } from './serverConfig.js';
 
 /**
@@ -58,6 +60,49 @@ class Poller extends EventEmitter {
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  }
+
+  private lastAddressFetch = 0;
+  private addresses = new Map<string, string>();
+
+  /**
+   * Feeds the poll's player list to the session tracker, with addresses when
+   * they can be had.
+   *
+   * Failing to reach rcon is not an error worth reporting here: the tracking
+   * still works, it just cannot say where anyone is from.
+   */
+  private async trackPlayers(status: ServerStatus): Promise<void> {
+    if (!status.online) {
+      await playerSessions.observe([]);
+      return;
+    }
+
+    const now = Date.now();
+    if (status.players.length > 0 && now - this.lastAddressFetch > ADDRESS_REFRESH_MS) {
+      this.lastAddressFetch = now;
+      try {
+        const credential = await resolveRconPassword();
+        if (credential.source !== 'none') {
+          const output = await rcon(target, credential.password, 'status');
+          this.addresses = new Map(
+            parseRconStatus(output).players
+              .filter((player) => player.address)
+              .map((player) => [player.nameClean, player.address as string]),
+          );
+        }
+      } catch {
+        // Leave the previous addresses in place; a momentary rcon failure
+        // should not blank the country of everyone currently playing.
+      }
+    }
+
+    const enriched: PlayerStatus[] = status.players.map((player) => ({
+      ...player,
+      address: player.address ?? this.addresses.get(player.nameClean) ?? null,
+    }));
+
+    await playerSessions.observe(enriched);
   }
 
   /** Runs a poll immediately, e.g. right after a lifecycle action. */
@@ -125,6 +170,10 @@ class Poller extends EventEmitter {
         map: status.map,
       });
 
+      // Player sessions are derived from the same poll, so watching who plays
+      // costs the game server nothing beyond the status query already made.
+      await this.trackPlayers(status);
+
       this.emit('snapshot', snapshot);
     } catch (err) {
       logger.error({ err }, 'poll failed');
@@ -133,6 +182,16 @@ class Poller extends EventEmitter {
     }
   }
 }
+
+/**
+ * How often to ask rcon for addresses.
+ *
+ * The public status query returns names but no addresses, so a country needs
+ * rcon — but running it on every poll would triple the traffic to the game
+ * server for a field that cannot change within a session. Once a minute is
+ * enough to attribute a player who has just joined.
+ */
+const ADDRESS_REFRESH_MS = 60_000;
 
 function absent(name: string): docker.ContainerState {
   return {

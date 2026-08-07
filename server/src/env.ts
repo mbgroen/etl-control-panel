@@ -33,6 +33,19 @@ const schema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  /**
+   * Whether to resolve player addresses to a country.
+   *
+   * The only outbound request this dashboard makes. Public player addresses are
+   * sent to ipwho.is; private addresses never leave the host, and no player
+   * name is ever included. Set false to keep the process entirely local — the
+   * Players page still works, without countries.
+   */
+  GEO_LOOKUP: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+
   /** Container names as they appear to the Docker daemon. */
   ETL_CONTAINER: z.string().min(1).default('etlegacy-server'),
   FASTDL_CONTAINER: z.string().min(1).default('etlegacy-fastdl'),

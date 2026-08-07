@@ -51,6 +51,7 @@ The game server itself comes from the official
 | **Configuration** | Guided forms for common cvars, a map-rotation builder, a raw editor with validation, and automatic timestamped backups |
 | **Maps** | Browse installed `.pk3` packages, drag-and-drop upload with progress, delete custom maps (stock paks are protected) |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
+| **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts |
 | **Diagnostics** | Every dependency checked, each failure paired with the fix |
 
 The UI is keyboard-navigable, screen-reader labelled, responsive down to phone
@@ -403,6 +404,7 @@ list. The ones that matter most:
 | `PUID` / `PGID` | `1000` / `100` | Must be able to write `etmain` |
 | `DOCKER_GID` | `999` | Host `docker` group GID |
 | `POLL_INTERVAL_SEC` | `10` | Status poll frequency |
+| `GEO_LOOKUP` | `true` | Resolve player addresses to a country. The only outbound request the dashboard makes; private addresses are never sent |
 | `MAX_UPLOAD_MB` | `256` | *Initial* per-file `.pk3` upload limit. Change it under **Configuration → Dashboard**; once set there, the stored value wins |
 
 ### Adding the base game files
@@ -515,6 +517,16 @@ it must be for the raw editor to work. Anyone who can sign in to the dashboard
 can read every password in the server config, exactly as they could by opening
 the file on the host. The masking is there to keep secrets off the screen in
 passing, not to withhold them from an administrator.
+
+**Players** — who is connected now and who has been, with how long they stayed
+and where they connected from. The game server itself keeps no history, so this
+is the only place that can answer "has anyone been using my server?".
+
+Country comes from the player's address. Private addresses on your own network
+are labelled as such rather than looked up — nothing about your LAN is sent
+anywhere. Public addresses are resolved through **ipwho.is**; only the address
+is sent, never a player name. Turn it off by setting `GEO_LOOKUP=false`, and the
+page still works, without countries.
 
 **Maps & FastDL** — the pk3 library and the download server. See below.
 

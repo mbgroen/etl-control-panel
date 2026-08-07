@@ -137,6 +137,31 @@ export interface DashboardSettings {
   limits: { minUploadMb: number; maxUploadMb: number };
 }
 
+/** One visit by one player, open or finished. */
+export interface PlayerSession {
+  id: string;
+  name: string;
+  nameClean: string;
+  address: string | null;
+  countryCode: string | null;
+  countryName: string | null;
+  addressKind: 'public' | 'private' | 'loopback' | 'bot' | 'unknown' | null;
+  joinedAt: string;
+  lastSeenAt: string;
+  leftAt: string | null;
+  seconds: number;
+}
+
+export interface PlayerSessionsPayload {
+  current: PlayerSession[];
+  recent: PlayerSession[];
+  summary: {
+    totalSessions: number;
+    uniquePlayers: number;
+    countries: { code: string; name: string | null; sessions: number }[];
+  };
+}
+
 export interface SystemInfo {
   version: string;
   gameServer: { host: string; port: number; container: string };

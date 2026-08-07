@@ -9,6 +9,7 @@ import type {
   HistoryPayload,
   MapsPayload,
   Player,
+  PlayerSessionsPayload,
   RconHandover,
   RconResult,
   Snapshot,
@@ -139,6 +140,8 @@ export const api = {
         method: 'POST',
         ...json({ slot, action, reason }),
       }),
+    sessions: (limit = 100) =>
+      request<PlayerSessionsPayload>(`/server/sessions?limit=${limit}`),
     history: (minutes: number, points = 180) =>
       request<HistoryPayload>(`/server/history?minutes=${minutes}&points=${points}`),
   },
@@ -188,6 +191,8 @@ export const api = {
         ...json({ maps, expectedRevision }),
       }),
     backups: () => request<{ backups: BackupEntry[] }>('/config/backups'),
+    deleteBackups: (ids: string[]) =>
+      request<{ deleted: number }>('/config/backups/delete', { method: 'POST', ...json({ ids }) }),
     backup: (id: string) => request<{ id: string; content: string }>(`/config/backups/${id}`),
     restore: (id: string) =>
       request<{ revision: string; rconPassword: RconHandover | null }>(

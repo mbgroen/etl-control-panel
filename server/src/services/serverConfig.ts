@@ -455,6 +455,26 @@ export async function listBackups(): Promise<BackupEntry[]> {
   return entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+/**
+ * Removes one backup.
+ *
+ * Backups are pruned automatically at MAX_BACKUPS, but that keeps the newest
+ * regardless of what they contain — so a snapshot taken with a password in it,
+ * or one an operator simply does not want kept, could only be removed from a
+ * shell. Deleting the pair is enough; a missing file is treated as success so
+ * that a half-removed backup can still be cleared.
+ */
+export async function deleteBackup(id: string): Promise<void> {
+  const safe = /^[A-Za-z0-9-]+$/.test(id) ? id : null;
+  if (!safe) throw new Error('Invalid backup id');
+
+  await Promise.all([
+    fs.rm(path.join(BACKUP_DIR, `${safe}.cfg`), { force: true }),
+    fs.rm(path.join(BACKUP_DIR, `${safe}.json`), { force: true }),
+  ]);
+  logger.info({ backupId: safe }, 'config backup deleted');
+}
+
 export async function readBackup(id: string): Promise<string> {
   assertSafeBackupId(id);
   return fs.readFile(path.join(BACKUP_DIR, `${id}.cfg`), 'utf8');

@@ -6,6 +6,7 @@ import * as docker from '../services/docker.js';
 import { history } from '../services/metrics.js';
 import { poller } from '../services/poller.js';
 import { parseRconStatus, rcon, RconError, stripColors } from '../services/q3protocol.js';
+import * as playerSessions from '../services/playerSessions.js';
 import { resolveRconPassword } from '../services/rconCredentials.js';
 
 export const serverRouter = Router();
@@ -75,6 +76,25 @@ serverRouter.get(
       }
       throw err;
     }
+  }),
+);
+
+/**
+ * Who is playing, and who has played.
+ *
+ * The game server itself keeps no history — it answers only for the players
+ * connected right now — so this is the one place that can say whether anyone
+ * has been using the server at all.
+ */
+serverRouter.get(
+  '/sessions',
+  asyncHandler(async (req, res) => {
+    const limit = Number.parseInt(String(req.query.limit ?? '100'), 10);
+    const [recent, summary] = await Promise.all([
+      playerSessions.recent(Number.isFinite(limit) ? limit : 100),
+      playerSessions.summary(),
+    ]);
+    res.json({ current: playerSessions.current(), recent, summary });
   }),
 );
 

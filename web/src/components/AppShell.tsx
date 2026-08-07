@@ -1,4 +1,5 @@
 import {
+  Users,
   Activity,
   Download,
   LayoutDashboard,
@@ -27,6 +28,9 @@ import { Badge, Button, StatusDot } from './ui';
 
 const NAV = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+  // Directly after Overview: both answer "what is happening on my server", and
+  // this is the one an operator of a public server opens most.
+  { to: '/players', label: 'Players', icon: Users, end: false },
   { to: '/console', label: 'Console', icon: Terminal, end: false },
   { to: '/logs', label: 'Logs', icon: Activity, end: false },
   { to: '/configuration', label: 'Configuration', icon: SlidersHorizontal, end: false },
