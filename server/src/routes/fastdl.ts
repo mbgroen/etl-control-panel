@@ -4,6 +4,7 @@ import { env } from '../env.js';
 import { ApiError, asyncHandler } from '../http/errors.js';
 import { logger } from '../logger.js';
 import * as docker from '../services/docker.js';
+import { baseUrlSchema } from '../services/fastdlUrl.js';
 import { listMaps } from '../services/maps.js';
 import { poller } from '../services/poller.js';
 import {
@@ -29,16 +30,6 @@ export const fastdlRouter = Router();
  * sv_wwwDownload/sv_wwwBaseURL pointing at it. Half-enabled is the state that
  * produces mysterious client-side download failures.
  */
-
-const baseUrlSchema = z
-  .string()
-  .trim()
-  .max(300)
-  .refine((value) => /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(value), {
-    message: 'Must be a full http:// or https:// URL, e.g. http://192.168.1.10:8081',
-  })
-  // A trailing slash makes the engine build `//etmain/...`, which nginx 404s.
-  .transform((value) => value.replace(/\/+$/, ''));
 
 export interface FastdlState {
   container: docker.ContainerState;

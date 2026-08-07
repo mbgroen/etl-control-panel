@@ -45,11 +45,21 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
 
   if (err instanceof ZodError) {
+    const details = err.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
+    // The schemas carry messages written for whoever is using the dashboard —
+    // "Must be a full http:// or https:// URL", not "invalid string". Surface
+    // those as the message, because that is the only part the UI shows in a
+    // toast; leaving it as a generic "failed validation" hides the one sentence
+    // that says how to fix the input.
+    const summary = details
+      .map((detail) => (detail.path ? `${detail.path}: ${detail.message}` : detail.message))
+      .join('; ');
+
     res.status(400).json({
       error: {
         code: 'invalid_request',
-        message: 'Request body failed validation',
-        details: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+        message: summary || 'Request body failed validation',
+        details,
       },
     });
     return;
