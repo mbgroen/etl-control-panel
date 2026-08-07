@@ -43,13 +43,24 @@ jobs:
     name: Push overviews to Docker Hub
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Skipped rather than failed when the password secret is absent, so running
-    # this by mistake is a no-op instead of a red cross.
-    if: ${{ secrets.DOCKERHUB_PASSWORD != '' }}
     steps:
+      # The secrets context is not available in a job-level `if`, which makes
+      # such a workflow invalid rather than skipped — so the guard lives in a
+      # step and the real work is gated on its output.
+      - id: guard
+        run: |
+          if [ -n "${{ secrets.DOCKERHUB_PASSWORD }}" ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::DOCKERHUB_PASSWORD is not set, so there is nothing to publish. See the comment at the top of this file.'
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.guard.outputs.ready == 'true'
 
       - name: Dashboard
+        if: steps.guard.outputs.ready == 'true'
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -59,6 +70,7 @@ jobs:
           readme-filepath: ./docs/dockerhub-dashboard.md
 
       - name: FastDL
+        if: steps.guard.outputs.ready == 'true'
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}

@@ -1,9 +1,8 @@
 # =============================================================================
 # Builds both container images and publishes them to Docker Hub.
 #
-# Runs on GitHub's machines, so no local Docker is needed — which also sidesteps
-# the architecture mismatch between an Apple Silicon Mac and an amd64 NAS: the
-# image is built for the target platform regardless of what you develop on.
+# Runs on GitHub's machines, so no local Docker is needed — and the image is
+# built for the target platform regardless of the architecture you develop on.
 #
 # Requires two repository secrets (Settings → Secrets and variables → Actions):
 #   DOCKERHUB_USERNAME  your Docker Hub username
@@ -71,15 +70,14 @@ jobs:
     runs-on: ubuntu-latest
     # Never publish an image that failed its own checks.
     needs: verify
-    # Fail fast rather than sitting in a queue burning the Actions quota, which
-    # on a private repository is metered.
+    # Fail fast rather than sitting in a queue for three quarters of an hour.
     timeout-minutes: 45
     env:
-      # amd64 only by default: that is what an x86 NAS runs, and arm64 would have
-      # to be emulated through QEMU on GitHub's runners — roughly triple the
-      # build time for an artefact nothing here would use. Pick a different set
-      # per run from the "Run workflow" menu, or change the fallback below if
-      # your host is ARM (check with `uname -m`).
+      # amd64 only by default: that is what nearly every NAS and server runs,
+      # and arm64 would have to be emulated through QEMU on GitHub's runners —
+      # roughly triple the build time for an artefact most people would not use.
+      # Pick a different set per run from the "Run workflow" menu, or change the
+      # fallback below if your server is ARM (check with `uname -m` on it).
       #
       # The literal is repeated rather than read from a workflow-level env var
       # because the env context is not available inside a job's own env block.
@@ -108,7 +106,11 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DASHBOARD_IMAGE }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            # Only a push to the default branch moves :latest. The
+            # is_default_branch shorthand also matches tag pushes, so
+            # publishing an older version's tag would quietly drag :latest
+            # backwards onto it — which is exactly what happened once.
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
@@ -132,7 +134,11 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FASTDL_IMAGE }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            # Only a push to the default branch moves :latest. The
+            # is_default_branch shorthand also matches tag pushes, so
+            # publishing an older version's tag would quietly drag :latest
+            # backwards onto it — which is exactly what happened once.
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
