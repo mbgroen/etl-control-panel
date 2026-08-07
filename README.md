@@ -5,8 +5,8 @@ server running in Docker. Monitor players in real time, start and stop the
 server, edit the server config safely, manage custom maps, and run an optional
 HTTP download (FastDL) server — all from a browser on your LAN.
 
-Built to run alongside the game server on an OpenMediaVault host with the
-Compose plugin, but it is plain Docker Compose and runs anywhere Docker does.
+It is plain Docker Compose and runs anywhere Docker does — a NAS, a home server,
+a VPS, or your laptop.
 
 ---
 
@@ -15,7 +15,7 @@ Compose plugin, but it is plain Docker Compose and runs anywhere Docker does.
 - [What it does](#what-it-does)
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
-- [Quick install on OpenMediaVault](#quick-install-on-openmediavault)
+- [Quick install](#quick-install)
 - [Publishing your own images](#publishing-your-own-images)
 - [Installation](#installation)
 - [Configuration reference](#configuration-reference)
@@ -86,9 +86,8 @@ what the dashboard lists and what clients can download.
 ## Prerequisites
 
 - **Docker Engine 20.10+** and the **Docker Compose v2** plugin.
-  On OpenMediaVault 8: *System → Plugins → `openmediavault-compose`*.
 - **A host directory for persistent data**, on a data disk rather than the OS
-  disk. On OMV this is the Compose plugin's configured *Data* path.
+  disk.
 - **UDP port 27960** reachable by players (port-forwarded on your router if the
   server should be public).
 - **TCP port 8080** for the dashboard, and **8081** if you use FastDL.
@@ -100,49 +99,72 @@ what the dashboard lists and what clients can download.
 
 ---
 
-## Quick install on OpenMediaVault
+## Quick install
 
-The fastest route: **no shell, no source checkout, no files to copy.** You paste
-one compose file into the OMV web interface and finish setup in the browser.
+The fastest route: **no source checkout and no build.** One compose file, one
+command, and the rest of setup happens in the browser.
 
 It uses pre-built images from Docker Hub — see
 [Publishing your own images](#publishing-your-own-images) to build them from
 this repository under your own account.
 
-### 1. Point the plugin at a data folder
+### 1. Get the compose file
 
-*Services → Compose → Settings → **Data*** → pick a shared folder (e.g.
-`Docker-Data`). The plugin substitutes this path wherever
-`CHANGE_TO_COMPOSE_DATA_PATH` appears in a compose file.
+Download [`deploy/docker-compose.yml`](deploy/docker-compose.yml) to an empty
+directory on the host — that single file is the whole install.
 
-### 2. Create the stack
+```bash
+mkdir -p ~/etlegacy && cd ~/etlegacy
+curl -fsSLO https://raw.githubusercontent.com/mbgroen/etlegacy_dashboard/main/deploy/docker-compose.yml
+```
 
-*Services → Compose → Files → **＋***, then paste the contents of
-[`deploy/docker-compose.omv.yml`](deploy/docker-compose.omv.yml).
+### 2. Choose where data lives
 
-Optionally set `RCON_PASSWORD` in that file now — it unlocks the console and
-player kick/ban. You can also leave it blank and add it later.
+Every service keeps its data under one directory, `COMPOSE_DATA_PATH`. It
+defaults to `./data` beside the compose file, which is fine for a trial. For a
+real install put it on your data disk:
 
-Save, then select the file and press **Up**.
+```bash
+echo 'COMPOSE_DATA_PATH=/srv/appdata' > .env
+```
 
-### 3. Create your account
+Optionally set `RCON_PASSWORD` in the compose file now — it unlocks the console
+and player kick/ban. You can leave it blank and add it later.
 
-Open **`http://<nas-ip>:8080`**. The dashboard asks you to create an
+> **Using a Docker management UI?** Many — Portainer, Dockge, the compose
+> plugins built into NAS operating systems — let you paste a compose file
+> instead of using a shell, and some substitute their own data directory into
+> it. Replace
+> `${COMPOSE_DATA_PATH:-./data}` with whatever token that UI expects, or set
+> `COMPOSE_DATA_PATH` in its environment box. The directory layout underneath is
+> what matters, not how the path gets there.
+
+### 3. Start it
+
+```bash
+docker compose up -d
+```
+
+### 4. Create your account
+
+Open **`http://<host-ip>:8080`**. The dashboard asks you to create an
 administrator account — this replaces generating a password hash on the command
 line. Do it straight away: until you do, anyone who can reach that port can
 claim the dashboard.
 
-### 4. Create the server config
+### 5. Create the server config
 
 Go to **Configuration**. On a fresh install there is no config file yet, so the
 page offers **Create default configuration** — a working objective server with a
 six-map rotation. Set your server name, RCON password and private-slot password
 there.
 
-If you set an RCON password, put the same value in the stack's `RCON_PASSWORD`
-and press **Up** again so the dashboard can reach the console.
+If you set an RCON password, put the same value in the compose file's
+`RCON_PASSWORD` and run `docker compose up -d` again so the dashboard can reach
+the console. See [Keeping RCON in sync](#keeping-rcon-in-sync) — this is the
+single most common thing to get wrong.
 
-### 5. Check it over
+### 6. Check it over
 
 **Diagnostics** verifies the Docker socket, container names, config path and
 RCON, and names the fix for anything that is wrong.
@@ -189,9 +211,13 @@ It typechecks, runs the tests, then publishes:
 Tagging a release (`git tag v1.0.0 && git push --tags`) additionally publishes
 `1.0.0` and `1.0` tags, so you can pin a version in production.
 
-Then update the two `image:` lines in `deploy/docker-compose.omv.yml` to your
-username. To upgrade later: press **Pull** and then **Up** in the OMV Compose
-plugin.
+Then update the two `image:` lines in
+[`deploy/docker-compose.yml`](deploy/docker-compose.yml) to your username. To
+upgrade later:
+
+```bash
+docker compose pull && docker compose up -d
+```
 
 ---
 
@@ -279,20 +305,23 @@ Go to **Diagnostics** first — it verifies the Docker socket, the container
 names, the config path and the RCON credentials, and tells you how to fix
 anything that is wrong.
 
-### Installing on OpenMediaVault 8
+### Installing through a Docker management UI
 
-1. *Services → Compose → Files → **＋***.
-2. Paste `docker-compose.yml` into the file box.
-3. Paste your completed `.env` contents into the **Environment** box — OMV
-   writes it as the `.env` next to the compose file.
-4. OMV substitutes its configured data path for `CHANGE_TO_COMPOSE_DATA_PATH`;
-   this project uses `${COMPOSE_DATA_PATH}` instead, so set that variable to the
-   same path in the Environment box.
-5. Save, then *Up*.
+If you drive Docker from a web interface rather than a shell, paste
+`docker-compose.yml` into its compose editor and put the contents of your `.env`
+into its environment box — most write that out as the `.env` beside the compose
+file. Set `COMPOSE_DATA_PATH` there like any other variable.
 
-The `fastdl/nginx.conf` bind mount is relative to the compose file. If OMV
-stores your compose file elsewhere, either clone the repo next to it or change
-that volume line to an absolute path.
+Two things catch people out with this route:
+
+- Some UIs substitute their own configured data directory into compose files via
+  a placeholder token. This project uses the standard `${COMPOSE_DATA_PATH}`
+  instead, so set that variable to the same path rather than looking for the
+  token.
+- The `fastdl/nginx.conf` bind mount is relative to the compose file. If the UI
+  stores that file somewhere other than this checkout, either clone the repo
+  next to it or change the volume line to an absolute path. The quick install
+  avoids this entirely — its FastDL image has the config baked in.
 
 ---
 
@@ -319,8 +348,21 @@ list. The ones that matter most:
 ### Keeping RCON in sync
 
 `RCON_PASSWORD` (dashboard) and `rconpassword` (game server) are two copies of
-one secret. If you change it in the Configuration page, update `.env` and run
-`docker compose up -d dashboard` too, or the console stops working.
+one secret, and changing it touches **three** places — miss any one and the
+console stops authenticating:
+
+1. **The config file** — the Configuration page writes `rconpassword` to
+   `etl_server.cfg`.
+2. **The running game server**, which still holds the old value in memory.
+   Restart it, or run `exec etl_server.cfg` in the console while the old
+   password still works.
+3. **The dashboard**, via `RCON_PASSWORD` in your `.env` or compose file,
+   followed by `docker compose up -d dashboard`.
+
+Do them in that order and the console keeps working throughout. Change only the
+first and you get "authentication failed" with a config that looks correct —
+restoring a config backup fixes it because it puts the old password back in
+step 1, re-matching the two you did not change.
 
 ---
 
@@ -527,8 +569,38 @@ curl -b jar -X POST http://localhost:8080/api/console/rcon \
 | Config edits have no effect | Cvar is latched — check the badge on the field. Restart, or the file is not the one the server execs (`SERVER_CONFIG_NAME`) |
 | Uploads fail at ~100% | File exceeds `MAX_UPLOAD_MB` |
 | FastDL test fails | The base URL is not reachable from outside the host. Use the LAN/public IP, not `localhost`, and check the port is published and forwarded |
+| FastDL returns 403 for maps that exist | The pk3 files are not world-readable, so nginx cannot open them. See [FastDL file permissions](#fastdl-file-permissions) |
 | Clients still download slowly | The game server has not re-read the config. Restart it, or run `exec etl_server.cfg` in the console |
 | Map rotation is ignored | Campaign cvars set with `g_gametype 2`. Campaign settings only apply in gametype 4 — see the example config |
+
+### FastDL file permissions
+
+FastDL serves the game server's `etmain` directory, but the two containers run
+as different users: the game server as uid 1000, nginx's workers as `nginx`.
+Map packages copied in from an existing installation are often mode `0600`,
+readable only by their owner — nginx then gets EACCES and answers **403** for
+files that plainly exist.
+
+It is easy to misread, because everything around it looks healthy: the port
+forward works, `/healthz` returns 200, and a *missing* file still correctly
+returns 404. Only real files fail.
+
+Check from outside the host, then look at the modes:
+
+```bash
+curl -o /dev/null -w '%{http_code}\n' http://<host>:8081/etmain/pak0.pk3
+ls -l <data path>/etlegacy/etmain/
+```
+
+`-rw-------` is the problem; `-rw-r--r--` is fine. Make them world-readable:
+
+```bash
+chmod o+r <data path>/etlegacy/etmain/*.pk3
+chmod o+rx <data path>/etlegacy/etmain
+```
+
+Map packages are not secrets, and uploads made through the dashboard are already
+created world-readable — this only affects files brought in by other means.
 
 Logs:
 

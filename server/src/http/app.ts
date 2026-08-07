@@ -47,8 +47,8 @@ function inlineScriptHashes(): string[] {
 export function createApp(): express.Express {
   const app = express();
 
-  // The dashboard usually sits behind the OMV reverse proxy or a Docker port
-  // publish; without this, rate limiting keys every request to the proxy's IP.
+  // The dashboard usually sits behind a reverse proxy or a Docker port publish;
+  // without this, rate limiting keys every request to the proxy's IP.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
 

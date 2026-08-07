@@ -1,12 +1,21 @@
 # =============================================================================
-# ET: Legacy server + dashboard + FastDL — OpenMediaVault edition
+# ET: Legacy server + dashboard + FastDL — prebuilt images
 #
-# Paste this whole file into OMV: Services → Compose → Files → ＋
-# CHANGE_TO_COMPOSE_DATA_PATH is replaced automatically by the plugin with the
-# shared folder you selected under Compose → Settings → Data.
+# Runs the whole stack from published images, so this file is all you need on
+# the host: no source checkout, no build step. The dashboard asks you to create
+# an admin account the first time you open it.
 #
-# Nothing else is required. No source checkout, no files on disk, no shell.
-# The dashboard asks you to create an admin account the first time you open it.
+#   docker compose up -d
+#
+# All three services keep their data under one directory, set by
+# COMPOSE_DATA_PATH and defaulting to ./data next to this file:
+#
+#   COMPOSE_DATA_PATH=/srv/appdata docker compose up -d
+#
+# or put COMPOSE_DATA_PATH=/srv/appdata in a .env file beside this one. Any
+# absolute path works. If your host's Docker UI substitutes its own data
+# directory into compose files, replace the variable with that token instead —
+# the layout underneath it is what matters, not how the path gets there.
 #
 # Ports:
 #   27960/udp  game server
@@ -26,7 +35,7 @@ services:
     volumes:
       # Only etmain is bind-mounted. The image ships nothing here but config
       # templates, so the mount is what gives the server its map library.
-      - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy/etmain:/legacy/server/etmain
+      - ${COMPOSE_DATA_PATH:-./data}/etlegacy/etmain:/legacy/server/etmain
       #
       # Do NOT mount /legacy/server/legacy. The image bakes the whole Legacy
       # mod in there — qagame.mp.x86_64.so (the game module the engine dlopens),
@@ -55,18 +64,18 @@ services:
   # ---------------------------------------------------------------------------
   dashboard:
     container_name: etlegacy-dashboard
-    # Pinned rather than :latest. These tags are published by hand while the
+    # Pinned rather than :latest. These tags are published by hand while a
     # GitHub Actions outage keeps CI from building them, so :latest does not
     # currently track this file. Move both images back to :latest once CI is
-    # publishing again, and press Pull then Up to pick up new releases.
+    # publishing again; upgrade with "docker compose pull && docker compose up -d".
     image: mbgroen/etlegacy-dashboard:1.0.2
     ports:
       - "8080:8080"
     volumes:
       # Read-write: the dashboard edits the server config and installs maps.
-      - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy:/data/etlegacy
+      - ${COMPOSE_DATA_PATH:-./data}/etlegacy:/data/etlegacy
       # Dashboard state: admin account, config backups, activity history.
-      - CHANGE_TO_COMPOSE_DATA_PATH/dashboard:/data/dashboard
+      - ${COMPOSE_DATA_PATH:-./data}/dashboard:/data/dashboard
       # Container start/stop/restart and log streaming.
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -120,7 +129,7 @@ services:
       - "8081:80"
     volumes:
       # Read-only: this container serves files, it never changes them.
-      - CHANGE_TO_COMPOSE_DATA_PATH/etlegacy:/srv/fastdl:ro
+      - ${COMPOSE_DATA_PATH:-./data}/etlegacy:/srv/fastdl:ro
     networks:
       - etlegacy
     restart: unless-stopped
