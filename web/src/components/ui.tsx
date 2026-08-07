@@ -114,6 +114,7 @@ export function StatusDot({ tone, pulse = false }: { tone: BadgeTone; pulse?: bo
 /* -------------------------------------------------------------------------- */
 
 export function Panel({
+  id,
   title,
   description,
   actions,
@@ -121,6 +122,8 @@ export function Panel({
   className = '',
   bodyClassName = 'p-4',
 }: {
+  /** Anchor target, so a section can be linked to from a jump list. */
+  id?: string;
   title?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
@@ -129,7 +132,11 @@ export function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={`card flex min-w-0 flex-col ${className}`}>
+    <section
+      id={id}
+      // Without this, an anchor jump puts the heading under the sticky header.
+      className={`card flex min-w-0 scroll-mt-20 flex-col ${className}`}
+    >
       {(title || actions) && (
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0">

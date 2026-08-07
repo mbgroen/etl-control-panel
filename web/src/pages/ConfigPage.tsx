@@ -7,6 +7,7 @@ import {
   ListOrdered,
   RotateCcw,
   Save,
+  Search,
   SlidersHorizontal,
   Trash2,
   TriangleAlert,
@@ -26,7 +27,7 @@ import {
   Toggle,
 } from '../components/ui';
 import { api, ApiError } from '../lib/api';
-import { APPLIES_LABEL, CVAR_SECTIONS, type CvarSpec } from '../lib/cvarSchema';
+import { ALL_CVARS, APPLIES_LABEL, CVAR_SECTIONS, type CvarSpec } from '../lib/cvarSchema';
 import { formatDateTime, formatRelative, prettifyMapName } from '../lib/format';
 import { useToast } from '../lib/toast';
 import type {
@@ -279,6 +280,8 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
   const [values, setValues] = useState<Record<string, string>>(initial);
   const [saving, setSaving] = useState(false);
   const [reload, setReload] = useState(true);
+  const [query, setQuery] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => setValues(initial), [initial]);
 
@@ -311,10 +314,86 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
     }
   };
 
+  // Filtering happens here rather than per section so an empty section can be
+  // dropped entirely — a page of empty panels is a worse answer than a short
+  // list of matches.
+  const visibleSections = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return CVAR_SECTIONS.map((section) => ({
+      ...section,
+      cvars: section.cvars.filter((spec) => {
+        if (!showAdvanced && spec.advanced && !needle) return false;
+        if (!needle) return true;
+        return (
+          spec.label.toLowerCase().includes(needle) ||
+          spec.key.toLowerCase().includes(needle) ||
+          (spec.hint ?? '').toLowerCase().includes(needle)
+        );
+      }),
+    })).filter((section) => section.cvars.length > 0);
+  }, [query, showAdvanced]);
+
+  const matchCount = visibleSections.reduce((total, section) => total + section.cvars.length, 0);
+  const advancedCount = ALL_CVARS.filter((spec) => spec.advanced).length;
+
   return (
     <div className="flex flex-col gap-4">
-      {CVAR_SECTIONS.map((section) => (
-        <Panel key={section.id} title={section.title} description={section.description}>
+      {/* With around a hundred settings, finding one by scrolling is hopeless.
+          Search and the advanced toggle are what keep the page usable; the
+          jump list turns the sections into navigation rather than a wall. */}
+      <div className="card flex flex-col gap-3 p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-56 flex-1">
+            <Search
+              size={14}
+              aria-hidden
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"
+            />
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search settings — name, cvar or description"
+              aria-label="Search settings"
+              className="pl-8"
+            />
+          </div>
+          <Toggle
+            checked={showAdvanced}
+            onChange={setShowAdvanced}
+            label="Show advanced"
+            description={`${advancedCount} rarely-changed settings`}
+          />
+        </div>
+
+        {query.trim() ? (
+          <p className="text-xs text-muted" role="status">
+            {matchCount === 0
+              ? 'Nothing matches. Try the cvar name, or look in the raw editor.'
+              : `${matchCount} setting${matchCount === 1 ? '' : 's'} match — advanced ones included.`}
+          </p>
+        ) : (
+          <nav aria-label="Jump to a section" className="flex flex-wrap gap-1.5">
+            {visibleSections.map((section) => (
+              <a
+                key={section.id}
+                href={`#section-${section.id}`}
+                className="rounded-md border border-line px-2 py-1 text-xs text-muted transition-colors hover:border-line-strong hover:text-body"
+              >
+                {section.title}
+              </a>
+            ))}
+          </nav>
+        )}
+      </div>
+
+      {visibleSections.map((section) => (
+        <Panel
+          key={section.id}
+          id={`section-${section.id}`}
+          title={section.title}
+          description={section.description}
+        >
           <div className="grid gap-4 md:grid-cols-2">
             {section.cvars.map((spec) => (
               <CvarField

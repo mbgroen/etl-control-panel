@@ -48,7 +48,7 @@ The game server itself comes from the official
 | **Control** | Start / stop / restart the game server container; kick, ban and mute players |
 | **Console** | Full RCON console with command history, plus one-click common commands |
 | **Logs** | Live-streamed container logs with filtering, pause-and-buffer, and follow-tail |
-| **Configuration** | Guided forms for common cvars, a map-rotation builder, a raw editor with validation, and automatic timestamped backups |
+| **Configuration** | Around 100 settings in guided forms — everything the game's own HOST menus offer and more — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
 | **Maps** | Browse installed `.pk3` packages, drag-and-drop upload with progress, delete custom maps (stock paks are protected) |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
 | **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts |
