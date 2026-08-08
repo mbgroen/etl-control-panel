@@ -7,11 +7,15 @@ import * as credentials from '../services/credentials.js';
 /**
  * Session handling.
  *
- * The dashboard has exactly one operator account, so there is no user store —
- * credentials are an env-provided username and bcrypt hash. Sessions are signed
- * JWTs kept in an httpOnly, SameSite=Strict cookie: httpOnly puts the token out
- * of reach of any XSS in the SPA, and SameSite=Strict is enough CSRF protection
- * for an API that only ever accepts JSON from its own origin.
+ * Sessions are signed JWTs kept in an httpOnly, SameSite=Strict cookie:
+ * httpOnly puts the token out of reach of any XSS in the SPA, and
+ * SameSite=Strict is enough CSRF protection for an API that only ever accepts
+ * JSON from its own origin.
+ *
+ * A valid signature is not sufficient on its own. Every request also re-checks
+ * that the account still exists, because a token stays valid for hours after an
+ * administrator is removed and revocation that takes until tomorrow is not
+ * revocation.
  */
 
 export const SESSION_COOKIE = 'etl_session';
@@ -77,6 +81,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
+  if (!credentials.exists(claims.sub)) {
+    clearSessionCookie(res);
+    res.status(401).json({
+      error: { code: 'account_removed', message: 'This account no longer exists' },
+    });
+    return;
+  }
+
   req.user = { username: claims.sub };
   next();
 }
@@ -96,7 +108,8 @@ export function authenticateUpgrade(req: IncomingMessage): { username: string } 
     const [name, ...rest] = part.trim().split('=');
     if (name !== SESSION_COOKIE) continue;
     const claims = verifyToken(decodeURIComponent(rest.join('=')));
-    return claims ? { username: claims.sub } : null;
+    if (!claims || !credentials.exists(claims.sub)) return null;
+    return { username: claims.sub };
   }
   return null;
 }

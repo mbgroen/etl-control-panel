@@ -1,5 +1,6 @@
 import {
   Package,
+  ShieldCheck,
   Settings,
   Users,
   Activity,
@@ -54,6 +55,7 @@ const NAV_GROUPS = [
     label: 'System',
     items: [
       { to: '/settings', label: 'Settings', icon: Settings, end: false },
+      { to: '/accounts', label: 'Accounts', icon: ShieldCheck, end: false },
       { to: '/diagnostics', label: 'Diagnostics', icon: Stethoscope, end: false },
     ],
   },

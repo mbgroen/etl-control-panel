@@ -1,4 +1,5 @@
 import type {
+  AdminAccount,
   BackupEntry,
   CommandGroup,
   ConfigPayload,
@@ -112,6 +113,24 @@ export const api = {
         ...json({ currentPassword, newPassword }),
       }),
     logout: () => request<void>('/auth/logout', { method: 'POST' }),
+    accounts: () =>
+      request<{
+        accounts: AdminAccount[];
+        managedByEnvironment: boolean;
+        minPasswordLength: number;
+      }>('/auth/accounts'),
+    addAccount: (username: string, password: string) =>
+      request<{ account: AdminAccount }>('/auth/accounts', {
+        method: 'POST',
+        ...json({ username, password }),
+      }),
+    removeAccount: (id: string) =>
+      request<void>(`/auth/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    resetAccountPassword: (id: string, password: string) =>
+      request<{ account: AdminAccount }>(`/auth/accounts/${encodeURIComponent(id)}/password`, {
+        method: 'POST',
+        ...json({ password }),
+      }),
   },
 
   system: {

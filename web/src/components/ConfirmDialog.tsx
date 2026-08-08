@@ -17,6 +17,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   tone = 'danger',
   loading = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: {
@@ -27,6 +28,8 @@ export function ConfirmDialog({
   cancelLabel?: string;
   tone?: 'danger' | 'primary';
   loading?: boolean;
+  /** For dialogs that collect a value before confirming is meaningful. */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -90,6 +93,7 @@ export function ConfirmDialog({
           <Button
             variant={tone === 'danger' ? 'danger' : 'primary'}
             onClick={onConfirm}
+            disabled={confirmDisabled}
             loading={loading}
           >
             {confirmLabel}

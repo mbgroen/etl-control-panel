@@ -1,6 +1,5 @@
 import { CheckCircle2, RefreshCw, Wrench, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { AccountPanel } from '../components/AccountPanel';
 import { Badge, Button, Panel, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { formatDuration } from '../lib/format';
@@ -19,9 +18,6 @@ export function DiagnosticsPage() {
   const { snapshot } = useLive();
   const [checks, setChecks] = useState<HealthCheck[] | null>(null);
   const [info, setInfo] = useState<SystemInfo | null>(null);
-  const [account, setAccount] = useState<{ username: string; managedByEnvironment: boolean } | null>(
-    null,
-  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -32,10 +28,9 @@ export function DiagnosticsPage() {
     // Each panel loads independently. Sharing one try/catch meant a single
     // failing request blanked every panel on the page — including the runtime
     // configuration, which needs nothing from the health checks.
-    const [health, systemInfo, session] = await Promise.allSettled([
+    const [health, systemInfo] = await Promise.allSettled([
       api.system.health(),
       api.system.info(),
-      api.auth.session(),
     ]);
 
     if (health.status === 'fulfilled') {
@@ -50,14 +45,6 @@ export function DiagnosticsPage() {
     }
 
     setInfo(systemInfo.status === 'fulfilled' ? systemInfo.value : null);
-    setAccount(
-      session.status === 'fulfilled'
-        ? {
-            username: session.value.user.username,
-            managedByEnvironment: session.value.managedByEnvironment ?? false,
-          }
-        : null,
-    );
 
     setLoading(false);
   }, []);
@@ -130,13 +117,6 @@ export function DiagnosticsPage() {
           ))}
         </ul>
       </Panel>
-
-      {account && (
-        <AccountPanel
-          username={account.username}
-          managedByEnvironment={account.managedByEnvironment}
-        />
-      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Runtime configuration" bodyClassName="p-0">

@@ -26,6 +26,9 @@ download (FastDL) server — all from a browser.
   are protected from deletion.
 - **FastDL** — enable HTTP map downloads in one action; it starts the web
   server *and* writes the matching cvars, then tests reachability.
+- **Accounts** — several administrators, each with their own login. Add and
+  remove them, or set a password for someone who has lost theirs; removing an
+  account ends its session at once.
 - **Diagnostics** — every dependency checked, each failure paired with its fix.
 
 ## Quick start
@@ -74,7 +77,7 @@ Docker socket for container control and log streaming.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `1.1.0` | An exact version. Never moves — use this to pin |
+| `2.5.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 

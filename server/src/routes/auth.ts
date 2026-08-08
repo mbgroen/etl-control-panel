@@ -107,9 +107,12 @@ authRouter.post(
       throw new ApiError(401, 'invalid_credentials', 'Incorrect username or password');
     }
 
-    setSessionCookie(res, issueToken(username));
-    logger.info({ username, ip: req.ip }, 'operator signed in');
-    res.json({ user: { username }, expiresInHours: env.SESSION_TTL_HOURS });
+    // Carry the stored spelling, so a session shows the account as created
+    // rather than however it was typed at the login screen.
+    const canonical = credentials.canonicalUsername(username);
+    setSessionCookie(res, issueToken(canonical));
+    logger.info({ username: canonical, ip: req.ip }, 'operator signed in');
+    res.json({ user: { username: canonical }, expiresInHours: env.SESSION_TTL_HOURS });
   }),
 );
 
@@ -123,6 +126,64 @@ authRouter.get('/session', requireAuth, (req, res) => {
   res.json({ user: req.user, managedByEnvironment: credentials.managedByEnvironment() });
 });
 
+/**
+ * Administrator accounts.
+ *
+ * Every account has the same rights — there are no roles, because a dashboard
+ * that can restart the game server and holds the Docker socket has only one
+ * meaningful level of access. What this adds is being able to give a second
+ * person their own credentials instead of sharing one password.
+ */
+authRouter.get('/accounts', requireAuth, (_req, res) => {
+  res.json({
+    accounts: credentials.list(),
+    managedByEnvironment: credentials.managedByEnvironment(),
+    minPasswordLength: credentials.MIN_PASSWORD_LENGTH,
+  });
+});
+
+const newAccountSchema = z.object({
+  username: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9._-]+$/, 'Use letters, digits, dots, dashes or underscores'),
+  password: z.string().min(1).max(512),
+});
+
+authRouter.post(
+  '/accounts',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { username, password } = newAccountSchema.parse(req.body);
+    const account = await credentials.addAccount(username, password);
+    logger.info({ username, by: req.user?.username }, 'administrator added');
+    res.status(201).json({ account });
+  }),
+);
+
+authRouter.delete(
+  '/accounts/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const id = z.string().min(1).max(64).parse(req.params.id);
+    await credentials.removeAccount(id, req.user?.username ?? '');
+    res.status(204).end();
+  }),
+);
+
+authRouter.post(
+  '/accounts/:id/password',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const id = z.string().min(1).max(64).parse(req.params.id);
+    const { password } = z.object({ password: z.string().min(1).max(512) }).parse(req.body);
+    const account = await credentials.resetPassword(id, password);
+    logger.info({ username: account.username, by: req.user?.username }, 'password reset');
+    res.json({ account });
+  }),
+);
+
 const passwordChangeSchema = z.object({
   currentPassword: z.string().min(1).max(512),
   newPassword: z.string().min(1).max(512),
@@ -133,11 +194,12 @@ authRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = passwordChangeSchema.parse(req.body);
-    await credentials.changePassword(currentPassword, newPassword);
+    const username = req.user?.username ?? '';
+    await credentials.changePassword(username, currentPassword, newPassword);
 
     // Re-issue the session: the secret is unchanged, but this refreshes expiry
     // so a password change does not leave a stale cookie about to lapse.
-    setSessionCookie(res, issueToken(credentials.username()));
+    setSessionCookie(res, issueToken(username));
     res.json({ ok: true });
   }),
 );

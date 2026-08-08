@@ -1,36 +1,35 @@
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../env.js';
 import { logger } from '../logger.js';
 
 /**
- * Operator credentials.
+ * Operator accounts.
  *
  * Two ways to configure them, in priority order:
  *
  *  1. Environment (`ADMIN_PASSWORD_HASH` + `SESSION_SECRET`) — declarative, and
- *     the right choice when the deployment is managed as code.
+ *     the right choice when the deployment is managed as code. It describes one
+ *     account, so account management is unavailable in that mode: the file is
+ *     the source of truth and the dashboard must not fight it.
  *  2. First-run setup in the browser, persisted to the state directory — the
  *     right choice for a WebUI-only install where running a CLI to generate a
  *     bcrypt hash is a real barrier.
  *
- * The session secret is generated and persisted when absent, so sessions
- * survive container restarts without the operator having to invent a random
- * string. It is stored 0600 alongside the password hash.
+ * The store holds several accounts. It began as one, and a v1 file is migrated
+ * on read rather than requiring anything of an existing installation.
+ *
+ * The session secret is shared by all accounts, generated and persisted when
+ * absent so sessions survive container restarts. It is stored 0600 alongside
+ * the password hashes.
  */
 
 const STORE_FILE = path.join(env.STATE_PATH, 'credentials.json');
 
-interface StoredCredentials {
-  username: string;
-  passwordHash: string;
-  sessionSecret: string;
-  createdAt: string;
-}
-
 const BCRYPT_COST = 12;
+
 /**
  * Long enough that guessing is hopeless, short enough that people will use it.
  *
@@ -41,22 +40,97 @@ const BCRYPT_COST = 12;
  */
 export const MIN_PASSWORD_LENGTH = 8;
 
-let cache: StoredCredentials | null = null;
+export interface Account {
+  id: string;
+  username: string;
+  passwordHash: string;
+  createdAt: string;
+}
+
+/** An account as the API reports it — never with the hash. */
+export interface PublicAccount {
+  id: string;
+  username: string;
+  createdAt: string;
+}
+
+interface Store {
+  version: 2;
+  sessionSecret: string;
+  accounts: Account[];
+}
+
+/** The shape written before multiple accounts existed. */
+interface LegacyStore {
+  username: string;
+  passwordHash: string;
+  sessionSecret: string;
+  createdAt?: string;
+}
+
+let cache: Store | null = null;
 let loaded = false;
 
-async function readStore(): Promise<StoredCredentials | null> {
+const EPHEMERAL_SECRET = randomBytes(32).toString('hex');
+
+/**
+ * A valid bcrypt hash of a value nobody knows.
+ *
+ * Compared against when the username does not exist, so a sign-in attempt for
+ * an unknown account takes the same time as one for a known account. Without
+ * it, response time reveals which usernames are real.
+ */
+const DECOY_HASH = bcrypt.hashSync(randomBytes(32).toString('hex'), BCRYPT_COST);
+
+const publicView = (account: Account): PublicAccount => ({
+  id: account.id,
+  username: account.username,
+  createdAt: account.createdAt,
+});
+
+function migrate(parsed: unknown): Store | null {
+  const candidate = parsed as Partial<Store> & Partial<LegacyStore>;
+  if (!candidate || typeof candidate.sessionSecret !== 'string') return null;
+
+  if (Array.isArray(candidate.accounts)) {
+    const accounts = candidate.accounts.filter(
+      (account): account is Account =>
+        typeof account?.id === 'string' &&
+        typeof account.username === 'string' &&
+        typeof account.passwordHash === 'string',
+    );
+    return { version: 2, sessionSecret: candidate.sessionSecret, accounts };
+  }
+
+  // v1: a single account stored inline.
+  if (typeof candidate.username === 'string' && typeof candidate.passwordHash === 'string') {
+    logger.info('migrating the credential store to the multi-account format');
+    return {
+      version: 2,
+      sessionSecret: candidate.sessionSecret,
+      accounts: [
+        {
+          id: randomUUID(),
+          username: candidate.username,
+          passwordHash: candidate.passwordHash,
+          createdAt: candidate.createdAt ?? new Date().toISOString(),
+        },
+      ],
+    };
+  }
+
+  return null;
+}
+
+async function readStore(): Promise<Store | null> {
   try {
-    const raw = await fs.readFile(STORE_FILE, 'utf8');
-    const parsed = JSON.parse(raw) as StoredCredentials;
-    if (
-      typeof parsed.username === 'string' &&
-      typeof parsed.passwordHash === 'string' &&
-      typeof parsed.sessionSecret === 'string'
-    ) {
-      return parsed;
+    const parsed: unknown = JSON.parse(await fs.readFile(STORE_FILE, 'utf8'));
+    const store = migrate(parsed);
+    if (!store) {
+      logger.warn({ file: STORE_FILE }, 'credential store is malformed — ignoring it');
+      return null;
     }
-    logger.warn({ file: STORE_FILE }, 'credential store is malformed — ignoring it');
-    return null;
+    return store;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
       logger.warn({ err }, 'could not read the credential store');
@@ -65,13 +139,13 @@ async function readStore(): Promise<StoredCredentials | null> {
   }
 }
 
-async function writeStore(credentials: StoredCredentials): Promise<void> {
+async function writeStore(store: Store): Promise<void> {
   await fs.mkdir(path.dirname(STORE_FILE), { recursive: true });
   const temp = `${STORE_FILE}.tmp`;
   // 0600 before the rename, so the file is never briefly world-readable.
-  await fs.writeFile(temp, JSON.stringify(credentials, null, 2), { encoding: 'utf8', mode: 0o600 });
+  await fs.writeFile(temp, JSON.stringify(store, null, 2), { encoding: 'utf8', mode: 0o600 });
   await fs.rename(temp, STORE_FILE);
-  cache = credentials;
+  cache = store;
 }
 
 /**
@@ -86,12 +160,17 @@ export async function initialize(): Promise<void> {
 
   if (env.ADMIN_PASSWORD_HASH) {
     cache = {
-      username: env.ADMIN_USERNAME,
-      passwordHash: env.ADMIN_PASSWORD_HASH,
-      // Fall back to a persisted secret so sessions survive restarts even when
-      // only the password was supplied by the environment.
-      sessionSecret: env.SESSION_SECRET || stored?.sessionSecret || (await persistedSecret(stored)),
-      createdAt: stored?.createdAt ?? new Date().toISOString(),
+      version: 2,
+      sessionSecret:
+        env.SESSION_SECRET || stored?.sessionSecret || (await persistedSecret(stored)),
+      accounts: [
+        {
+          id: 'environment',
+          username: env.ADMIN_USERNAME,
+          passwordHash: env.ADMIN_PASSWORD_HASH,
+          createdAt: stored?.accounts[0]?.createdAt ?? new Date().toISOString(),
+        },
+      ],
     };
     loaded = true;
     logger.info('using dashboard credentials from the environment');
@@ -101,27 +180,29 @@ export async function initialize(): Promise<void> {
   cache = stored;
   loaded = true;
 
-  if (!cache) {
+  // A store that exists but holds no accounts is the same situation as no store
+  // at all: setup has to run, or nobody can get in.
+  if (!cache || cache.accounts.length === 0) {
+    cache = null;
     logger.warn(
       'No dashboard account exists yet. Open the dashboard in a browser to create one. ' +
         'Until you do, anyone who can reach this port can claim it — complete setup now, ' +
         'or set ADMIN_PASSWORD_HASH in the environment instead.',
     );
+    return;
   }
+
+  // Rewrite a migrated v1 file so the next boot does not migrate again.
+  if (stored) await writeStore(cache).catch(() => undefined);
 }
 
 /** Generates a session secret and persists it so it is stable across restarts. */
-async function persistedSecret(stored: StoredCredentials | null): Promise<string> {
+async function persistedSecret(stored: Store | null): Promise<string> {
   if (stored?.sessionSecret) return stored.sessionSecret;
 
   const secret = randomBytes(32).toString('hex');
   try {
-    await writeStore({
-      username: env.ADMIN_USERNAME,
-      passwordHash: env.ADMIN_PASSWORD_HASH,
-      sessionSecret: secret,
-      createdAt: new Date().toISOString(),
-    });
+    await writeStore({ version: 2, sessionSecret: secret, accounts: stored?.accounts ?? [] });
   } catch (err) {
     // Not fatal: the dashboard still works, but everyone is signed out on restart.
     logger.warn({ err }, 'could not persist a session secret — sessions will not survive a restart');
@@ -130,7 +211,7 @@ async function persistedSecret(stored: StoredCredentials | null): Promise<string
 }
 
 export function isConfigured(): boolean {
-  return cache !== null;
+  return (cache?.accounts.length ?? 0) > 0;
 }
 
 export function assertLoaded(): void {
@@ -144,104 +225,236 @@ export function sessionSecret(): string {
   return cache?.sessionSecret ?? EPHEMERAL_SECRET;
 }
 
-const EPHEMERAL_SECRET = randomBytes(32).toString('hex');
-
-export function username(): string {
-  return cache?.username ?? env.ADMIN_USERNAME;
+export function list(): PublicAccount[] {
+  return (cache?.accounts ?? [])
+    .map(publicView)
+    .sort((a, b) => a.username.localeCompare(b.username));
 }
 
-export async function verify(candidateUser: string, candidatePassword: string): Promise<boolean> {
-  if (!cache) return false;
+const findByName = (username: string): Account | undefined =>
+  cache?.accounts.find((account) => account.username.toLowerCase() === username.toLowerCase());
 
-  const passwordOk = await bcrypt.compare(candidatePassword, cache.passwordHash).catch((err) => {
+/**
+ * Checks a username and password pair.
+ *
+ * Always runs a bcrypt comparison, even for an unknown username, so the time
+ * taken does not disclose which accounts exist.
+ */
+export async function verify(candidateUser: string, candidatePassword: string): Promise<boolean> {
+  const account = findByName(candidateUser);
+  const hash = account?.passwordHash ?? DECOY_HASH;
+
+  const passwordOk = await bcrypt.compare(candidatePassword, hash).catch((err) => {
     logger.error({ err }, 'bcrypt comparison failed — is the stored password hash valid?');
     return false;
   });
 
-  return passwordOk && timingSafeEqual(candidateUser, cache.username);
+  return Boolean(account) && passwordOk;
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+/**
+ * Whether an account with this name still exists.
+ *
+ * Session tokens are self-contained, so without this check a removed
+ * administrator would keep full access until their cookie expired — hours after
+ * someone deliberately revoked it. Removal is the offboarding mechanism here;
+ * it has to take effect at the next request.
+ */
+export function exists(username: string): boolean {
+  return findByName(username) !== undefined;
+}
+
+/** The stored spelling of a username, so sessions carry it consistently. */
+export function canonicalUsername(candidate: string): string {
+  return findByName(candidate)?.username ?? candidate;
 }
 
 export class SetupError extends Error {
   constructor(
     message: string,
-    readonly kind: 'already-configured' | 'weak-password',
+    readonly kind:
+      | 'already-configured'
+      | 'weak-password'
+      | 'duplicate'
+      | 'not-found'
+      | 'last-account'
+      | 'self',
   ) {
     super(message);
     this.name = 'SetupError';
   }
 }
 
+function assertUsable(password: string): void {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new SetupError(
+      `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      'weak-password',
+    );
+  }
+}
+
+function assertNotEnvironmentManaged(): void {
+  if (env.ADMIN_PASSWORD_HASH) {
+    throw new SetupError(
+      'Accounts are set through ADMIN_PASSWORD_HASH in the environment. Manage them there.',
+      'already-configured',
+    );
+  }
+}
+
 /**
- * Creates the operator account during first-run setup.
+ * Creates the first account during first-run setup.
  *
- * Refuses once an account exists, so this cannot be used to reset a forgotten
+ * Refuses once one exists, so this cannot be used to reset a forgotten
  * password — that path is deliberately manual (delete the store file), because
  * an unauthenticated password-reset endpoint is a backdoor.
  */
 export async function createAccount(
   newUsername: string,
   newPassword: string,
-): Promise<{ username: string }> {
+): Promise<PublicAccount> {
   if (isConfigured()) {
     throw new SetupError('A dashboard account already exists', 'already-configured');
   }
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    throw new SetupError(
-      `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-      'weak-password',
-    );
-  }
+  assertUsable(newPassword);
 
-  const credentials: StoredCredentials = {
+  const account: Account = {
+    id: randomUUID(),
     username: newUsername,
     passwordHash: await bcrypt.hash(newPassword, BCRYPT_COST),
-    sessionSecret: randomBytes(32).toString('hex'),
     createdAt: new Date().toISOString(),
   };
 
-  await writeStore(credentials);
+  await writeStore({
+    version: 2,
+    sessionSecret: cache?.sessionSecret ?? randomBytes(32).toString('hex'),
+    accounts: [account],
+  });
   logger.info({ username: newUsername }, 'dashboard account created via first-run setup');
 
-  return { username: newUsername };
+  return publicView(account);
 }
 
-/** Changes the password of the existing account. Requires the current one. */
-export async function changePassword(
-  currentPassword: string,
+/** Adds another administrator. Every account has the same rights. */
+export async function addAccount(
+  newUsername: string,
   newPassword: string,
-): Promise<void> {
-  if (!cache) throw new SetupError('No account is configured', 'already-configured');
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+): Promise<PublicAccount> {
+  assertNotEnvironmentManaged();
+  assertUsable(newPassword);
+  if (!cache) throw new SetupError('No account is configured', 'not-found');
+
+  if (findByName(newUsername)) {
+    throw new SetupError(`An account named "${newUsername}" already exists`, 'duplicate');
+  }
+
+  const account: Account = {
+    id: randomUUID(),
+    username: newUsername,
+    passwordHash: await bcrypt.hash(newPassword, BCRYPT_COST),
+    createdAt: new Date().toISOString(),
+  };
+
+  await writeStore({ ...cache, accounts: [...cache.accounts, account] });
+  logger.info({ username: newUsername }, 'administrator account added');
+  return publicView(account);
+}
+
+/**
+ * Removes an administrator.
+ *
+ * Two things are refused. The last account, because there would be no way back
+ * in — the store file would have to be deleted from a shell, which is exactly
+ * the situation this dashboard exists to avoid. And your own account, because
+ * the effect is signing yourself out mid-action: another administrator can
+ * remove you, which keeps the operation deliberate.
+ */
+export async function removeAccount(id: string, actingUsername: string): Promise<void> {
+  assertNotEnvironmentManaged();
+  if (!cache) throw new SetupError('No account is configured', 'not-found');
+
+  const account = cache.accounts.find((candidate) => candidate.id === id);
+  if (!account) throw new SetupError('No such account', 'not-found');
+
+  if (account.username.toLowerCase() === actingUsername.toLowerCase()) {
     throw new SetupError(
-      `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-      'weak-password',
+      'You cannot remove the account you are signed in with. Ask another administrator to do it.',
+      'self',
     );
   }
-  if (!(await verify(cache.username, currentPassword))) {
-    throw new SetupError('Current password is incorrect', 'weak-password');
-  }
-  if (env.ADMIN_PASSWORD_HASH) {
+  if (cache.accounts.length <= 1) {
     throw new SetupError(
-      'The password is set through ADMIN_PASSWORD_HASH in the environment. Change it there.',
-      'already-configured',
+      'This is the only account. Removing it would lock everyone out — add another first.',
+      'last-account',
     );
   }
 
   await writeStore({
     ...cache,
-    passwordHash: await bcrypt.hash(newPassword, BCRYPT_COST),
+    accounts: cache.accounts.filter((candidate) => candidate.id !== id),
   });
-  logger.info('dashboard password changed');
+  logger.info({ username: account.username }, 'administrator account removed');
+}
+
+/** Changes the password of the signed-in account. Requires the current one. */
+export async function changePassword(
+  username: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  if (!cache) throw new SetupError('No account is configured', 'not-found');
+  assertUsable(newPassword);
+
+  if (!(await verify(username, currentPassword))) {
+    throw new SetupError('Current password is incorrect', 'weak-password');
+  }
+  assertNotEnvironmentManaged();
+
+  await replaceHash(username, newPassword);
+  logger.info({ username }, 'dashboard password changed');
+}
+
+/**
+ * Sets another account's password without knowing the old one.
+ *
+ * The answer to a colleague who has forgotten theirs. It is not a privilege
+ * escalation: every account here is already a full administrator, so anyone who
+ * can call this could equally add an account of their own.
+ */
+export async function resetPassword(id: string, newPassword: string): Promise<PublicAccount> {
+  assertNotEnvironmentManaged();
+  assertUsable(newPassword);
+  if (!cache) throw new SetupError('No account is configured', 'not-found');
+
+  const account = cache.accounts.find((candidate) => candidate.id === id);
+  if (!account) throw new SetupError('No such account', 'not-found');
+
+  await replaceHash(account.username, newPassword);
+  logger.info({ username: account.username }, 'administrator password reset by another account');
+  return publicView(account);
+}
+
+async function replaceHash(username: string, newPassword: string): Promise<void> {
+  if (!cache) return;
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_COST);
+  await writeStore({
+    ...cache,
+    accounts: cache.accounts.map((account) =>
+      account.username.toLowerCase() === username.toLowerCase()
+        ? { ...account, passwordHash }
+        : account,
+    ),
+  });
 }
 
 /** True when the environment owns the credentials, so the UI can say so. */
 export function managedByEnvironment(): boolean {
   return env.ADMIN_PASSWORD_HASH !== '';
+}
+
+/** Test seam. */
+export function resetCredentialCache(): void {
+  cache = null;
+  loaded = false;
 }

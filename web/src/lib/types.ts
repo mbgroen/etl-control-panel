@@ -133,6 +133,13 @@ export interface HealthCheck {
   optional?: boolean;
 }
 
+/** An administrator account. Every account has the same rights. */
+export interface AdminAccount {
+  id: string;
+  username: string;
+  createdAt: string;
+}
+
 /** Dashboard preferences, stored in its own state directory. */
 export interface DashboardSettings {
   maxUploadMb: number;

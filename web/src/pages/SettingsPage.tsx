@@ -1,6 +1,5 @@
 import { HardDrive, History, Upload } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { AccountPanel } from '../components/AccountPanel';
 import { Button, Field, Input, Panel, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { useToast } from '../lib/toast';
@@ -16,36 +15,22 @@ import type { DashboardSettings } from '../lib/types';
  * of which is true here. Anyone looking for the upload limit had to know it was
  * filed under the game server's settings, which it never was.
  *
- * The account lives here too, for the same reason: it is a property of the
- * dashboard, not a dependency to be diagnosed.
+ * Administrator accounts used to live here too. They moved to their own screen
+ * once there could be more than one of them: adding and removing people is a
+ * task in its own right, not a footnote under a page about upload limits.
  */
 export function SettingsPage() {
   const toast = useToast();
   const [settings, setSettings] = useState<DashboardSettings | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const [account, setAccount] = useState<{ username: string; managedByEnvironment: boolean } | null>(
-    null,
-  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [current, session] = await Promise.all([
-        api.system.settings(),
-        // Separate concern, loaded together so the page paints once.
-        api.auth.session().catch(() => null),
-      ]);
+      const current = await api.system.settings();
       setSettings(current);
-      setAccount(
-        session
-          ? {
-              username: session.user.username,
-              managedByEnvironment: session.managedByEnvironment ?? false,
-            }
-          : null,
-      );
       setDraft({
         maxUploadMb: String(current.maxUploadMb),
         maxBackups: String(current.maxBackups),
@@ -200,13 +185,6 @@ export function SettingsPage() {
           </div>
         </div>
       </Panel>
-
-      {account && (
-        <AccountPanel
-          username={account.username}
-          managedByEnvironment={account.managedByEnvironment}
-        />
-      )}
     </div>
   );
 }

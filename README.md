@@ -52,7 +52,8 @@ The game server itself comes from the official
 | **Maps** | Upload `.pk3` packages, see the maps inside each one, and switch any of them into the rotation — all on one page |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
 | **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts |
-| **Settings** | Upload limit, how many config backups and player visits to keep, and the dashboard password |
+| **Settings** | Upload limit, and how many config backups and player visits to keep |
+| **Accounts** | Several administrators, each with their own login — add, remove, and set a password for someone who has lost theirs |
 | **Diagnostics** | Every dependency checked, each failure paired with the fix |
 
 The UI is keyboard-navigable, screen-reader labelled, responsive down to phone
@@ -443,7 +444,7 @@ game is a free download from Splash Damage or the ET: Legacy site. Copy them out
 of an existing install or a fresh download — a desktop client works fine, since
 these are the same files.
 
-**You can upload them from the dashboard.** Go to **Maps & FastDL → Add map
+**You can upload them from the dashboard.** Go to **Maps → Add map
 packages** and drop all four in. The default upload ceiling is 256 MB, which
 `pak0.pk3` fits under, and uploads are written world-readable so FastDL can
 serve them straight away. If you would rather copy them in over the shell, put
@@ -564,9 +565,24 @@ manages, but that is a fact about the implementation: installing maps happens
 often, setting up downloads happens roughly once.
 
 **Settings** — the dashboard's own preferences, kept apart from the game
-server's config: the upload limit, how many config backups and player visits to
-retain, and the dashboard password. Nothing here is a cvar, none of it is
-touched by restoring a config backup.
+server's config: the upload limit, and how many config backups and player visits
+to retain. Nothing here is a cvar, none of it is touched by restoring a config
+backup.
+
+**Accounts** — the administrators who can sign in. Add one per person rather
+than sharing a login: when someone stops helping run the server you remove their
+account instead of changing a password and redistributing it. Removal takes
+effect on their next request, not when their session would have expired.
+
+There are no roles. Anyone who can sign in can restart the game server and read
+the config, so a "read-only" tier would suggest a boundary this dashboard cannot
+enforce. Set someone's password for them if they lose it — you are not asked for
+their old one — while changing your own still requires the current password.
+
+If `ADMIN_PASSWORD_HASH` is set in the environment, that account is the only one
+and this page says so: environment values are authoritative on purpose, so an
+operator who declares credentials in compose cannot have them silently
+overridden. Remove the variable to manage accounts from the dashboard.
 
 **Diagnostics** — dependency checks and the exact remedy for each failure.
 
@@ -578,7 +594,7 @@ Without FastDL, a player missing a custom map downloads it through the game's
 UDP channel at roughly 100 KB/s. A 60 MB map pack takes ten minutes and usually
 times out. With FastDL the client fetches it over HTTP at full line speed.
 
-**To enable:** *Maps & FastDL → Public base URL → Enable HTTP downloads.*
+**To enable:** *FastDL → Public base URL → Enable HTTP downloads.*
 
 The base URL must be the address **players** can reach — your LAN IP or public
 hostname with the FastDL port. Not `localhost`, and not a Docker service name.
@@ -621,6 +637,12 @@ or behind a VPN or an authenticating reverse proxy.
   Keep the game server and dashboard on the same host or a trusted network.
 - Sessions are httpOnly, `SameSite=Strict` JWT cookies. Login is rate-limited
   to 10 attempts per 10 minutes per IP; the RCON endpoint to 60/minute.
+- Every request re-checks that the signed-in account still exists, so removing
+  an administrator ends their session immediately rather than whenever their
+  cookie would have expired.
+- Give each administrator their own account under **Accounts**. Shared logins
+  cannot be revoked for one person, and the audit trail in the logs is only as
+  precise as the usernames in it.
 - Uploads accept only `.pk3` filenames matching a strict pattern, are written to
   a temp directory first, and cannot escape `etmain`.
 - Secrets are masked in API responses and redacted from logs.
@@ -650,6 +672,11 @@ envelope:
 | `POST` | `/api/auth/login` | `{username, password}` → sets session cookie |
 | `POST` | `/api/auth/logout` | Clears the session |
 | `GET` | `/api/auth/session` | Current user, or 401 |
+| `GET` | `/api/auth/accounts` | Every administrator, plus the minimum password length |
+| `POST` | `/api/auth/accounts` | `{username, password}` → adds an administrator |
+| `DELETE` | `/api/auth/accounts/:id` | Removes one. Refuses your own and the last remaining account |
+| `POST` | `/api/auth/accounts/:id/password` | `{password}` → sets someone else's password |
+| `POST` | `/api/auth/password` | `{currentPassword, newPassword}` → changes your own |
 
 ### Server
 | Method | Path | Purpose |
@@ -677,7 +704,7 @@ envelope:
 | `GET` | `/api/config/backups` | List backups |
 | `POST` | `/api/config/backups/:id/restore` | Restore (takes a backup first) |
 
-### Maps & FastDL
+### Maps and FastDL
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/maps` | Installed packages and storage usage |

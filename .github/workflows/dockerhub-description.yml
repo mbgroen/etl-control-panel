@@ -10,7 +10,8 @@
 # multi-minute build — and the build workflow ignores docs/ and *.md changes, so
 # editing these files would never trigger it anyway.
 #
-# MANUAL ONLY, and disabled unless a DOCKERHUB_PASSWORD secret exists.
+# Runs on every push to main that touches the description files, and can be run
+# by hand. It does nothing at all unless a DOCKERHUB_PASSWORD secret exists.
 #
 # Docker Hub's description endpoint is not part of the registry API: a personal
 # access token authenticates fine (which is why image pushes work) and is then
@@ -25,13 +26,19 @@
 #      first: an account password in CI is broader access than the scoped token
 #      beside it, and it cannot be limited to one repository.
 #
-# Left on workflow_dispatch rather than a push trigger so it does not fail on
-# every documentation change for anyone who has not made that choice.
+# The guard below is what makes the automatic trigger safe for a fork that has
+# made neither choice: with no secret the run succeeds with a notice instead of
+# failing on every documentation change.
 # =============================================================================
 
 name: Docker Hub description
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/dockerhub-*.md'
+      - '.github/workflows/dockerhub-description.yml'
   workflow_dispatch:
 
 env:

@@ -93,8 +93,17 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
 
   if (err instanceof SetupError) {
-    res.status(err.kind === 'already-configured' ? 409 : 400).json({
-      error: { code: `setup_${err.kind.replace('-', '_')}`, message: err.message },
+    // A conflict is a request that cannot apply to the current state — an
+    // account that already exists, the last one, your own. A weak password is
+    // the request itself being wrong.
+    const status =
+      err.kind === 'not-found'
+        ? 404
+        : err.kind === 'weak-password'
+          ? 400
+          : 409;
+    res.status(status).json({
+      error: { code: `setup_${err.kind.replaceAll('-', '_')}`, message: err.message },
     });
     return;
   }

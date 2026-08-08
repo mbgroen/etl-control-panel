@@ -14,6 +14,7 @@ import { Login } from './pages/Login';
 import { LogsPage } from './pages/LogsPage';
 import { Overview } from './pages/Overview';
 import { PlayersPage } from './pages/PlayersPage';
+import { AccountsPage } from './pages/AccountsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { Setup } from './pages/Setup';
 
@@ -109,6 +110,7 @@ export function App() {
               {/* The two used to share one page; keep old links working. */}
               <Route path="/downloads" element={<Navigate to="/maps" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/accounts" element={<AccountsPage />} />
               <Route path="/diagnostics" element={<DiagnosticsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
