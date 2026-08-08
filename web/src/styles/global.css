@@ -12,16 +12,16 @@
 
 :root,
 :root[data-theme='dark'] {
-  --canvas: #0a0e13;
-  --surface: #111821;
-  --surface-raised: #18212c;
-  --surface-sunken: #070a0e;
-  --border: #24303f;
-  --border-strong: #35455a;
+  --canvas: #080b11;
+  --surface: #0f141c;
+  --surface-raised: #161d27;
+  --surface-sunken: #05080d;
+  --border: #1e2733;
+  --border-strong: #33404f;
 
-  --text: #e6edf3;
-  --text-muted: #93a1b1;
-  --text-faint: #64748b;
+  --text: #eaf0f6;
+  --text-muted: #9aa7b5;
+  --text-faint: #6b7987;
 
   --accent: #e3a343;
   --accent-solid: #e3a343;
@@ -37,19 +37,30 @@
   --info: #58a6ff;
   --info-soft: #58a6ff21;
 
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
-  --grid-line: #ffffff0d;
+  /* Layered rather than one blur: a hairline to separate the surface from the
+     canvas, then a soft ambient shadow. A single heavy blur reads as 2015. */
+  --shadow-card:
+    0 0 0 1px rgb(255 255 255 / 0.02),
+    0 1px 2px rgb(0 0 0 / 0.5),
+    0 12px 32px -16px rgb(0 0 0 / 0.7);
+  --shadow-raised:
+    0 0 0 1px rgb(255 255 255 / 0.03),
+    0 2px 4px rgb(0 0 0 / 0.5),
+    0 20px 48px -20px rgb(0 0 0 / 0.8);
+  /* Catches the light along the top edge, the way real materials do. */
+  --edge-highlight: linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 40%);
+  --grid-line: #ffffff0a;
   /* ^7 (white) in the game maps to the theme's text colour so names stay legible. */
   --et-white: #e6edf3;
 }
 
 :root[data-theme='light'] {
-  --canvas: #eef2f6;
+  --canvas: #f2f5f9;
   --surface: #ffffff;
-  --surface-raised: #f7f9fb;
-  --surface-sunken: #e7edf3;
-  --border: #d9e0e7;
-  --border-strong: #b6c2ce;
+  --surface-raised: #f8fafc;
+  --surface-sunken: #eaeff5;
+  --border: #dfe5ec;
+  --border-strong: #b8c4d0;
 
   --text: #17202a;
   --text-muted: #55636f;
@@ -69,8 +80,16 @@
   --info: #0b62c4;
   --info-soft: #0b62c414;
 
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 8px 24px -16px rgb(16 24 40 / 0.24);
-  --grid-line: #17202a0f;
+  --shadow-card:
+    0 0 0 1px rgb(16 24 40 / 0.02),
+    0 1px 2px rgb(16 24 40 / 0.05),
+    0 12px 32px -20px rgb(16 24 40 / 0.22);
+  --shadow-raised:
+    0 0 0 1px rgb(16 24 40 / 0.03),
+    0 2px 4px rgb(16 24 40 / 0.06),
+    0 20px 48px -24px rgb(16 24 40 / 0.3);
+  --edge-highlight: linear-gradient(180deg, rgb(255 255 255 / 0.8), transparent 40%);
+  --grid-line: #17202a0d;
   --et-white: #17202a;
 }
 
@@ -132,6 +151,17 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Proportional figures read better in prose; tables opt into tabular. */
+  font-variant-numeric: proportional-nums;
+}
+
+/* Headings carry the hierarchy, so they get the optical corrections that make
+   a dense interface feel composed rather than cramped. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.011em;
+  text-wrap: balance;
 }
 
 /* A single, always-visible focus treatment. Keyboard users must never have to
@@ -139,7 +169,7 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 ::selection {
@@ -174,10 +204,38 @@ body {
    ========================================================================== */
 
 @utility card {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: var(--shadow-card);
+}
+
+/* The top-edge sheen. Drawn as a pseudo-element so it survives any background
+   the card itself sets, and marked inert so it never eats a click. */
+@utility card {
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--edge-highlight);
+    pointer-events: none;
+  }
+}
+
+/* For cards that are themselves a control — a link or a button. */
+@utility card-interactive {
+  transition:
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-raised);
+    transform: translateY(-1px);
+  }
 }
 
 @utility tabular {

@@ -19,17 +19,20 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
+  // The primary action gets a slight lift and a soft accent glow, which is what
+  // separates "the button" from "a button" at a glance.
   primary:
-    'bg-accent-solid text-accent-on hover:brightness-110 active:brightness-95 border border-transparent font-semibold',
+    'bg-accent-solid text-accent-on border border-transparent font-semibold shadow-[0_1px_2px_rgb(0_0_0/0.2)] hover:brightness-110 hover:shadow-[0_2px_10px_-2px_var(--accent-soft),0_1px_2px_rgb(0_0_0/0.25)] active:brightness-95 active:translate-y-px',
   secondary:
-    'bg-raised text-body border border-line hover:border-line-strong hover:bg-sunken',
+    'bg-raised text-body border border-line hover:border-line-strong hover:bg-sunken active:translate-y-px',
   ghost: 'bg-transparent text-muted border border-transparent hover:bg-raised hover:text-body',
-  danger: 'bg-danger-soft text-danger border border-danger/40 hover:bg-danger hover:text-white',
+  danger:
+    'bg-danger-soft text-danger border border-danger/40 hover:bg-danger hover:text-white hover:border-danger active:translate-y-px',
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
-  sm: 'h-8 px-2.5 text-xs gap-1.5',
-  md: 'h-9 px-3.5 text-[13px] gap-2',
+  sm: 'h-8 px-3 text-xs gap-1.5 rounded-lg',
+  md: 'h-9 px-3.5 text-[13px] gap-2 rounded-lg',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -51,7 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       // spinner alone does not convey.
       aria-busy={loading || undefined}
       disabled={disabled || loading}
-      className={`inline-flex shrink-0 items-center justify-center rounded-md transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-45 ${BUTTON_VARIANTS[variant]} ${BUTTON_SIZES[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-45 disabled:active:translate-y-0 ${BUTTON_VARIANTS[variant]} ${BUTTON_SIZES[size]} ${className}`}
       {...rest}
     >
       {loading ? <Loader2 size={14} className="spin" aria-hidden /> : icon}
@@ -138,9 +141,13 @@ export function Panel({
       className={`card flex min-w-0 scroll-mt-20 flex-col ${className}`}
     >
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <header className="relative flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5">
           <div className="min-w-0">
-            {title && <h2 className="truncate text-[13px] font-semibold text-body">{title}</h2>}
+            {title && (
+              <h2 className="truncate text-[13.5px] font-semibold tracking-[-0.006em] text-body">
+                {title}
+              </h2>
+            )}
             {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
@@ -187,7 +194,7 @@ export function Field({ label, hint, error, htmlFor, children, className = '' }:
 export function Input({ className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`h-9 w-full rounded-md border border-line bg-sunken px-3 text-[13px] text-body placeholder:text-faint transition-colors focus:border-accent focus:outline-none disabled:opacity-50 ${className}`}
+      className={`h-9 w-full rounded-lg border border-line bg-sunken px-3 text-[13px] text-body placeholder:text-faint transition-[border-color,box-shadow] duration-150 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft disabled:opacity-50 ${className}`}
       {...rest}
     />
   );
@@ -232,7 +239,7 @@ export function PasswordInput({
         type={showing ? 'text' : 'password'}
         aria-describedby={revealDisabledReason ? hintId : rest['aria-describedby']}
         // Room for the button, so a long value does not run underneath it.
-        className={`h-9 w-full rounded-md border border-line bg-sunken pl-3 pr-10 text-[13px] text-body placeholder:text-faint transition-colors focus:border-accent focus:outline-none disabled:opacity-50 ${className}`}
+        className={`h-9 w-full rounded-lg border border-line bg-sunken pl-3 pr-10 text-[13px] text-body placeholder:text-faint transition-[border-color,box-shadow] duration-150 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft disabled:opacity-50 ${className}`}
       />
 
       <button
@@ -265,7 +272,7 @@ export function Select({
 }: InputHTMLAttributes<HTMLSelectElement> & { children: ReactNode }) {
   return (
     <select
-      className={`h-9 w-full rounded-md border border-line bg-sunken px-2.5 text-[13px] text-body transition-colors focus:border-accent focus:outline-none ${className}`}
+      className={`h-9 w-full rounded-lg border border-line bg-sunken px-2.5 text-[13px] text-body transition-[border-color,box-shadow] duration-150 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft ${className}`}
       {...rest}
     >
       {children}

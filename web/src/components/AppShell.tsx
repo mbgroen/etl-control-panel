@@ -21,21 +21,36 @@ import { Badge, Button, StatusDot } from './ui';
 /**
  * Application shell: identity, navigation, live status.
  *
- * Six destinations, flat — under Miller's limit, so no nesting or overflow menu
- * is needed. The header keeps the two facts an operator checks constantly
- * (is the server up, is this page current) visible from every screen.
+ * Seven destinations is past the point where a flat list reads as a list rather
+ * than a menu, so they are grouped by the question being asked. Watching what
+ * the server is doing, changing what it does, and checking the plumbing are
+ * three different errands, and someone here to do one of them should not have
+ * to read the other two.
+ *
+ * The groups are ordered by how often they are opened, not by importance.
  */
 
-const NAV = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
-  // Directly after Overview: both answer "what is happening on my server", and
-  // this is the one an operator of a public server opens most.
-  { to: '/players', label: 'Players', icon: Users, end: false },
-  { to: '/console', label: 'Console', icon: Terminal, end: false },
-  { to: '/logs', label: 'Logs', icon: Activity, end: false },
-  { to: '/configuration', label: 'Configuration', icon: SlidersHorizontal, end: false },
-  { to: '/downloads', label: 'Maps & FastDL', icon: Download, end: false },
-  { to: '/diagnostics', label: 'Diagnostics', icon: Stethoscope, end: false },
+const NAV_GROUPS = [
+  {
+    label: 'Monitor',
+    items: [
+      { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+      { to: '/players', label: 'Players', icon: Users, end: false },
+      { to: '/logs', label: 'Logs', icon: Activity, end: false },
+    ],
+  },
+  {
+    label: 'Manage',
+    items: [
+      { to: '/console', label: 'Console', icon: Terminal, end: false },
+      { to: '/configuration', label: 'Configuration', icon: SlidersHorizontal, end: false },
+      { to: '/downloads', label: 'Maps & FastDL', icon: Download, end: false },
+    ],
+  },
+  {
+    label: 'System',
+    items: [{ to: '/diagnostics', label: 'Diagnostics', icon: Stethoscope, end: false }],
+  },
 ] as const;
 
 export function AppShell({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
@@ -86,34 +101,49 @@ export function AppShell({ children, onLogout }: { children: ReactNode; onLogout
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-2" aria-label="Main">
-          <ul className="flex flex-col gap-0.5">
-            {NAV.map(({ to, label, icon: Icon, end }) => (
-              <li key={to}>
-                <NavLink
-                  to={to}
-                  end={end}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
-                      isActive
-                        ? 'bg-accent-soft font-medium text-accent'
-                        : 'text-muted hover:bg-raised hover:text-body'
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon size={16} aria-hidden />
-                      {label}
-                      {/* Marks the current page for screen readers, which cannot
-                          see the highlight. */}
-                      {isActive && <span className="sr-only">(current page)</span>}
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+        <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Main">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="mb-4 last:mb-0">
+              <h2 className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-faint">
+                {group.label}
+              </h2>
+              <ul className="flex flex-col gap-0.5">
+                {group.items.map(({ to, label, icon: Icon, end }) => (
+                  <li key={to}>
+                    <NavLink
+                      to={to}
+                      end={end}
+                      className={({ isActive }) =>
+                        `group relative flex items-center gap-2.5 rounded-lg py-2 pl-3.5 pr-2.5 text-[13px] transition-colors duration-150 ${
+                          isActive
+                            ? 'bg-accent-soft font-medium text-accent'
+                            : 'text-muted hover:bg-raised hover:text-body'
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {/* A bar rather than only a tint: the active item stays
+                              identifiable without relying on colour alone. */}
+                          <span
+                            aria-hidden
+                            className={`absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full transition-all duration-150 ${
+                              isActive ? 'bg-accent opacity-100' : 'bg-transparent opacity-0'
+                            }`}
+                          />
+                          <Icon size={16} aria-hidden className="shrink-0" />
+                          {label}
+                          {/* Marks the current page for screen readers, which
+                              cannot see the highlight. */}
+                          {isActive && <span className="sr-only">(current page)</span>}
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         <div className="shrink-0 border-t border-line p-2">
