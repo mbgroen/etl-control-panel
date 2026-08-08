@@ -313,6 +313,21 @@ function ProblemList({ problems }: { problems: ConfigProblem[] }) {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Cvars this page deliberately no longer holds, and where they went.
+ *
+ * Removing the Downloads section fixed one problem — two screens claiming to
+ * own sv_wwwBaseURL — and would have created another: someone who knows the
+ * cvar searches for it, finds nothing, and concludes the dashboard cannot set
+ * it. A search that comes up empty should say where to look.
+ */
+const MOVED = [
+  {
+    match: /^sv_(www|dl|allowdownload)/i,
+    where: 'Download and FastDL settings are on the FastDL page under Manage.',
+  },
+];
+
 /** Lower-case cvar name to the spelling the schema uses. */
 const CANONICAL_KEYS = new Map(ALL_CVARS.map((spec) => [spec.key.toLowerCase(), spec.key]));
 
@@ -452,7 +467,8 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
         {query.trim() ? (
           <p className="text-xs text-muted" role="status">
             {matchCount === 0
-              ? 'Nothing matches. Try the cvar name, or look in the raw editor.'
+              ? (MOVED.find((entry) => entry.match.test(query.trim()))?.where ??
+                'Nothing matches. Try the cvar name, or look in the raw editor.')
               : `${matchCount} setting${matchCount === 1 ? '' : 's'} match — advanced ones included.`}
           </p>
         ) : (

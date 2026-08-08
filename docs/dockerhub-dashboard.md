@@ -19,7 +19,7 @@ download (FastDL) server — all from a browser.
 - **RCON console** — full console with history and one-click common commands.
   The password is read from the server config, so there is nothing to keep in
   sync and changing it never locks you out.
-- **Configuration** — guided forms for around 190 server cvars in nineteen
+- **Configuration** — guided forms for around 190 server cvars in eighteen
   sections, behind three levels of detail so the everyday ones stay findable; a
   map-rotation builder, a raw editor with validation, and automatic timestamped
   backups.
@@ -27,7 +27,8 @@ download (FastDL) server — all from a browser.
   contains, and add any of them to the rotation in a click. Stock game files
   are protected from deletion.
 - **FastDL** — enable HTTP map downloads in one action; it starts the web
-  server *and* writes the matching cvars, then tests reachability.
+  server *and* writes the matching cvars, then tests reachability. Every
+  download setting lives here, including the in-game transfer limits.
 - **Accounts** — several administrators, each with their own login. Add and
   remove them, or set a password for someone who has lost theirs; removing an
   account ends its session at once.
@@ -79,7 +80,7 @@ Docker socket for container control and log streaming.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `2.7.0` | An exact version. Never moves — use this to pin |
+| `2.8.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 

@@ -1,5 +1,5 @@
 import { CheckCircle2, CloudDownload, FileArchive, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Badge,
   Button,
@@ -15,7 +15,7 @@ import { api, ApiError } from '../lib/api';
 import { formatBytes } from '../lib/format';
 import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
-import type { FastdlPayload } from '../lib/types';
+import type { ConfigPayload, FastdlPayload } from '../lib/types';
 
 /**
  * FastDL — how clients fetch maps they are missing.
@@ -24,14 +24,28 @@ import type { FastdlPayload } from '../lib/types';
  * were on one screen because FastDL serves the same directory, but that is a
  * fact about the implementation, not about the work: installing maps happens
  * often, and setting up downloads happens roughly once.
+ *
+ * Every download cvar lives here, including the ones the enable button does not
+ * touch. They used to be duplicated in a Downloads section on the Configuration
+ * page, where editing the base URL silently disagreed with the state this page
+ * reports — two screens claiming to own one setting, and the one people found
+ * first was the one that did not run the container.
  */
 export function FastdlPage() {
   const toast = useToast();
   const { refresh } = useLive();
   const [state, setState] = useState<FastdlPayload | null>(null);
+  const [config, setConfig] = useState<ConfigPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    // The config is a separate concern and a separate failure: a server with no
+    // etl_server.cfg yet still has a FastDL container to look at.
+    api.config
+      .get()
+      .then(setConfig)
+      .catch(() => setConfig(null));
+
     try {
       setState(await api.fastdl.get());
     } catch (err) {
@@ -54,14 +68,22 @@ export function FastdlPage() {
 
   if (loading) return <Spinner label="Loading FastDL" />;
 
+  // Inspecting the FastDL container needs the Docker socket; editing the
+  // download cvars does not. Losing the first must not take the second with it,
+  // or this page becomes a dead end for settings that live nowhere else.
   if (!state) {
     return (
-      <Panel title="HTTP downloads (FastDL)">
-        <p className="text-xs text-muted">
-          Unavailable — the dashboard cannot reach the Docker daemon, which it needs to inspect and
-          control the FastDL container. See Diagnostics for the fix.
-        </p>
-      </Panel>
+      <div className="flex flex-col gap-4">
+        <Panel title="HTTP downloads (FastDL)">
+          <p className="text-xs text-muted">
+            Unavailable — the dashboard cannot reach the Docker daemon, which it needs to inspect
+            and control the FastDL container. See Diagnostics for the fix. The settings below are
+            read from the server config and still work.
+          </p>
+        </Panel>
+
+        <TransferPanel config={config} onSaved={load} />
+      </div>
     );
   }
 
@@ -97,7 +119,149 @@ export function FastdlPage() {
           await refresh();
         }}
       />
+
+      <TransferPanel config={config} onSaved={load} />
     </div>
+  );
+}
+
+
+/**
+ * The download cvars the enable button does not set.
+ *
+ * Enabling FastDL writes sv_allowDownload, sv_wwwDownload, sv_wwwBaseURL and
+ * sv_wwwDlDisconnected — those belong to the panel above and are not repeated
+ * here. What is left is the fallback mirror and the limits on the slow in-game
+ * transfer, which is what clients still use when FastDL is off or unreachable.
+ */
+function TransferPanel({
+  config,
+  onSaved,
+}: {
+  config: ConfigPayload | null;
+  onSaved: () => Promise<void>;
+}) {
+  const toast = useToast();
+  const initial = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const cvar of config?.cvars ?? []) map[cvar.key.toLowerCase()] = cvar.value;
+    return {
+      sv_allowDownload: map.sv_allowdownload ?? '1',
+      sv_wwwFallbackURL: map.sv_wwwfallbackurl ?? '',
+      sv_dlRate: map.sv_dlrate ?? '100',
+      sv_dl_timeout: map.sv_dl_timeout ?? '240',
+    };
+  }, [config]);
+
+  const [draft, setDraft] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setDraft(initial), [initial]);
+
+  if (!config) {
+    return (
+      <Panel title="Transfer settings">
+        <p className="text-xs text-muted">
+          No server config yet. Create one on the Configuration page and these settings appear here.
+        </p>
+      </Panel>
+    );
+  }
+
+  const changed = Object.entries(draft).filter(
+    ([key, value]) => initial[key as keyof typeof initial] !== value,
+  );
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.config.patch(Object.fromEntries(changed), config.revision, true);
+      toast.success(`Saved ${changed.length} setting${changed.length === 1 ? '' : 's'}`);
+      await onSaved();
+    } catch (err) {
+      toast.error('Could not save', err instanceof ApiError ? err.message : 'Unexpected error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const set = (key: keyof typeof draft) => (value: string) =>
+    setDraft((current) => ({ ...current, [key]: value }));
+
+  return (
+    <Panel
+      title="Transfer settings"
+      description="The in-game fallback, used whenever HTTP downloads are off or a client cannot reach them."
+      actions={
+        <Button
+          variant="primary"
+          size="sm"
+          loading={saving}
+          disabled={changed.length === 0}
+          onClick={() => void save()}
+        >
+          {changed.length === 0 ? 'Saved' : `Save ${changed.length} change${changed.length === 1 ? '' : 's'}`}
+        </Button>
+      }
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <Toggle
+            checked={draft.sv_allowDownload === '1'}
+            onChange={(next) => set('sv_allowDownload')(next ? '1' : '0')}
+            label="Allow downloads at all"
+            description="Off means a player missing a map simply cannot join — not even over HTTP."
+          />
+        </div>
+
+        <Field
+          label="Fallback URL"
+          htmlFor="fastdl-fallback"
+          hint="A second HTTP mirror, tried when the base URL above fails for a client. Usually empty."
+        >
+          <Input
+            id="fastdl-fallback"
+            value={draft.sv_wwwFallbackURL}
+            spellCheck={false}
+            className="font-mono"
+            placeholder="http://mirror.example.com"
+            onChange={(event) => set('sv_wwwFallbackURL')(event.target.value)}
+          />
+        </Field>
+
+        <Field
+          label="In-game download rate"
+          htmlFor="fastdl-rate"
+          hint="KB/s for the built-in transfer. Does not affect HTTP downloads, which run at line speed."
+        >
+          <Input
+            id="fastdl-rate"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={10_000}
+            value={draft.sv_dlRate}
+            onChange={(event) => set('sv_dlRate')(event.target.value)}
+          />
+        </Field>
+
+        <Field
+          label="Download timeout"
+          htmlFor="fastdl-timeout"
+          hint="Seconds a downloading client may go quiet before it is dropped. Default 240."
+        >
+          <Input
+            id="fastdl-timeout"
+            type="number"
+            inputMode="numeric"
+            min={10}
+            max={600}
+            value={draft.sv_dl_timeout}
+            onChange={(event) => set('sv_dl_timeout')(event.target.value)}
+          />
+        </Field>
+      </div>
+    </Panel>
   );
 }
 

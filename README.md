@@ -515,7 +515,7 @@ to read something, and pausing buffers rather than drops lines.
 
 **Configuration** — four views over one file:
 
-- *Settings* — guided fields for the cvars people actually change, in nineteen
+- *Settings* — guided fields for the cvars people actually change, in eighteen
   sections from Identity to Protection. Each says whether it applies
   immediately, at the next map, or needs a restart.
 
@@ -575,9 +575,21 @@ rather than quietly dropped — the rotation is yours to change, not ours.
 
 The rotation is edited here and nowhere else.
 
-**FastDL** — its own page. It serves the same directory the map library
-manages, but that is a fact about the implementation: installing maps happens
-often, setting up downloads happens roughly once.
+**FastDL** — its own page, and the only place download settings live. Enabling
+writes `sv_allowDownload`, `sv_wwwDownload`, `sv_wwwBaseURL` and
+`sv_wwwDlDisconnected` for you; below that sit the settings the button does not
+touch — the fallback mirror and the limits on the slow in-game transfer that
+clients fall back to.
+
+Those used to be duplicated in a Downloads section under Configuration, which
+meant two screens claiming to own one setting: editing the base URL there left
+this page reporting a state it no longer had, and the screen people found first
+was the one that could not start the container. Searching Configuration for
+`sv_wwwBaseURL` now points here instead of coming up empty.
+
+It serves the same directory the map library manages, but that is a fact about
+the implementation: installing maps happens often, setting up downloads happens
+roughly once.
 
 **Settings** — the dashboard's own preferences, kept apart from the game
 server's config: the upload limit, and how many config backups and player visits
@@ -648,6 +660,15 @@ or behind a VPN or an authenticating reverse proxy.
   grant only `CONTAINERS=1`, `POST=1`.
 - **Run behind TLS if it leaves your LAN**, and set `COOKIE_SECURE=true` when
   you do.
+- **PunkBuster is gone.** ET: Legacy dropped it — the browser even hides
+  PunkBuster servers — and the service behind it has been dead for years. What
+  replaces it is server-side: `sv_pure` against modified pk3 files,
+  `g_guidCheck` against clients without a valid GUID, and `sv_wh_active`, which
+  stops sending the positions of players you cannot see so a wallhack has
+  nothing to draw. All three are under Configuration; only the last costs CPU.
+  Client-side cvar rules (`sv_cvar cl_maxpackets IN 60 125`) can go in the
+  config file, but they are checked by the client, so treat them as a guardrail
+  rather than a defence.
 - **RCON is cleartext UDP** — that is the protocol, not this implementation.
   Keep the game server and dashboard on the same host or a trusted network.
 - Sessions are httpOnly, `SameSite=Strict` JWT cookies. Login is rate-limited
