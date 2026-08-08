@@ -62,7 +62,7 @@ services:
   # ---------------------------------------------------------------------------
   # Control panel — web UI and API.
   # ---------------------------------------------------------------------------
-  control panel:
+  control-panel:
     container_name: etl-control-panel
     # Tracks the latest release. Pin to a version tag (e.g. :1.1.0) if you would
     # rather decide when to move; upgrade either way with

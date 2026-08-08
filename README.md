@@ -368,8 +368,8 @@ empty and the control panel will ask you to create an account on first visit.
 To manage them declaratively instead, build the image and use the generator:
 
 ```bash
-docker compose build control panel
-docker compose run --rm --no-deps --entrypoint node control panel dist/cli/hashPassword.js
+docker compose build control-panel
+docker compose run --rm --no-deps --entrypoint node control-panel dist/cli/hashPassword.js
 ```
 
 It prompts for a password and prints an `ADMIN_PASSWORD_HASH` and a random
@@ -874,7 +874,7 @@ created world-readable — this only affects files brought in by other means.
 Logs:
 
 ```bash
-docker compose logs -f control panel
+docker compose logs -f control-panel
 docker compose logs -f etlegacy
 ```
 

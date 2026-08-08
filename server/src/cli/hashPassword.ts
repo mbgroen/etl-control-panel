@@ -5,7 +5,7 @@
  * configuration exists, so pulling in `env.ts` (which exits on missing config)
  * would make it unusable for exactly the job it is meant to do.
  *
- *   docker compose run --rm --no-deps control panel node dist/cli/hashPassword.js
+ *   docker compose run --rm --no-deps control-panel node dist/cli/hashPassword.js
  */
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';

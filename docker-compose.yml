@@ -53,7 +53,7 @@ services:
   # ---------------------------------------------------------------------------
   # Control panel: REST API, WebSocket, and the web UI.
   # ---------------------------------------------------------------------------
-  control panel:
+  control-panel:
     container_name: etl-control-panel
     build:
       context: .
