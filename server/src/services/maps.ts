@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../env.js';
 import { logger } from '../logger.js';
+import { mapNamesIn } from './pk3.js';
 
 /**
  * The pk3 library.
@@ -21,6 +22,13 @@ export interface MapPackage {
   modifiedAt: string;
   /** True for the stock paks that ship with the game and must not be removed. */
   stock: boolean;
+  /**
+   * Playable maps the package actually contains, read from its `maps/*.bsp`
+   * entries. A pk3 is frequently named differently from the map inside it, so
+   * this is the only reliable answer to "what do I put in the rotation?" —
+   * previously an rcon round trip on another screen.
+   */
+  maps: string[];
 }
 
 /**
@@ -96,6 +104,7 @@ export async function listMaps(): Promise<MapPackage[]> {
             sizeBytes: stat.size,
             modifiedAt: stat.mtime.toISOString(),
             stock: isStockPak(filename),
+            maps: await mapNamesIn(path.join(env.ETMAIN_PATH, filename)),
           };
         } catch {
           // File vanished between readdir and stat — skip it.
@@ -161,6 +170,7 @@ export async function installUpload(tempPath: string, originalName: string): Pro
     sizeBytes: stat.size,
     modifiedAt: stat.mtime.toISOString(),
     stock: false,
+    maps: await mapNamesIn(target),
   };
 }
 

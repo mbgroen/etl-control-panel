@@ -1,4 +1,5 @@
 import {
+  Settings,
   Users,
   Activity,
   Download,
@@ -49,7 +50,10 @@ const NAV_GROUPS = [
   },
   {
     label: 'System',
-    items: [{ to: '/diagnostics', label: 'Diagnostics', icon: Stethoscope, end: false }],
+    items: [
+      { to: '/settings', label: 'Settings', icon: Settings, end: false },
+      { to: '/diagnostics', label: 'Diagnostics', icon: Stethoscope, end: false },
+    ],
   },
 ] as const;
 

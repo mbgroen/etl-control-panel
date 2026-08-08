@@ -152,6 +152,52 @@ const rotationSchema = z.object({
   expectedRevision: z.string().optional(),
 });
 
+/**
+ * Appends maps to the rotation without replacing it.
+ *
+ * The Maps page needs "add this one" rather than "here is the whole list
+ * again": rebuilding the full rotation from a screen that does not show it
+ * would mean the caller having to fetch, merge and resend it just to add one
+ * entry, with a lost update waiting in the gap.
+ */
+configRouter.post(
+  '/rotation/add',
+  asyncHandler(async (req, res) => {
+    const { maps } = z
+      .object({
+        maps: z
+          .array(z.string().regex(/^[A-Za-z0-9_\-]{1,64}$/, 'Invalid map name'))
+          .min(1)
+          .max(64),
+      })
+      .parse(req.body);
+
+    const current = await readConfig();
+    const existing = parseRotation(current.content).map((entry) => entry.map);
+    // Already-present maps are dropped rather than rejected: adding a map twice
+    // is a mistake, not an error worth stopping the whole request for.
+    const additions = maps.filter((map) => !existing.includes(map));
+
+    if (additions.length === 0) {
+      res.json({ added: [], rotation: parseRotation(current.content), alreadyPresent: maps });
+      return;
+    }
+
+    const next = buildRotation(current.content, [...existing, ...additions]);
+    const result = await saveConfig(next, {
+      expectedRevision: current.revision,
+      note: `Added ${additions.join(', ')} to the rotation`,
+    });
+
+    res.json({
+      ...result,
+      added: additions,
+      alreadyPresent: maps.filter((map) => existing.includes(map)),
+      rotation: parseRotation(next),
+    });
+  }),
+);
+
 configRouter.put(
   '/rotation',
   asyncHandler(async (req, res) => {

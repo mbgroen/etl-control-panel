@@ -1,10 +1,12 @@
-import { Bot, Globe, House, RefreshCw, Server, Users } from 'lucide-react';
+import { Bot, Globe, House, RefreshCw, Server, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Badge, Button, EmptyState, Panel, Spinner, StatusDot } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { countryLabel, flagFor, formatDuration } from '../lib/country';
 import { formatDateTime, formatRelative } from '../lib/format';
 import { useLive } from '../lib/live';
+import { useToast } from '../lib/toast';
 import type { PlayerSession, PlayerSessionsPayload } from '../lib/types';
 
 /**
@@ -22,6 +24,10 @@ export function PlayersPage() {
   const [data, setData] = useState<PlayerSessionsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   const load = useCallback(async () => {
     try {
@@ -33,6 +39,23 @@ export function PlayersPage() {
       setLoading(false);
     }
   }, []);
+
+  const remove = async (options: { all?: boolean }) => {
+    setBusy(true);
+    try {
+      const { removed } = await api.server.deleteSessions(
+        options.all ? { all: true } : { ids: [...selected] },
+      );
+      setSelected(new Set());
+      toast.success(`Deleted ${removed} visit${removed === 1 ? '' : 's'}`);
+      await load();
+    } catch (err) {
+      toast.error('Could not delete', err instanceof ApiError ? err.message : 'Unexpected error');
+    } finally {
+      setBusy(false);
+      setConfirmClear(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -81,11 +104,42 @@ export function PlayersPage() {
 
       <Panel
         title="Earlier visits"
-        description="Finished sessions, most recent first. Kept across restarts."
+        description="Finished sessions, most recent first. Kept across restarts, up to the limit set under Settings."
+        actions={
+          data && data.recent.length > 0 ? (
+            selected.size > 0 ? (
+              <>
+                <span className="text-xs text-muted">{selected.size} selected</span>
+                <Button size="sm" onClick={() => setSelected(new Set())}>
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  loading={busy}
+                  icon={<Trash2 size={13} aria-hidden />}
+                  onClick={() => void remove({})}
+                >
+                  Delete
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
+                Clear history
+              </Button>
+            )
+          ) : undefined
+        }
         bodyClassName="p-0"
       >
         {data && data.recent.length > 0 ? (
-          <SessionTable sessions={data.recent} />
+          <SessionTable sessions={data.recent} selected={selected} onToggle={(id) =>
+            setSelected((current) => {
+              const next = new Set(current);
+              if (!next.delete(id)) next.add(id);
+              return next;
+            })
+          } />
         ) : (
           <div className="p-4">
             <EmptyState
@@ -96,6 +150,17 @@ export function PlayersPage() {
           </div>
         )}
       </Panel>
+
+      <ConfirmDialog
+        open={confirmClear}
+        tone="danger"
+        title="Clear the whole visit history?"
+        description="Every finished visit is removed. Players connected right now are unaffected, and new visits are recorded as usual."
+        confirmLabel="Clear history"
+        loading={busy}
+        onConfirm={() => void remove({ all: true })}
+        onCancel={() => setConfirmClear(false)}
+      />
     </div>
   );
 }
@@ -172,12 +237,23 @@ function OriginCell({ session }: { session: PlayerSession }) {
   );
 }
 
-function SessionTable({ sessions, live = false }: { sessions: PlayerSession[]; live?: boolean }) {
+function SessionTable({
+  sessions,
+  live = false,
+  selected,
+  onToggle,
+}: {
+  sessions: PlayerSession[];
+  live?: boolean;
+  selected?: Set<string>;
+  onToggle?: (id: string) => void;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-[13px]">
         <thead className="border-b border-line text-xs text-muted">
           <tr>
+            {onToggle && <th scope="col" className="w-10 px-4 py-2" />}
             <th scope="col" className="px-4 py-2 font-medium">Player</th>
             <th scope="col" className="px-4 py-2 font-medium">From</th>
             <th scope="col" className="px-4 py-2 font-medium">Address</th>
@@ -188,6 +264,17 @@ function SessionTable({ sessions, live = false }: { sessions: PlayerSession[]; l
         <tbody className="divide-y divide-line">
           {sessions.map((session) => (
             <tr key={session.id}>
+              {onToggle && (
+                <td className="px-4 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={selected?.has(session.id) ?? false}
+                    onChange={() => onToggle(session.id)}
+                    className="size-4 accent-[var(--accent-solid)]"
+                    aria-label={`Select the visit by ${session.nameClean || 'this player'}`}
+                  />
+                </td>
+              )}
               <td className="px-4 py-2.5">
                 <span className="flex items-center gap-2">
                   {live && <StatusDot tone="success" pulse />}

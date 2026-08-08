@@ -1,4 +1,6 @@
 import {
+  Check,
+  Plus,
   CheckCircle2,
   CloudDownload,
   FileArchive,
@@ -46,6 +48,38 @@ export function DownloadsPage() {
   const [loading, setLoading] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<MapPackage | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rotationBusy, setRotationBusy] = useState<string | null>(null);
+  const [inRotation, setInRotation] = useState<Set<string>>(new Set());
+
+  // The rotation lives in the server config rather than in the map list, so it
+  // is fetched here purely to mark which maps are already scheduled. A tick
+  // beside the name is far cheaper than sending someone to another page to
+  // check, which is what this workflow used to require.
+  useEffect(() => {
+    void api.config
+      .get()
+      .then((config) => setInRotation(new Set(config.rotation.map((entry) => entry.map))))
+      .catch(() => setInRotation(new Set()));
+  }, []);
+
+  const addToRotation = async (name: string) => {
+    setRotationBusy(name);
+    try {
+      const result = await api.config.addToRotation([name]);
+      setInRotation(new Set(result.rotation.map((entry) => entry.map)));
+      toast.success(
+        `${name} added to the rotation`,
+        'It joins the end of the cycle. The running server picks it up on the next map change.',
+      );
+    } catch (err) {
+      toast.error(
+        'Could not add to the rotation',
+        err instanceof ApiError ? err.message : 'Unexpected error',
+      );
+    } finally {
+      setRotationBusy(null);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -144,6 +178,7 @@ export function DownloadsPage() {
               <thead>
                 <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-faint">
                   <th className="px-4 py-2 font-medium">File</th>
+                  <th className="px-4 py-2 font-medium">Maps inside</th>
                   <th className="px-4 py-2 text-right font-medium">Size</th>
                   <th className="px-4 py-2 font-medium">Modified</th>
                   <th className="px-4 py-2 text-right font-medium">Actions</th>
@@ -161,6 +196,46 @@ export function DownloadsPage() {
                         </Badge>
                       )}
                     </td>
+
+                    {/* The name a rotation entry needs is inside the archive and
+                        is often nothing like the filename, which is why finding
+                        it used to mean an rcon round trip on another page. */}
+                    <td className="px-4 py-2">
+                      {map.maps.length === 0 ? (
+                        <span className="text-xs text-faint" title="No maps/*.bsp entries found in this package">
+                          none
+                        </span>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {map.maps.map((name) => (
+                            <button
+                              key={name}
+                              type="button"
+                              disabled={rotationBusy === name || inRotation.has(name)}
+                              onClick={() => void addToRotation(name)}
+                              title={
+                                inRotation.has(name)
+                                  ? `${name} is already in the rotation`
+                                  : `Add ${name} to the map rotation`
+                              }
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[11px] transition-colors ${
+                                inRotation.has(name)
+                                  ? 'cursor-default border-success/30 bg-success-soft text-success'
+                                  : 'border-line text-muted hover:border-accent hover:bg-accent-soft hover:text-accent'
+                              }`}
+                            >
+                              {inRotation.has(name) ? (
+                                <Check size={10} aria-hidden />
+                              ) : (
+                                <Plus size={10} aria-hidden />
+                              )}
+                              {name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+
                     <td className="tabular px-4 py-2 text-right text-muted">
                       {formatBytes(map.sizeBytes)}
                     </td>

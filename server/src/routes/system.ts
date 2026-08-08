@@ -7,7 +7,11 @@ import { env } from '../env.js';
 import { asyncHandler } from '../http/errors.js';
 import * as docker from '../services/docker.js';
 import {
+  MAX_BACKUPS_CEILING,
+  MAX_HISTORY_CEILING,
   MAX_UPLOAD_MB_CEILING,
+  MIN_BACKUPS,
+  MIN_HISTORY,
   MIN_UPLOAD_MB,
   readSettings,
   writeSettings,
@@ -211,7 +215,14 @@ systemRouter.get(
   '/settings',
   asyncHandler(async (_req, res) => {
     const settings = await readSettings();
-    res.json({ ...settings, limits: { minUploadMb: MIN_UPLOAD_MB, maxUploadMb: MAX_UPLOAD_MB_CEILING } });
+    res.json({ ...settings, limits: {
+        minUploadMb: MIN_UPLOAD_MB,
+        maxUploadMb: MAX_UPLOAD_MB_CEILING,
+        minBackups: MIN_BACKUPS,
+        maxBackups: MAX_BACKUPS_CEILING,
+        minPlayerSessions: MIN_HISTORY,
+        maxPlayerSessions: MAX_HISTORY_CEILING,
+      } });
   }),
 );
 
@@ -221,13 +232,30 @@ const settingsSchema = z.object({
     .int('Whole megabytes only')
     .min(MIN_UPLOAD_MB, `Must be at least ${MIN_UPLOAD_MB} MB`)
     .max(MAX_UPLOAD_MB_CEILING, `Must be ${MAX_UPLOAD_MB_CEILING} MB or less`),
+  maxBackups: z.coerce
+    .number()
+    .int('Whole backups only')
+    .min(MIN_BACKUPS, `Keep at least ${MIN_BACKUPS}`)
+    .max(MAX_BACKUPS_CEILING, `Keep ${MAX_BACKUPS_CEILING} or fewer`),
+  maxPlayerSessions: z.coerce
+    .number()
+    .int('Whole visits only')
+    .min(MIN_HISTORY, `Keep at least ${MIN_HISTORY}`)
+    .max(MAX_HISTORY_CEILING, `Keep ${MAX_HISTORY_CEILING} or fewer`),
 });
 
 systemRouter.patch(
   '/settings',
   asyncHandler(async (req, res) => {
     const settings = await writeSettings(settingsSchema.parse(req.body));
-    res.json({ ...settings, limits: { minUploadMb: MIN_UPLOAD_MB, maxUploadMb: MAX_UPLOAD_MB_CEILING } });
+    res.json({ ...settings, limits: {
+        minUploadMb: MIN_UPLOAD_MB,
+        maxUploadMb: MAX_UPLOAD_MB_CEILING,
+        minBackups: MIN_BACKUPS,
+        maxBackups: MAX_BACKUPS_CEILING,
+        minPlayerSessions: MIN_HISTORY,
+        maxPlayerSessions: MAX_HISTORY_CEILING,
+      } });
   }),
 );
 

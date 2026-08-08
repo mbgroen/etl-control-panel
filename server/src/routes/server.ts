@@ -98,6 +98,18 @@ serverRouter.get(
   }),
 );
 
+serverRouter.post(
+  '/sessions/delete',
+  asyncHandler(async (req, res) => {
+    const { ids, all } = z
+      .object({ ids: z.array(z.string().max(200)).max(1000).optional(), all: z.boolean().optional() })
+      .parse(req.body ?? {});
+
+    const removed = all ? await playerSessions.forgetAll() : await playerSessions.forget(ids ?? []);
+    res.json({ removed });
+  }),
+);
+
 const playerActionSchema = z.object({
   slot: z.number().int().min(0).max(63),
   action: z.enum(['kick', 'ban', 'mute', 'unmute']),

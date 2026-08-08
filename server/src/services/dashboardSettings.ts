@@ -29,8 +29,25 @@ const SETTINGS_FILE = path.join(env.STATE_PATH, 'settings.json');
 export const MAX_UPLOAD_MB_CEILING = 2048;
 export const MIN_UPLOAD_MB = 1;
 
+/**
+ * Retention bounds.
+ *
+ * Both lists were fixed in code — thirty backups, five hundred visits — which
+ * is a policy decision an operator should be making. A ceiling still exists
+ * because both are single JSON files rewritten in one go, and "keep
+ * everything" would eventually mean rewriting megabytes on every save.
+ */
+export const MIN_BACKUPS = 1;
+export const MAX_BACKUPS_CEILING = 200;
+export const MIN_HISTORY = 10;
+export const MAX_HISTORY_CEILING = 5000;
+
 export interface DashboardSettings {
   maxUploadMb: number;
+  /** Config snapshots kept before the oldest is pruned. */
+  maxBackups: number;
+  /** Finished player visits kept before the oldest is pruned. */
+  maxPlayerSessions: number;
 }
 
 let cache: DashboardSettings | null = null;
@@ -43,9 +60,14 @@ let cache: DashboardSettings | null = null;
  * reader and the write path.
  */
 export function parseUploadMb(value: unknown): number | null {
+  return parseBounded(value, MIN_UPLOAD_MB, MAX_UPLOAD_MB_CEILING);
+}
+
+/** Shared bounds check, so "valid" has one definition per setting. */
+export function parseBounded(value: unknown, min: number, max: number): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
   const rounded = Math.round(value);
-  if (rounded < MIN_UPLOAD_MB || rounded > MAX_UPLOAD_MB_CEILING) return null;
+  if (rounded < min || rounded > max) return null;
   return rounded;
 }
 
@@ -60,13 +82,25 @@ export function parseUploadMb(value: unknown): number | null {
 export async function readSettings(): Promise<DashboardSettings> {
   if (cache) return cache;
 
-  const fallback: DashboardSettings = { maxUploadMb: env.MAX_UPLOAD_MB };
+  const fallback: DashboardSettings = {
+    maxUploadMb: env.MAX_UPLOAD_MB,
+    maxBackups: 30,
+    maxPlayerSessions: 500,
+  };
 
   try {
     const raw = await fs.readFile(SETTINGS_FILE, 'utf8');
-    const parsed: unknown = JSON.parse(raw);
-    const stored = parseUploadMb((parsed as { maxUploadMb?: unknown })?.maxUploadMb);
-    cache = stored === null ? fallback : { maxUploadMb: stored };
+    const parsed = JSON.parse(raw) as Partial<Record<keyof DashboardSettings, unknown>>;
+    // Each setting falls back independently, so one unreadable value does not
+    // discard the others.
+    cache = {
+      maxUploadMb: parseUploadMb(parsed?.maxUploadMb) ?? fallback.maxUploadMb,
+      maxBackups:
+        parseBounded(parsed?.maxBackups, MIN_BACKUPS, MAX_BACKUPS_CEILING) ?? fallback.maxBackups,
+      maxPlayerSessions:
+        parseBounded(parsed?.maxPlayerSessions, MIN_HISTORY, MAX_HISTORY_CEILING) ??
+        fallback.maxPlayerSessions,
+    };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
       logger.warn({ err }, 'could not read dashboard settings — using the environment defaults');
@@ -84,8 +118,18 @@ export async function writeSettings(next: DashboardSettings): Promise<DashboardS
       `Upload limit must be between ${MIN_UPLOAD_MB} and ${MAX_UPLOAD_MB_CEILING} MB`,
     );
   }
+  const maxBackups = parseBounded(next.maxBackups, MIN_BACKUPS, MAX_BACKUPS_CEILING);
+  if (maxBackups === null) {
+    throw new RangeError(`Backups kept must be between ${MIN_BACKUPS} and ${MAX_BACKUPS_CEILING}`);
+  }
+  const maxPlayerSessions = parseBounded(next.maxPlayerSessions, MIN_HISTORY, MAX_HISTORY_CEILING);
+  if (maxPlayerSessions === null) {
+    throw new RangeError(
+      `Player visits kept must be between ${MIN_HISTORY} and ${MAX_HISTORY_CEILING}`,
+    );
+  }
 
-  const settings: DashboardSettings = { maxUploadMb };
+  const settings: DashboardSettings = { maxUploadMb, maxBackups, maxPlayerSessions };
   await fs.mkdir(path.dirname(SETTINGS_FILE), { recursive: true });
 
   // Written to a temp file and renamed, so a crash mid-write cannot leave a
@@ -95,7 +139,7 @@ export async function writeSettings(next: DashboardSettings): Promise<DashboardS
   await fs.rename(temp, SETTINGS_FILE);
 
   cache = settings;
-  logger.info({ maxUploadMb }, 'dashboard settings updated');
+  logger.info({ maxUploadMb, maxBackups, maxPlayerSessions }, 'dashboard settings updated');
   return settings;
 }
 

@@ -21,8 +21,9 @@ download (FastDL) server — all from a browser.
   sync and changing it never locks you out.
 - **Configuration** — guided forms for common cvars, a map-rotation builder, a
   raw editor with validation, and automatic timestamped backups.
-- **Maps** — browse and upload `.pk3` packages from the browser; stock game
-  files are protected from deletion.
+- **Maps** — browse and upload `.pk3` packages, see which maps each one
+  contains, and add any of them to the rotation in a click. Stock game files
+  are protected from deletion.
 - **FastDL** — enable HTTP map downloads in one action; it starts the web
   server *and* writes the matching cvars, then tests reachability.
 - **Diagnostics** — every dependency checked, each failure paired with its fix.
@@ -57,7 +58,7 @@ since 2003, so the files are a free download.
 | `ETL_CONTAINER` | `etlegacy-server` | Container to start/stop and read logs from |
 | `ETMAIN_PATH` | `/data/etlegacy/etmain` | Game data directory inside this container |
 | `STATE_PATH` | `/data/dashboard` | Admin account, config backups, activity history |
-| `MAX_UPLOAD_MB` | `256` | Initial upload limit; editable in the UI afterwards |
+| `MAX_UPLOAD_MB` | `256` | Initial upload limit; editable under Settings afterwards, along with backup and visit retention |
 | `COOKIE_SECURE` | `false` | Set `true` only when serving over HTTPS |
 
 The full list is in

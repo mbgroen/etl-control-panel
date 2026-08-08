@@ -103,6 +103,8 @@ export interface MapPackage {
   sizeBytes: number;
   modifiedAt: string;
   stock: boolean;
+  /** Playable maps inside the package, read from its maps/*.bsp entries. */
+  maps: string[];
 }
 
 export interface MapsPayload {
@@ -134,7 +136,16 @@ export interface HealthCheck {
 /** Dashboard preferences, stored in its own state directory. */
 export interface DashboardSettings {
   maxUploadMb: number;
-  limits: { minUploadMb: number; maxUploadMb: number };
+  maxBackups: number;
+  maxPlayerSessions: number;
+  limits: {
+    minUploadMb: number;
+    maxUploadMb: number;
+    minBackups: number;
+    maxBackups: number;
+    minPlayerSessions: number;
+    maxPlayerSessions: number;
+  };
 }
 
 /** One visit by one player, open or finished. */

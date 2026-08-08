@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../env.js';
 import { logger } from '../logger.js';
+import { readSettings } from './dashboardSettings.js';
 import { classify, lookupCached, normaliseAddress, resolveInBackground } from './geoip.js';
 import type { PlayerStatus } from './q3protocol.js';
 
@@ -22,13 +23,7 @@ import type { PlayerStatus } from './q3protocol.js';
 
 const HISTORY_FILE = path.join(env.STATE_PATH, 'player-sessions.json');
 
-/**
- * How many finished sessions to keep.
- *
- * Enough to cover a busy weekend, small enough that the file stays trivial to
- * read and rewrite in one go.
- */
-const MAX_HISTORY = 500;
+
 
 /**
  * A player must be missing this long before the session is closed.
@@ -193,7 +188,8 @@ export async function observe(players: PlayerStatus[], observedAt = new Date()):
   }
 
   if (closedAny && history) {
-    history.length = Math.min(history.length, MAX_HISTORY);
+    const { maxPlayerSessions } = await readSettings();
+    history.length = Math.min(history.length, maxPlayerSessions);
     await persistHistory();
   }
 }
@@ -229,7 +225,31 @@ export function current(): PlayerSession[] {
 
 export async function recent(limit = 100): Promise<PlayerSession[]> {
   const stored = await loadHistory();
-  return stored.slice(0, Math.max(1, Math.min(limit, MAX_HISTORY)));
+  return stored.slice(0, Math.max(1, limit));
+}
+
+/** Removes specific finished visits. Returns how many actually went. */
+export async function forget(ids: string[]): Promise<number> {
+  const stored = await loadHistory();
+  const wanted = new Set(ids);
+  const remaining = stored.filter((session) => !wanted.has(session.id));
+  const removed = stored.length - remaining.length;
+
+  if (removed > 0) {
+    history = remaining;
+    await persistHistory();
+    logger.info({ removed }, 'player visits deleted');
+  }
+  return removed;
+}
+
+/** Clears the whole history. Sessions in progress are untouched. */
+export async function forgetAll(): Promise<number> {
+  const stored = await loadHistory();
+  history = [];
+  await persistHistory();
+  logger.info({ removed: stored.length }, 'player visit history cleared');
+  return stored.length;
 }
 
 /** Aggregate view: who has been here, how often, and for how long in total. */

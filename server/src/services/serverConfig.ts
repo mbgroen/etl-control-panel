@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../env.js';
+import { readSettings } from './dashboardSettings.js';
 import { logger } from '../logger.js';
 
 /**
@@ -16,7 +17,7 @@ import { logger } from '../logger.js';
 
 export const CONFIG_PATH = path.join(env.ETMAIN_PATH, env.SERVER_CONFIG_NAME);
 const BACKUP_DIR = path.join(env.STATE_PATH, 'backups');
-const MAX_BACKUPS = 30;
+
 
 /** Cvars that hold secrets. Their values are masked before leaving the API. */
 export const SECRET_CVARS = new Set([
@@ -423,7 +424,8 @@ async function createBackup(note: string): Promise<string | null> {
 
 async function pruneBackups(): Promise<void> {
   const backups = await listBackups();
-  const excess = backups.slice(MAX_BACKUPS);
+  const { maxBackups } = await readSettings();
+  const excess = backups.slice(maxBackups);
   await Promise.all(
     excess.flatMap((entry) => [
       fs.rm(path.join(BACKUP_DIR, `${entry.id}.cfg`), { force: true }),
@@ -458,7 +460,7 @@ export async function listBackups(): Promise<BackupEntry[]> {
 /**
  * Removes one backup.
  *
- * Backups are pruned automatically at MAX_BACKUPS, but that keeps the newest
+ * Backups are pruned automatically to the configured retention, but that keeps the newest
  * regardless of what they contain — so a snapshot taken with a password in it,
  * or one an operator simply does not want kept, could only be removed from a
  * shell. Deleting the pair is enough; a missing file is treated as success so

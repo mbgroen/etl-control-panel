@@ -118,7 +118,11 @@ export const api = {
     health: () => request<{ status: string; checks: HealthCheck[] }>('/system/health'),
     info: () => request<SystemInfo>('/system/info'),
     settings: () => request<DashboardSettings>('/system/settings'),
-    saveSettings: (body: { maxUploadMb: number }) =>
+    saveSettings: (body: {
+      maxUploadMb: number;
+      maxBackups: number;
+      maxPlayerSessions: number;
+    }) =>
       request<DashboardSettings>('/system/settings', { method: 'PATCH', ...json(body) }),
     logs: (service: 'game' | 'fastdl', tail = 300) =>
       request<{ service: string; lines: string[] }>(`/system/logs/${service}?tail=${tail}`),
@@ -142,6 +146,8 @@ export const api = {
       }),
     sessions: (limit = 100) =>
       request<PlayerSessionsPayload>(`/server/sessions?limit=${limit}`),
+    deleteSessions: (body: { ids?: string[]; all?: boolean }) =>
+      request<{ removed: number }>('/server/sessions/delete', { method: 'POST', ...json(body) }),
     history: (minutes: number, points = 180) =>
       request<HistoryPayload>(`/server/history?minutes=${minutes}&points=${points}`),
   },
@@ -185,6 +191,11 @@ export const api = {
         method: 'POST',
         ...json({ content }),
       }),
+    addToRotation: (maps: string[]) =>
+      request<{ added: string[]; alreadyPresent: string[]; rotation: { map: string }[] }>(
+        '/config/rotation/add',
+        { method: 'POST', ...json({ maps }) },
+      ),
     setRotation: (maps: string[], expectedRevision?: string) =>
       request<{ revision: string; rotation: { map: string }[] }>('/config/rotation', {
         method: 'PUT',

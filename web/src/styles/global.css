@@ -284,6 +284,64 @@ h3 {
   animation: etl-rise 0.18s ease-out;
 }
 
+/* ==========================================================================
+   Motion
+
+   Calm rather than lively: short durations, a single easing curve, and nothing
+   that moves without being asked. Motion here exists to explain where content
+   came from, not to decorate — anything that draws the eye twice is worse than
+   no animation on a screen someone watches for an hour.
+   ========================================================================== */
+
+@keyframes etl-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Panels settle in on first paint. Staggering is deliberately tiny — enough to
+   read as one motion rather than a cascade. */
+main .card {
+  animation: etl-enter 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+main .card:nth-of-type(2) {
+  animation-delay: 0.03s;
+}
+
+main .card:nth-of-type(3) {
+  animation-delay: 0.06s;
+}
+
+main .card:nth-of-type(n + 4) {
+  animation-delay: 0.09s;
+}
+
+/* Rows and list items that arrive after load — a player joining, a log line —
+   fade rather than jump, so the eye is not yanked to them. */
+tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+/* A live value changing should be noticeable without being loud. */
+@keyframes etl-tick {
+  from {
+    background-color: var(--accent-soft);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.tick {
+  animation: etl-tick 1.2s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

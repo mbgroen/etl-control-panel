@@ -49,9 +49,10 @@ The game server itself comes from the official
 | **Console** | Full RCON console with command history, plus one-click common commands |
 | **Logs** | Live-streamed container logs with filtering, pause-and-buffer, and follow-tail |
 | **Configuration** | Around 100 settings in guided forms — everything the game's own HOST menus offer and more — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
-| **Maps** | Browse installed `.pk3` packages, drag-and-drop upload with progress, delete custom maps (stock paks are protected) |
+| **Maps** | Browse installed `.pk3` packages **and the maps inside them**, add any to the rotation in one click, drag-and-drop upload, delete custom maps (stock paks are protected) |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
 | **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts |
+| **Settings** | Upload limit, how many config backups and player visits to keep, and the dashboard password |
 | **Diagnostics** | Every dependency checked, each failure paired with the fix |
 
 The UI is keyboard-navigable, screen-reader labelled, responsive down to phone
@@ -418,7 +419,7 @@ list. The ones that matter most:
 | `DOCKER_GID` | `999` | Host `docker` group GID |
 | `POLL_INTERVAL_SEC` | `10` | Status poll frequency |
 | `GEO_LOOKUP` | `true` | Resolve player addresses to a country. The only outbound request the dashboard makes; private addresses are never sent |
-| `MAX_UPLOAD_MB` | `256` | *Initial* per-file `.pk3` upload limit. Change it under **Configuration → Dashboard**; once set there, the stored value wins |
+| `MAX_UPLOAD_MB` | `256` | *Initial* per-file `.pk3` upload limit. Change it under **Settings**; once set there, the stored value wins |
 
 ### Adding the base game files
 
@@ -519,8 +520,9 @@ to read something, and pausing buffers rather than drops lines.
   the `vstr` chain, which is fiddly to hand-write correctly.
 - *Raw file* — the whole config, validated as you type. Always the source of
   truth; the other views only patch it.
-- *Backups* — every save is snapshotted first. The 30 most recent are kept, as
-  plain files you can also recover with `cp`.
+- *Backups* — every save is snapshotted first, selectable and deletable. How
+  many are kept is set under **Settings**; they are plain files you can also
+  recover with `cp`.
 
 Password fields are masked, with a reveal button so you can check what you
 typed. Leaving one untouched leaves it unchanged.
@@ -541,7 +543,19 @@ anywhere. Public addresses are resolved through **ipwho.is**; only the address
 is sent, never a player name. Turn it off by setting `GEO_LOOKUP=false`, and the
 page still works, without countries.
 
-**Maps & FastDL** — the pk3 library and the download server. See below.
+**Maps & FastDL** — the pk3 library and the download server.
+
+Each package lists the maps it actually contains, read from the `maps/*.bsp`
+entries inside the archive. That matters because a pk3 is often named nothing
+like the map inside it: `mapbundle.pk3` may hold `braundorf_b4` and
+`frostbite`. Click a map name to append it to the rotation — a tick means it is
+already scheduled. Previously this meant asking the server over RCON what it
+had loaded, then going to the Configuration page to type the name in by hand.
+
+**Settings** — the dashboard's own preferences, kept apart from the game
+server's config: the upload limit, how many config backups and player visits to
+retain, and the dashboard password. Nothing here is a cvar, none of it is
+touched by restoring a config backup.
 
 **Diagnostics** — dependency checks and the exact remedy for each failure.
 
@@ -716,7 +730,7 @@ curl -b jar -X POST http://localhost:8085/api/console/rcon \
 | "Bad rconpassword" | The running server holds an older password than the config. Restart the game server so it re-reads the config |
 | Config saves fail with a permission error | `PUID`/`PGID` cannot write `etmain`. Compare with `stat -c '%u %g' …/etmain` |
 | Config edits have no effect | Cvar is latched — check the badge on the field. Restart, or the file is not the one the server execs (`SERVER_CONFIG_NAME`) |
-| Uploads fail at ~100% | The file is over the upload limit — the error names it. Raise it under **Configuration → Dashboard** (up to 2048 MB) |
+| Uploads fail at ~100% | The file is over the upload limit — the error names it. Raise it under **Settings** (up to 2048 MB) |
 | FastDL test fails | The base URL is not reachable from outside the host. Use the LAN/public IP, not `localhost`, and check the port is published and forwarded |
 | FastDL returns 403 for maps that exist | The pk3 files are not world-readable, so nginx cannot open them. See [FastDL file permissions](#fastdl-file-permissions) |
 | Clients still download slowly | The game server has not re-read the config. Restart it, or run `exec etl_server.cfg` in the console |

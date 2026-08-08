@@ -13,6 +13,7 @@ import { Login } from './pages/Login';
 import { LogsPage } from './pages/LogsPage';
 import { Overview } from './pages/Overview';
 import { PlayersPage } from './pages/PlayersPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { Setup } from './pages/Setup';
 
 type Session =
@@ -103,6 +104,7 @@ export function App() {
               <Route path="/logs" element={<LogsPage />} />
               <Route path="/configuration" element={<ConfigPage />} />
               <Route path="/downloads" element={<DownloadsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="/diagnostics" element={<DiagnosticsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
