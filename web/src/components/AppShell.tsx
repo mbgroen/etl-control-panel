@@ -1,4 +1,5 @@
 import {
+  Package,
   Settings,
   Users,
   Activity,
@@ -45,7 +46,8 @@ const NAV_GROUPS = [
     items: [
       { to: '/console', label: 'Console', icon: Terminal, end: false },
       { to: '/configuration', label: 'Configuration', icon: SlidersHorizontal, end: false },
-      { to: '/downloads', label: 'Maps & FastDL', icon: Download, end: false },
+      { to: '/maps', label: 'Maps', icon: Package, end: false },
+      { to: '/fastdl', label: 'FastDL', icon: Download, end: false },
     ],
   },
   {

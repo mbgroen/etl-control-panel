@@ -8,7 +8,8 @@ import { ToastProvider } from './lib/toast';
 import { ConfigPage } from './pages/ConfigPage';
 import { ConsolePage } from './pages/ConsolePage';
 import { DiagnosticsPage } from './pages/DiagnosticsPage';
-import { DownloadsPage } from './pages/DownloadsPage';
+import { FastdlPage } from './pages/FastdlPage';
+import { MapsPage } from './pages/MapsPage';
 import { Login } from './pages/Login';
 import { LogsPage } from './pages/LogsPage';
 import { Overview } from './pages/Overview';
@@ -103,7 +104,10 @@ export function App() {
               <Route path="/console" element={<ConsolePage />} />
               <Route path="/logs" element={<LogsPage />} />
               <Route path="/configuration" element={<ConfigPage />} />
-              <Route path="/downloads" element={<DownloadsPage />} />
+              <Route path="/maps" element={<MapsPage />} />
+              <Route path="/fastdl" element={<FastdlPage />} />
+              {/* The two used to share one page; keep old links working. */}
+              <Route path="/downloads" element={<Navigate to="/maps" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/diagnostics" element={<DiagnosticsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />

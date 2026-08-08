@@ -1,49 +1,28 @@
-import {
-  Check,
-  CheckCircle2,
-  CloudDownload,
-  FileArchive,
-  HardDrive,
-  Lock,
-  Package,
-  Trash2,
-  Upload,
-  XCircle,
-} from 'lucide-react';
+import { Check, HardDrive, Lock, Package, Trash2, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { RotationEditor } from '../components/RotationEditor';
-import {
-  Badge,
-  Button,
-  EmptyState,
-  Field,
-  Input,
-  Panel,
-  Spinner,
-  Stat,
-  StatusDot,
-  Toggle,
-} from '../components/ui';
+import { Badge, Button, EmptyState, Panel, Spinner, Stat } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { formatBytes, formatDateTime } from '../lib/format';
-import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
-import type { FastdlPayload, MapPackage, MapsPayload, SystemInfo } from '../lib/types';
+import type { MapPackage, MapsPayload, SystemInfo } from '../lib/types';
 
 /**
- * Map packages and HTTP downloads.
+ * The map library, and what plays from it.
  *
- * These live on one page because they are one job: getting custom content onto
- * players' machines. Splitting the pk3 library from the web server that serves
- * it would hide the cause-and-effect that makes FastDL comprehensible.
+ * Split from FastDL, which used to share this screen. The two are related only
+ * in that one serves the files the other manages: installing a map and choosing
+ * how clients download it are different jobs, done at different times, and
+ * putting them together meant every visit to either scrolled past the other.
+ *
+ * Everything needed to get a map onto the server and into play is here, in the
+ * order it happens: upload, then schedule, then the library itself.
  */
-export function DownloadsPage() {
+export function MapsPage() {
   const toast = useToast();
-  const { refresh } = useLive();
 
   const [maps, setMaps] = useState<MapsPayload | null>(null);
-  const [fastdl, setFastdl] = useState<FastdlPayload | null>(null);
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<MapPackage | null>(null);
@@ -51,37 +30,25 @@ export function DownloadsPage() {
   const [inRotation, setInRotation] = useState<Set<string>>(new Set());
   const [config, setConfig] = useState<{ rotation: string[]; revision: string } | null>(null);
 
-  // The rotation lives in the server config rather than in the map list, so it
-  // is fetched here purely to mark which maps are already scheduled. A tick
-  // beside the name is far cheaper than sending someone to another page to
-  // check, which is what this workflow used to require.
-  useEffect(() => {
-    void loadRotation();
-  }, []);
-
   const loadRotation = useCallback(async () => {
     try {
       const current = await api.config.get();
-      setConfig({ rotation: current.rotation.map((entry) => entry.map), revision: current.revision });
+      setConfig({
+        rotation: current.rotation.map((entry) => entry.map),
+        revision: current.revision,
+      });
       setInRotation(new Set(current.rotation.map((entry) => entry.map)));
     } catch {
-      // No config yet is a normal state on a fresh install; the editor simply
-      // has nothing to show until one exists.
+      // No config yet is normal on a fresh install; the editor simply has
+      // nothing to show until one exists.
       setConfig(null);
       setInRotation(new Set());
     }
   }, []);
 
   const load = useCallback(async () => {
-    // Loaded independently. FastDL needs the Docker socket and the map library
-    // does not, so sharing one try/catch meant an unreachable daemon took the
-    // whole page down — including uploading and the rotation, which work fine
-    // without it.
-    const [mapsData, fastdlData, infoData] = await Promise.allSettled([
-      api.maps.list(),
-      api.fastdl.get(),
-      api.system.info(),
-    ]);
+    // Loaded independently so one failure cannot blank the page.
+    const [mapsData, infoData] = await Promise.allSettled([api.maps.list(), api.system.info()]);
 
     if (mapsData.status === 'fulfilled') {
       setMaps(mapsData.value);
@@ -91,14 +58,14 @@ export function DownloadsPage() {
         mapsData.reason instanceof ApiError ? mapsData.reason.message : 'Unexpected error',
       );
     }
-    setFastdl(fastdlData.status === 'fulfilled' ? fastdlData.value : null);
     setInfo(infoData.status === 'fulfilled' ? infoData.value : null);
     setLoading(false);
   }, [toast]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadRotation();
+  }, [load, loadRotation]);
 
   const remove = async () => {
     if (!pendingDelete) return;
@@ -107,6 +74,7 @@ export function DownloadsPage() {
       await api.maps.remove(pendingDelete.filename);
       toast.success(`${pendingDelete.filename} deleted`);
       await load();
+      await loadRotation();
     } catch (err) {
       toast.error('Could not delete', err instanceof ApiError ? err.message : 'Unexpected error');
     } finally {
@@ -120,7 +88,7 @@ export function DownloadsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         <Stat
           label="Map packages"
           value={maps.usage.mapCount}
@@ -133,45 +101,7 @@ export function DownloadsPage() {
           sub={`${formatBytes(maps.usage.customBytes)} custom`}
           icon={<HardDrive size={17} aria-hidden />}
         />
-        <Stat
-          label="HTTP downloads"
-          value={fastdl ? (fastdl.configured ? 'Enabled' : 'Disabled') : '—'}
-          sub={
-            fastdl
-              ? fastdl.configured
-                ? 'Clients fetch over HTTP'
-                : 'Slow in-game transfer only'
-              : 'Needs the Docker socket'
-          }
-          tone={fastdl?.configured ? 'success' : 'neutral'}
-          icon={<CloudDownload size={17} aria-hidden />}
-        />
-        <Stat
-          label="Web server"
-          value={fastdl ? (fastdl.container.running ? 'Running' : 'Stopped') : '—'}
-          sub={fastdl?.containerName ?? 'Unavailable'}
-          tone={fastdl?.container.running ? 'success' : 'neutral'}
-          icon={<FileArchive size={17} aria-hidden />}
-        />
       </div>
-
-      {fastdl ? (
-        <FastdlPanel
-          state={fastdl}
-          onChanged={async () => {
-            await load();
-            await refresh();
-          }}
-        />
-      ) : (
-        <Panel title="HTTP downloads (FastDL)">
-          <p className="text-xs text-muted">
-            Unavailable — the dashboard cannot reach the Docker daemon, which it needs to inspect
-            and control the FastDL container. Everything else on this page still works. See
-            Diagnostics for the fix.
-          </p>
-        </Panel>
-      )}
 
       <UploadPanel
         maxMb={info?.limits.maxUploadMb ?? 256}
@@ -183,8 +113,6 @@ export function DownloadsPage() {
         }}
       />
 
-      {/* Directly under the uploader on purpose: install a map and schedule it
-          without changing screens, which is what this used to require. */}
       {config && (
         <RotationEditor
           availableMaps={maps.maps.flatMap((pack) => pack.maps)}
@@ -230,12 +158,12 @@ export function DownloadsPage() {
                       )}
                     </td>
 
-                    {/* The name a rotation entry needs is inside the archive and
-                        is often nothing like the filename, which is why finding
-                        it used to mean an rcon round trip on another page. */}
                     <td className="px-4 py-2">
                       {map.maps.length === 0 ? (
-                        <span className="text-xs text-faint" title="No maps/*.bsp entries found in this package">
+                        <span
+                          className="text-xs text-faint"
+                          title="No maps/*.bsp entries found in this package"
+                        >
                           none
                         </span>
                       ) : (
@@ -272,7 +200,9 @@ export function DownloadsPage() {
                         variant="ghost"
                         disabled={map.stock}
                         aria-label={
-                          map.stock ? `${map.filename} is a stock pak and cannot be deleted` : `Delete ${map.filename}`
+                          map.stock
+                            ? `${map.filename} is a stock pak and cannot be deleted`
+                            : `Delete ${map.filename}`
                         }
                         title={map.stock ? 'Stock game paks cannot be deleted' : undefined}
                         onClick={() => setPendingDelete(map)}
@@ -293,9 +223,9 @@ export function DownloadsPage() {
         description={
           pendingDelete && (
             <>
-              <code className="font-mono text-body">{pendingDelete.filename}</code> will be removed from
-              disk. Players currently on that map will be dropped at the next map load, and anyone missing
-              it will no longer be able to download it.
+              <code className="font-mono text-body">{pendingDelete.filename}</code> will be removed
+              from disk. Players currently on that map will be dropped at the next map load, and
+              anyone missing it will no longer be able to download it.
             </>
           )
         }
@@ -308,178 +238,6 @@ export function DownloadsPage() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-
-function FastdlPanel({
-  state,
-  onChanged,
-}: {
-  state: FastdlPayload;
-  onChanged: () => Promise<void>;
-}) {
-  const toast = useToast();
-  const [baseUrl, setBaseUrl] = useState(state.baseUrl || state.suggestedBaseUrl);
-  const [disconnected, setDisconnected] = useState(false);
-  const [busy, setBusy] = useState<'enable' | 'disable' | 'test' | null>(null);
-  const [health, setHealth] = useState(state.health);
-
-  useEffect(() => setBaseUrl(state.baseUrl || state.suggestedBaseUrl), [state.baseUrl, state.suggestedBaseUrl]);
-
-  const enable = async () => {
-    setBusy('enable');
-    try {
-      const result = await api.fastdl.enable(baseUrl, disconnected);
-      toast.success('HTTP downloads enabled', result.note);
-      await onChanged();
-    } catch (err) {
-      toast.error('Could not enable FastDL', err instanceof ApiError ? err.message : 'Unexpected error');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const disable = async () => {
-    setBusy('disable');
-    try {
-      await api.fastdl.disable(true);
-      toast.success('HTTP downloads disabled', 'Clients will fall back to the in-game transfer.');
-      setHealth(null);
-      await onChanged();
-    } catch (err) {
-      toast.error('Could not disable FastDL', err instanceof ApiError ? err.message : 'Unexpected error');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const test = async () => {
-    setBusy('test');
-    try {
-      const result = await api.fastdl.test(baseUrl);
-      setHealth({ ok: result.ok, message: result.message, checkedAt: new Date().toISOString() });
-      if (result.ok) {
-        toast.success('FastDL is reachable', `Downloaded headers for ${result.testedFile}`);
-      } else {
-        toast.warning('FastDL test failed', result.message);
-      }
-    } catch (err) {
-      toast.error('Test failed', err instanceof ApiError ? err.message : 'Unexpected error');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <Panel
-      title="HTTP downloads (FastDL)"
-      description="Serves map packages to clients over HTTP instead of the slow in-game UDP transfer."
-      actions={
-        <Badge tone={state.configured ? 'success' : 'neutral'}>
-          <StatusDot tone={state.configured ? 'success' : 'neutral'} pulse={state.configured} />
-          {state.configured ? 'Enabled' : 'Disabled'}
-        </Badge>
-      }
-    >
-      <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
-        <div className="flex flex-col gap-4">
-          <Field
-            label="Public base URL"
-            htmlFor="fastdl-url"
-            hint={
-              <>
-                The address <strong className="text-body">players</strong> can reach — not an internal
-                Docker name. Clients request{' '}
-                <code className="font-mono">{(baseUrl || 'http://host:8081').replace(/\/+$/, '')}/etmain/&lt;map&gt;.pk3</code>
-                .
-              </>
-            }
-          >
-            <Input
-              id="fastdl-url"
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
-              placeholder="http://192.168.1.10:8081"
-              spellCheck={false}
-              className="font-mono"
-            />
-          </Field>
-
-          <Toggle
-            checked={disconnected}
-            onChange={setDisconnected}
-            label="Allow downloads after disconnect"
-            description="Lets clients keep downloading once they drop out. Leave off unless players report interrupted transfers."
-          />
-
-          {health && (
-            <div
-              className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs ${
-                health.ok
-                  ? 'border-success/40 bg-success-soft text-success'
-                  : 'border-danger/40 bg-danger-soft text-danger'
-              }`}
-            >
-              {health.ok ? (
-                <CheckCircle2 size={14} className="mt-px shrink-0" aria-hidden />
-              ) : (
-                <XCircle size={14} className="mt-px shrink-0" aria-hidden />
-              )}
-              <span>{health.message}</span>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            {state.configured ? (
-              <>
-                <Button
-                  variant="primary"
-                  loading={busy === 'enable'}
-                  disabled={!baseUrl.trim()}
-                  onClick={() => void enable()}
-                >
-                  Update settings
-                </Button>
-                <Button variant="danger" loading={busy === 'disable'} onClick={() => void disable()}>
-                  Disable
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="primary"
-                icon={<CloudDownload size={14} aria-hidden />}
-                loading={busy === 'enable'}
-                disabled={!baseUrl.trim()}
-                onClick={() => void enable()}
-              >
-                Enable HTTP downloads
-              </Button>
-            )}
-            <Button loading={busy === 'test'} disabled={!baseUrl.trim()} onClick={() => void test()}>
-              Test connection
-            </Button>
-          </div>
-        </div>
-
-        <aside className="rounded-lg border border-line bg-sunken p-3 text-xs text-muted">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">How it works</p>
-          <ol className="flex list-decimal flex-col gap-1.5 pl-4">
-            <li>The nginx sidecar serves your etmain directory read-only over HTTP.</li>
-            <li>
-              Enabling sets <code className="font-mono">sv_wwwDownload</code> and{' '}
-              <code className="font-mono">sv_wwwBaseURL</code> in the server config.
-            </li>
-            <li>Clients missing a map fetch it over HTTP at full speed instead of ~100 KB/s.</li>
-            <li>
-              Publish the FastDL port through your router if players connect from the internet.
-            </li>
-          </ol>
-        </aside>
-      </div>
-    </Panel>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 
 function UploadPanel({ maxMb, onUploaded }: { maxMb: number; onUploaded: () => Promise<void> }) {
   const toast = useToast();

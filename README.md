@@ -49,7 +49,7 @@ The game server itself comes from the official
 | **Console** | Full RCON console with command history, plus one-click common commands |
 | **Logs** | Live-streamed container logs with filtering, pause-and-buffer, and follow-tail |
 | **Configuration** | Around 100 settings in guided forms — everything the game's own HOST menus offer and more — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
-| **Maps** | Browse installed `.pk3` packages **and the maps inside them**, add any to the rotation in one click, drag-and-drop upload, delete custom maps (stock paks are protected) |
+| **Maps** | Upload `.pk3` packages, see the maps inside each one, and switch any of them into the rotation — all on one page |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
 | **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts |
 | **Settings** | Upload limit, how many config backups and player visits to keep, and the dashboard password |
@@ -516,8 +516,6 @@ to read something, and pausing buffers rather than drops lines.
 
 - *Settings* — guided fields for the cvars people actually change. Each says
   whether it applies immediately, at the next map, or needs a restart.
-- *Map rotation* — build the rotation as an ordered list. The dashboard writes
-  the `vstr` chain, which is fiddly to hand-write correctly.
 - *Raw file* — the whole config, validated as you type. Always the source of
   truth; the other views only patch it.
 - *Backups* — every save is snapshotted first, selectable and deletable. How
@@ -543,7 +541,8 @@ anywhere. Public addresses are resolved through **ipwho.is**; only the address
 is sent, never a player name. Turn it off by setting `GEO_LOOKUP=false`, and the
 page still works, without countries.
 
-**Maps & FastDL** — the pk3 library and the download server.
+**Maps** — uploading, the rotation and the library, in the order the work
+happens.
 
 The rotation editor sits directly under the uploader, listing **every installed
 map** with a switch: on to include it, off to drop it, arrows to order it.
@@ -558,8 +557,11 @@ out meant asking the server over RCON and retyping the name on another page.
 A map in the rotation whose pk3 is no longer installed is marked *file missing*
 rather than quietly dropped — the rotation is yours to change, not ours.
 
-The same editor appears under **Configuration → Map rotation**; it is one
-component, so the two can never disagree.
+The rotation is edited here and nowhere else.
+
+**FastDL** — its own page. It serves the same directory the map library
+manages, but that is a fact about the implementation: installing maps happens
+often, setting up downloads happens roughly once.
 
 **Settings** — the dashboard's own preferences, kept apart from the game
 server's config: the upload limit, how many config backups and player visits to

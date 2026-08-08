@@ -2,7 +2,6 @@ import {
   AlertCircle,
   FileCode2,
   History,
-  ListOrdered,
   RotateCcw,
   Save,
   Search,
@@ -12,7 +11,6 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { RotationEditor } from '../components/RotationEditor';
 import {
   Badge,
   Button,
@@ -85,11 +83,10 @@ function reportRconHandover(
   }
 }
 
-type Tab = 'settings' | 'rotation' | 'raw' | 'backups';
+type Tab = 'settings' | 'raw' | 'backups';
 
 const TABS: { id: Tab; label: string; icon: typeof SlidersHorizontal }[] = [
   { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
-  { id: 'rotation', label: 'Map rotation', icon: ListOrdered },
   { id: 'raw', label: 'Raw file', icon: FileCode2 },
   { id: 'backups', label: 'Backups', icon: History },
 ];
@@ -151,7 +148,6 @@ export function ConfigPage() {
       <ProblemList problems={config.problems} />
 
       {tab === 'settings' && <SettingsTab config={config} onSaved={load} />}
-      {tab === 'rotation' && <RotationTab config={config} onSaved={load} />}
       {tab === 'raw' && <RawTab config={config} onSaved={load} />}
       {tab === 'backups' && <BackupsTab onRestored={load} />}
     </div>
@@ -512,28 +508,6 @@ function CvarField({
 /* -------------------------------------------------------------------------- */
 
 
-function RotationTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Promise<void> }) {
-  const [available, setAvailable] = useState<string[]>([]);
-
-  // The rotation is stored in the config, but the useful question is "which of
-  // my installed maps are playing?" — so the editor is fed the map library and
-  // shown here and on the Maps page as one component rather than two.
-  useEffect(() => {
-    void api.maps
-      .list()
-      .then((payload) => setAvailable(payload.maps.flatMap((pack) => pack.maps)))
-      .catch(() => setAvailable([]));
-  }, []);
-
-  return (
-    <RotationEditor
-      availableMaps={available}
-      rotation={config.rotation.map((entry) => entry.map)}
-      revision={config.revision}
-      onSaved={onSaved}
-    />
-  );
-}
 function RawTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Promise<void> }) {
   const toast = useToast();
   const [content, setContent] = useState(config.content);
