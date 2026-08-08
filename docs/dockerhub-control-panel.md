@@ -40,7 +40,7 @@ This image is one service of a three-container stack (game server, control panel
 FastDL). The simplest way to run it is the ready-made compose file:
 
 ```bash
-mkdir -p ~/etlegacy && cd ~/etlegacy
+mkdir -p ~/etl && cd ~/etl
 curl -fsSLO https://raw.githubusercontent.com/mbgroen/etl-control-panel/main/deploy/docker-compose.yml
 docker compose up -d
 ```
@@ -60,9 +60,9 @@ since 2003, so the files are a free download.
 | Variable | Default | Purpose |
 |---|---|---|
 | `RCON_PASSWORD` | empty | Optional override. Normally left unset — the password is read from the server config |
-| `ETL_HOST` / `ETL_PORT` | `etlegacy` / `27960` | How to reach the game server for status and RCON |
-| `ETL_CONTAINER` | `etlegacy-server` | Container to start/stop and read logs from |
-| `ETMAIN_PATH` | `/data/etlegacy/etmain` | Game data directory inside this container |
+| `ETL_HOST` / `ETL_PORT` | `etl-server` / `27960` | How to reach the game server for status and RCON |
+| `ETL_CONTAINER` | `etl-server` | Container to start/stop and read logs from |
+| `ETMAIN_PATH` | `/data/etl-server/etmain` | Game data directory inside this container |
 | `STATE_PATH` | `/data/control-panel` | Admin account, config backups, activity history |
 | `MAX_UPLOAD_MB` | `256` | Initial upload limit; editable under Settings afterwards, along with backup and visit retention |
 | `COOKIE_SECURE` | `false` | Set `true` only when serving over HTTPS |
@@ -80,7 +80,7 @@ Docker socket for container control and log streaming.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `3.0.0` | An exact version. Never moves — use this to pin |
+| `1.0.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 

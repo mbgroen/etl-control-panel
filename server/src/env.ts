@@ -47,12 +47,12 @@ const schema = z.object({
     .transform((v) => v === 'true'),
 
   /** Container names as they appear to the Docker daemon. */
-  ETL_CONTAINER: z.string().min(1).default('etlegacy-server'),
-  FASTDL_CONTAINER: z.string().min(1).default('etlegacy-fastdl'),
+  ETL_CONTAINER: z.string().min(1).default('etl-server'),
+  FASTDL_CONTAINER: z.string().min(1).default('etl-fastdl'),
   DOCKER_SOCKET: z.string().min(1).default('/var/run/docker.sock'),
 
   /** Where the game server is reachable for UDP queries and rcon. */
-  ETL_HOST: z.string().min(1).default('etlegacy'),
+  ETL_HOST: z.string().min(1).default('etl-server'),
   ETL_PORT: z.coerce.number().int().min(1).max(65535).default(27960),
   RCON_PASSWORD: z.string().default(''),
   RCON_TIMEOUT_MS: z.coerce.number().int().min(250).max(30_000).default(3_000),
@@ -62,8 +62,8 @@ const schema = z.object({
    * Must be the same host directory the game server mounts, or edits will not
    * be visible to the running server.
    */
-  ETMAIN_PATH: z.string().min(1).default('/data/etlegacy/etmain'),
-  LEGACY_PATH: z.string().min(1).default('/data/etlegacy/legacy'),
+  ETMAIN_PATH: z.string().min(1).default('/data/etl-server/etmain'),
+  LEGACY_PATH: z.string().min(1).default('/data/etl-server/legacy'),
   /** Control-panel-owned state: config backups and the metrics ring buffer. */
   STATE_PATH: z.string().min(1).default('/data/control-panel'),
   /** Filename of the server config, relative to ETMAIN_PATH. */

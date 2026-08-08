@@ -23,19 +23,19 @@
 #   8081/tcp   FastDL (map downloads)
 # =============================================================================
 
-name: etlegacy
+name: etl
 
 services:
   # ---------------------------------------------------------------------------
   # The game server.
   # ---------------------------------------------------------------------------
-  etlegacy:
-    container_name: etlegacy-server
+  etl-server:
+    container_name: etl-server
     image: etlegacy/server:latest
     volumes:
       # Only etmain is bind-mounted. The image ships nothing here but config
       # templates, so the mount is what gives the server its map library.
-      - ${COMPOSE_DATA_PATH:-./data}/etlegacy/etmain:/legacy/server/etmain
+      - ${COMPOSE_DATA_PATH:-./data}/etl-server/etmain:/legacy/server/etmain
       #
       # Do NOT mount /legacy/server/legacy. The image bakes the whole Legacy
       # mod in there — qagame.mp.x86_64.so (the game module the engine dlopens),
@@ -49,7 +49,7 @@ services:
     ports:
       - "27960:27960/udp"
     networks:
-      - etlegacy
+      - etl
     restart: unless-stopped
     stop_grace_period: 20s
     logging:
@@ -76,10 +76,10 @@ services:
       - "${CONTROL_PANEL_PORT:-8085}:8080"
     volumes:
       # Read-write: the control panel edits the server config and installs maps.
-      - ${COMPOSE_DATA_PATH:-./data}/etlegacy:/data/etlegacy
+      - ${COMPOSE_DATA_PATH:-./data}/etl-server:/data/etl-server
       # Control panel state: admin account, config backups, activity history.
       #
-      # Deliberately a sibling of etlegacy/ rather than a directory inside it.
+      # Deliberately a sibling of etl-server/ rather than a directory inside it.
       # The game data tree is bind-mounted into the FastDL container, which is
       # usually the one service published to the internet, so keeping the
       # credential store outside that tree means no nginx rule stands between
@@ -96,12 +96,12 @@ services:
       # control panel later. Use the NAS's LAN IP — not localhost.
       FASTDL_BASE_URL: ""
 
-      ETL_HOST: etlegacy
+      ETL_HOST: etl-server
       ETL_PORT: 27960
-      ETL_CONTAINER: etlegacy-server
-      FASTDL_CONTAINER: etlegacy-fastdl
-      ETMAIN_PATH: /data/etlegacy/etmain
-      LEGACY_PATH: /data/etlegacy/legacy
+      ETL_CONTAINER: etl-server
+      FASTDL_CONTAINER: etl-fastdl
+      ETMAIN_PATH: /data/etl-server/etmain
+      LEGACY_PATH: /data/etl-server/legacy
       STATE_PATH: /data/control-panel
       SERVER_CONFIG_NAME: etl_server.cfg
 
@@ -113,9 +113,9 @@ services:
     user: "0:0"
 
     depends_on:
-      - etlegacy
+      - etl-server
     networks:
-      - etlegacy
+      - etl
     restart: unless-stopped
     logging:
       driver: json-file
@@ -131,9 +131,9 @@ services:
   # survives a reboot.
   # ---------------------------------------------------------------------------
   fastdl:
-    container_name: etlegacy-fastdl
+    container_name: etl-fastdl
     # Kept on the same channel as the control panel; see the note on its image line.
-    image: mbgroen/etlegacy-fastdl:latest
+    image: mbgroen/etl-fastdl:latest
     ports:
       - "8081:80"
     volumes:
@@ -144,10 +144,10 @@ services:
       # serve them anyway (it allowlists .pk3 under these two paths), but a
       # mount is a stronger boundary than a location block: what is not mounted
       # cannot be served by a later misconfiguration.
-      - ${COMPOSE_DATA_PATH:-./data}/etlegacy/etmain:/srv/fastdl/etmain:ro
-      - ${COMPOSE_DATA_PATH:-./data}/etlegacy/legacy:/srv/fastdl/legacy:ro
+      - ${COMPOSE_DATA_PATH:-./data}/etl-server/etmain:/srv/fastdl/etmain:ro
+      - ${COMPOSE_DATA_PATH:-./data}/etl-server/legacy:/srv/fastdl/legacy:ro
     networks:
-      - etlegacy
+      - etl
     restart: unless-stopped
     logging:
       driver: json-file
@@ -156,5 +156,5 @@ services:
         max-file: "3"
 
 networks:
-  etlegacy:
+  etl:
     driver: bridge

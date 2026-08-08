@@ -27,11 +27,11 @@ and still gets kicked for a checksum mismatch".
 Mount the game server's map directories read-only and publish port 80:
 
 ```bash
-docker run -d --name etlegacy-fastdl \
+docker run -d --name etl-fastdl \
   -p 8081:80 \
-  -v /srv/appdata/etlegacy/etmain:/srv/fastdl/etmain:ro \
-  -v /srv/appdata/etlegacy/legacy:/srv/fastdl/legacy:ro \
-  mbgroen/etlegacy-fastdl:latest
+  -v /srv/appdata/etl-server/etmain:/srv/fastdl/etmain:ro \
+  -v /srv/appdata/etl-server/legacy:/srv/fastdl/legacy:ro \
+  mbgroen/etl-fastdl:latest
 ```
 
 Then in your server config:
@@ -72,7 +72,7 @@ existing installation are often mode `0600` and will answer **403** even though
 they exist:
 
 ```bash
-chmod o+r /srv/appdata/etlegacy/etmain/*.pk3
+chmod o+r /srv/appdata/etl-server/etmain/*.pk3
 ```
 
 A missing file returns 404 and an unreadable one returns 403 — that difference
@@ -83,7 +83,7 @@ is the quickest way to tell the two apart.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `3.0.0` | An exact version. Never moves — use this to pin |
+| `1.0.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 

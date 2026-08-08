@@ -15,7 +15,7 @@ Ready-built images, no account needed:
 | Image | Purpose |
 |---|---|
 | [`mbgroen/etl-control-panel`](https://hub.docker.com/r/mbgroen/etl-control-panel) | This control panel |
-| [`mbgroen/etlegacy-fastdl`](https://hub.docker.com/r/mbgroen/etlegacy-fastdl) | HTTP map downloads for clients |
+| [`mbgroen/etl-fastdl`](https://hub.docker.com/r/mbgroen/etl-fastdl) | HTTP map downloads for clients |
 
 The game server itself comes from the official
 [`etlegacy/server`](https://hub.docker.com/r/etlegacy/server) image.
@@ -61,38 +61,6 @@ width, and ships light and dark themes.
 
 ---
 
-## Upgrading from the Dashboard releases (2.x)
-
-The project was called **ET: Legacy Dashboard** up to 2.8.1. Version 3.0.0
-renames it, and four names change with it. Nothing in your server config or your
-map files is affected; the game server and FastDL containers are untouched.
-
-| Was | Is now |
-|---|---|
-| `mbgroen/etlegacy-dashboard` | `mbgroen/etl-control-panel` |
-| `container_name: etlegacy-dashboard` | `container_name: etl-control-panel` |
-| `STATE_PATH: /data/dashboard` | `STATE_PATH: /data/control-panel` |
-| `DASHBOARD_PORT` | `CONTROL_PANEL_PORT` |
-
-**Move the state directory before you start 3.0.0**, or the control panel comes
-up with no account, no settings and no player history and asks you to run setup
-again — the data is not lost, it is simply in the old folder:
-
-```bash
-docker compose down && mv /srv/etlegacy/dashboard /srv/etlegacy/control-panel
-```
-
-Use whatever your `COMPOSE_DATA_PATH` actually is. If you start it first and see
-the setup screen, stop, move the folder, and start again — nothing is written
-until you create an account. The container logs the same instruction with the
-exact paths when it finds the old folder.
-
-Configs written by 2.x are read unchanged, including the
-`// >>> dashboard:rotation` marker around the managed rotation block; saving
-rewrites it under the new name.
-
----
-
 ## Architecture
 
 ```
@@ -104,12 +72,12 @@ rewrites it under the new name.
               docker.sock  │          │ UDP 27960  │ bind mount
                            ▼          ▼            ▼
                   ┌────────────┐ ┌──────────┐ ┌──────────────┐
-                  │  Docker    │ │ etlegacy │ │ etmain/      │
+                  │  Docker    │ │ etl-srv  │ │ etmain/      │
                   │  daemon    │ │  -server │ │  *.pk3, .cfg │
                   └────────────┘ └──────────┘ └──────┬───────┘
                                                      │ read-only
                                               ┌──────▼────────┐
-                                              │ etlegacy-     │
+                                              │ etl-fastdl    │
                                               │ fastdl  :8081 │
                                               │ nginx         │
                                               └───────────────┘
@@ -117,11 +85,11 @@ rewrites it under the new name.
 
 Three containers on one bridge network:
 
-- **`etlegacy-server`** — the game server, unchanged from the official image.
+- **`etl-server`** — the game server, unchanged from the official image.
 - **`etl-control-panel`** — this project. Talks to the Docker daemon for
   container lifecycle and logs, to the game server over UDP for status and
   RCON, and to the bind-mounted `etmain` directory for config and map files.
-- **`etlegacy-fastdl`** — nginx serving `etmain` read-only over HTTP. Optional;
+- **`etl-fastdl`** — nginx serving `etmain` read-only over HTTP. Optional;
   the control panel starts and stops it on demand.
 
 The control panel and FastDL both mount **the same host directory** the game server
@@ -177,7 +145,7 @@ Download [`deploy/docker-compose.yml`](deploy/docker-compose.yml) to an empty
 directory on the host — that single file is the whole install.
 
 ```bash
-mkdir -p ~/etlegacy && cd ~/etlegacy
+mkdir -p ~/etl && cd ~/etl
 curl -fsSLO https://raw.githubusercontent.com/mbgroen/etl-control-panel/main/deploy/docker-compose.yml
 ```
 
@@ -332,14 +300,14 @@ cd etl-control-panel
 # Substitute your own data path
 export DATA=/srv/appdata
 
-mkdir -p "$DATA"/etlegacy/{etmain,legacy} "$DATA"/etl-control-panel
+mkdir -p "$DATA"/etl-server/{etmain,legacy} "$DATA"/etl-control-panel
 ```
 
 Two directories, deliberately siblings:
 
 ```
 $DATA/
-├── etlegacy/                game data, mounted into FastDL
+├── etl-server/                game data, mounted into FastDL
 │   ├── etmain/              maps and server config   (served over HTTP)
 │   └── legacy/              Legacy mod data          (served over HTTP)
 └── etl-control-panel/      admin account, config backups, activity history
@@ -353,7 +321,7 @@ not present in the container at all.
 ### 3. Install a server config
 
 ```bash
-cp config/etl_server.cfg.example "$DATA"/etlegacy/etmain/etl_server.cfg
+cp config/etl_server.cfg.example "$DATA"/etl-server/etmain/etl_server.cfg
 ```
 
 Open it and change at least `sv_hostname`. Passwords are empty by default and
@@ -391,7 +359,7 @@ The values you must set are `COMPOSE_DATA_PATH`, `ADMIN_PASSWORD_HASH`,
 getent group docker | cut -d: -f3
 
 # Owner of your etmain directory — the control panel must be able to write here
-stat -c '%u %g' "$DATA"/etlegacy/etmain
+stat -c '%u %g' "$DATA"/etl-server/etmain
 ```
 
 Put those in `DOCKER_GID`, and `PUID`/`PGID` respectively.
@@ -440,7 +408,7 @@ list. The ones that matter most:
 
 | Variable | Default | Notes |
 |---|---|---|
-| `COMPOSE_DATA_PATH` | — | **Required.** Host directory holding `etlegacy/` (game data) and `etl-control-panel/` (control panel state) |
+| `COMPOSE_DATA_PATH` | — | **Required.** Host directory holding `etl-server/` (game data) and `etl-control-panel/` (control panel state) |
 | `ADMIN_USERNAME` | `admin` | Control panel login |
 | `ADMIN_PASSWORD_HASH` | empty | Optional. Empty ⇒ first-run wizard in the browser |
 | `SESSION_SECRET` | empty | Optional. Generated and persisted when empty |
@@ -480,17 +448,17 @@ these are the same files.
 packages** and drop all four in. The default upload ceiling is 256 MB, which
 `pak0.pk3` fits under, and uploads are written world-readable so FastDL can
 serve them straight away. If you would rather copy them in over the shell, put
-them in `<data path>/etlegacy/etmain/` and make them readable:
+them in `<data path>/etl-server/etmain/` and make them readable:
 
 ```bash
-chmod o+r <data path>/etlegacy/etmain/*.pk3
+chmod o+r <data path>/etl-server/etmain/*.pk3
 ```
 
 Either way, **restart the game server afterwards** — the engine indexes pk3
 files at start-up, so files added while it is running are not seen:
 
 ```bash
-docker compose restart etlegacy
+docker compose restart etl-server
 ```
 
 ### The RCON password
@@ -831,7 +799,7 @@ curl -b jar -X POST http://localhost:8085/api/console/rcon \
 | Configuration page says no config exists | Press **Create default configuration**, or check that `ETMAIN_PATH` is the directory the game server mounts |
 | "Container does not exist" | `ETL_CONTAINER` does not match `container_name` in the compose file |
 | Docker socket check fails | Socket not mounted, or `DOCKER_GID` is wrong. Check `getent group docker \| cut -d: -f3` |
-| Server shows offline but players are on it | The control panel cannot reach `etlegacy:27960`. Confirm both containers share the `etlegacy` network |
+| Server shows offline but players are on it | The control panel cannot reach `etl-server:27960`. Confirm both containers share the `etl` network |
 | Console says RCON is not set | Set `rconpassword` on the Configuration page — it takes effect immediately, with no restart |
 | "Bad rconpassword" | The running server holds an older password than the config. Restart the game server so it re-reads the config |
 | Config saves fail with a permission error | `PUID`/`PGID` cannot write `etmain`. Compare with `stat -c '%u %g' …/etmain` |
@@ -858,14 +826,14 @@ Check from outside the host, then look at the modes:
 
 ```bash
 curl -o /dev/null -w '%{http_code}\n' http://<host>:8081/etmain/pak0.pk3
-ls -l <data path>/etlegacy/etmain/
+ls -l <data path>/etl-server/etmain/
 ```
 
 `-rw-------` is the problem; `-rw-r--r--` is fine. Make them world-readable:
 
 ```bash
-chmod o+r <data path>/etlegacy/etmain/*.pk3
-chmod o+rx <data path>/etlegacy/etmain
+chmod o+r <data path>/etl-server/etmain/*.pk3
+chmod o+rx <data path>/etl-server/etmain
 ```
 
 Map packages are not secrets, and uploads made through the control panel are already
@@ -875,7 +843,7 @@ Logs:
 
 ```bash
 docker compose logs -f control-panel
-docker compose logs -f etlegacy
+docker compose logs -f etl-server
 ```
 
 ---

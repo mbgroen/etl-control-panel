@@ -37,7 +37,7 @@ on:
 
 env:
   CONTROL_PANEL_IMAGE: etl-control-panel
-  FASTDL_IMAGE: etlegacy-fastdl
+  FASTDL_IMAGE: etl-fastdl
 
 jobs:
   verify:

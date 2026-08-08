@@ -14,19 +14,19 @@
 #   8081/tcp   FastDL     (change with FASTDL_PORT)
 # =============================================================================
 
-name: etlegacy
+name: etl
 
 services:
   # ---------------------------------------------------------------------------
   # The game server itself.
   # ---------------------------------------------------------------------------
-  etlegacy:
-    container_name: etlegacy-server
+  etl-server:
+    container_name: etl-server
     image: etlegacy/server:latest
     volumes:
       # Only etmain is bind-mounted. The image ships nothing here but config
       # templates, so the mount is what gives the server its map library.
-      - ${COMPOSE_DATA_PATH}/etlegacy/etmain:/legacy/server/etmain
+      - ${COMPOSE_DATA_PATH}/etl-server/etmain:/legacy/server/etmain
       #
       # Do NOT mount /legacy/server/legacy. The image bakes the whole Legacy
       # mod in there — qagame.mp.x86_64.so (the game module the engine dlopens),
@@ -40,7 +40,7 @@ services:
     ports:
       - "${GAME_PORT:-27960}:27960/udp"
     networks:
-      - etlegacy
+      - etl
     restart: unless-stopped
     stop_grace_period: 20s
     logging:
@@ -64,9 +64,9 @@ services:
       - "${CONTROL_PANEL_PORT:-8085}:8080"
     volumes:
       # Read-write: the control panel edits the server config and installs pk3s.
-      - ${COMPOSE_DATA_PATH}/etlegacy:/data/etlegacy
+      - ${COMPOSE_DATA_PATH}/etl-server:/data/etl-server
       # Control-panel-owned state: config backups and the activity history.
-      # A sibling of etlegacy/, not a directory inside it: the game data tree is
+      # A sibling of etl-server/, not a directory inside it: the game data tree is
       # mounted into the internet-facing FastDL container, and the credential
       # store has no business being anywhere near it.
       - ${COMPOSE_DATA_PATH}/etl-control-panel:/data/control-panel
@@ -87,17 +87,17 @@ services:
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
 
-      ETL_CONTAINER: etlegacy-server
-      FASTDL_CONTAINER: etlegacy-fastdl
+      ETL_CONTAINER: etl-server
+      FASTDL_CONTAINER: etl-fastdl
       # Service name on the shared network — not localhost, and not the host IP.
-      ETL_HOST: etlegacy
+      ETL_HOST: etl-server
       ETL_PORT: 27960
       RCON_PASSWORD: ${RCON_PASSWORD}
 
       # Must resolve to the same host directory the game server mounts, or the
       # control panel will edit a config the server never reads.
-      ETMAIN_PATH: /data/etlegacy/etmain
-      LEGACY_PATH: /data/etlegacy/legacy
+      ETMAIN_PATH: /data/etl-server/etmain
+      LEGACY_PATH: /data/etl-server/legacy
       STATE_PATH: /data/control-panel
       SERVER_CONFIG_NAME: ${SERVER_CONFIG_NAME:-etl_server.cfg}
 
@@ -111,9 +111,9 @@ services:
       # Find it with: getent group docker | cut -d: -f3
       - "${DOCKER_GID:-999}"
     depends_on:
-      - etlegacy
+      - etl-server
     networks:
-      - etlegacy
+      - etl
     restart: unless-stopped
     logging:
       driver: json-file
@@ -128,7 +128,7 @@ services:
   # "unless-stopped" policy means a stop from the control panel survives a reboot.
   # ---------------------------------------------------------------------------
   fastdl:
-    container_name: etlegacy-fastdl
+    container_name: etl-fastdl
     image: nginx:1.27-alpine
     ports:
       - "${FASTDL_PORT:-8081}:80"
@@ -139,11 +139,11 @@ services:
       # a container published to the internet. nginx would refuse to serve them
       # anyway (it allowlists .pk3 under these two paths), but a mount is a
       # stronger boundary than a location block.
-      - ${COMPOSE_DATA_PATH}/etlegacy/etmain:/srv/fastdl/etmain:ro
-      - ${COMPOSE_DATA_PATH}/etlegacy/legacy:/srv/fastdl/legacy:ro
+      - ${COMPOSE_DATA_PATH}/etl-server/etmain:/srv/fastdl/etmain:ro
+      - ${COMPOSE_DATA_PATH}/etl-server/legacy:/srv/fastdl/legacy:ro
       - ./fastdl/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
-      - etlegacy
+      - etl
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/healthz"]
@@ -157,5 +157,5 @@ services:
         max-file: "3"
 
 networks:
-  etlegacy:
+  etl:
     driver: bridge

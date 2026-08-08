@@ -1,7 +1,7 @@
 // =============================================================================
 // ET: Legacy — server configuration
 //
-// Copy this to <COMPOSE_DATA_PATH>/etlegacy/etmain/etl_server.cfg and edit it,
+// Copy this to <COMPOSE_DATA_PATH>/etl-server/etmain/etl_server.cfg and edit it,
 // or manage it from the control panel's Configuration page (which keeps timestamped
 // backups of every change).
 //
