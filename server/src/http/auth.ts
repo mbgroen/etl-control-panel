@@ -29,14 +29,14 @@ interface SessionClaims {
 export function issueToken(username: string): string {
   return jwt.sign({ sub: username }, credentials.sessionSecret(), {
     expiresIn: `${env.SESSION_TTL_HOURS}h`,
-    issuer: 'etlegacy-dashboard',
+    issuer: 'etl-control-panel',
   });
 }
 
 export function verifyToken(token: string): SessionClaims | null {
   try {
     return jwt.verify(token, credentials.sessionSecret(), {
-      issuer: 'etlegacy-dashboard',
+      issuer: 'etl-control-panel',
     }) as SessionClaims;
   } catch {
     return null;

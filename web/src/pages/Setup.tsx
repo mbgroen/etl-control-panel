@@ -45,7 +45,7 @@ export function Setup({ minPasswordLength, onComplete }: {
       onComplete(user.username);
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Could not reach the dashboard API.',
+        err instanceof ApiError ? err.message : 'Could not reach the control panel API.',
       );
     } finally {
       setBusy(false);
@@ -62,7 +62,7 @@ export function Setup({ minPasswordLength, onComplete }: {
           >
             ET
           </span>
-          <h1 className="text-lg font-semibold text-body">Welcome — let's secure this dashboard</h1>
+          <h1 className="text-lg font-semibold text-body">Welcome — let's secure this control panel</h1>
           <p className="mt-1 max-w-sm text-[13px] text-muted">
             Create the administrator account. This is the only account, and it controls your game
             server.
@@ -76,7 +76,7 @@ export function Setup({ minPasswordLength, onComplete }: {
           >
             <ShieldAlert size={15} className="mt-px shrink-0" aria-hidden />
             <span>
-              Until you finish this step, anyone who can reach this page can claim the dashboard.
+              Until you finish this step, anyone who can reach this page can claim the control panel.
               Complete it now.
             </span>
           </div>
@@ -149,7 +149,7 @@ export function Setup({ minPasswordLength, onComplete }: {
         </form>
 
         <p className="mt-4 text-center text-[11px] text-faint">
-          Stored as a bcrypt hash in your dashboard data directory. Forgot it later? Delete
+          Stored as a bcrypt hash in your control panel data directory. Forgot it later? Delete
           <code className="mx-1 font-mono">credentials.json</code> from that directory to start over.
         </p>
       </div>

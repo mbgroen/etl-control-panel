@@ -20,7 +20,7 @@ import type { AdminAccount } from '../lib/types';
 /**
  * Administrator accounts.
  *
- * There are no roles. A dashboard that can restart the game server and holds
+ * There are no roles. A control panel that can restart the game server and holds
  * the Docker socket has one meaningful level of access, and inventing "viewer"
  * or "operator" tiers would imply a boundary this application cannot actually
  * enforce. What multiple accounts buy is that two people do not have to share
@@ -125,7 +125,7 @@ export function AccountsPage() {
           <p className="border-b border-line px-4 py-2.5 text-xs text-warn">
             Accounts come from <code className="font-mono">ADMIN_PASSWORD_HASH</code> in the
             environment, so they cannot be managed here. Remove that variable to manage them from
-            the dashboard instead.
+            the control panel instead.
           </p>
         )}
 

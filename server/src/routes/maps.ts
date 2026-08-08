@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { env } from '../env.js';
 import { ApiError, asyncHandler } from '../http/errors.js';
 import { logger } from '../logger.js';
-import { readSettings } from '../services/dashboardSettings.js';
+import { readSettings } from '../services/controlPanelSettings.js';
 import {
   assertSafePk3Name,
   checksum,
@@ -26,7 +26,7 @@ const MAX_FILES_PER_UPLOAD = 8;
  * where the game server or a downloading client would find it.
  *
  * Built per request rather than once at module load, because the size limit is
- * now editable from the dashboard: a multer instance created at boot would hold
+ * now editable from the control panel: a multer instance created at boot would hold
  * whatever the limit was then, and raising it would appear to do nothing until
  * the container was restarted.
  */
@@ -63,7 +63,7 @@ function uploadMiddleware(): RequestHandler {
                 new ApiError(
                   413,
                   'file_too_large',
-                  `That file is larger than the ${settings.maxUploadMb} MB upload limit. Raise it under Configuration → Dashboard, or upload a smaller package.`,
+                  `That file is larger than the ${settings.maxUploadMb} MB upload limit. Raise it under Settings, or upload a smaller package.`,
                 ),
               );
               return;

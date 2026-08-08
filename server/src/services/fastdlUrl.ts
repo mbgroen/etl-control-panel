@@ -15,7 +15,7 @@ export const baseUrlSchema = z
   .trim()
   .max(300)
   // "192.168.1.10:8081" is the obvious thing to type, and it is what the
-  // dashboard's own hint text renders, but the engine needs a scheme to build a
+  // control panel's own hint text renders, but the engine needs a scheme to build a
   // request from. Supply the one it would have had rather than rejecting input
   // that is unambiguous. Anything with a scheme already is left alone, so https
   // and genuinely wrong schemes still reach the check below.

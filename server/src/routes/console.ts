@@ -35,7 +35,7 @@ const commandSchema = z.object({
 
 /**
  * Commands that would take the server down or lock the operator out. They are
- * blocked because the dashboard has a safe, reversible path for each of them
+ * blocked because the control panel has a safe, reversible path for each of them
  * (the lifecycle controls and the config editor), and an accidental `quit`
  * typed into a console leaves no way back in from the browser.
  */
@@ -44,7 +44,7 @@ const BLOCKED = [
   { pattern: /^\s*killserver\b/i, hint: 'Use the Stop control instead.' },
   {
     pattern: /^\s*set\s+rconpassword\b/i,
-    hint: 'Change rconpassword in Configuration, so the dashboard credential stays in sync.',
+    hint: 'Change rconpassword in Configuration, so the control panel credential stays in sync.',
   },
 ];
 

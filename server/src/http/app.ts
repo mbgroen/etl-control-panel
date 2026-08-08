@@ -47,7 +47,7 @@ function inlineScriptHashes(): string[] {
 export function createApp(): express.Express {
   const app = express();
 
-  // The dashboard usually sits behind a reverse proxy or a Docker port publish;
+  // The control panel usually sits behind a reverse proxy or a Docker port publish;
   // without this, rate limiting keys every request to the proxy's IP.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
@@ -72,7 +72,7 @@ export function createApp(): express.Express {
           // is fatal: the browser rewrites every asset request to https://,
           // nothing is listening there, and the SPA never loads — a blank page
           // whose only symptom is a TLS error in the console. It stays off
-          // unless the dashboard is actually served over HTTPS. Note that
+          // unless the control panel is actually served over HTTPS. Note that
           // localhost is exempt from upgrading, so this only ever breaks real
           // deployments, never a developer's own machine.
           upgradeInsecureRequests: env.COOKIE_SECURE ? [] : null,

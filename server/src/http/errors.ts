@@ -46,7 +46,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
 
   if (err instanceof ZodError) {
     const details = err.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
-    // The schemas carry messages written for whoever is using the dashboard —
+    // The schemas carry messages written for whoever is using the control panel —
     // "Must be a full http:// or https:// URL", not "invalid string". Surface
     // those as the message, because that is the only part the UI shows in a
     // toast; leaving it as a generic "failed validation" hides the one sentence
@@ -123,6 +123,6 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
 
   logger.error({ err }, 'unhandled error');
   res.status(500).json({
-    error: { code: 'internal_error', message: 'Something went wrong. Check the dashboard logs.' },
+    error: { code: 'internal_error', message: 'Something went wrong. Check the control panel logs.' },
   });
 }

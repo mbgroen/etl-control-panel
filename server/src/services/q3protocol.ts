@@ -194,7 +194,7 @@ export function gametypeName(value: string | undefined): string {
  * Queries the game server with `getstatus`.
  *
  * Never throws: an unreachable or still-booting server is a normal state for a
- * dashboard to render, not an exception. Failures come back as
+ * control panel to render, not an exception. Failures come back as
  * `{ online: false, error }`.
  */
 export async function getServerStatus(target: QueryTarget): Promise<ServerStatus> {
@@ -270,7 +270,7 @@ export async function rcon(
   command: string,
 ): Promise<string> {
   if (!password) {
-    throw new RconError('No rcon password is configured for the dashboard', 'no-password');
+    throw new RconError('No rcon password is configured for the control panel', 'no-password');
   }
 
   let payloads: string[];

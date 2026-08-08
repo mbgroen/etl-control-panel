@@ -13,7 +13,7 @@ import { logger } from '../logger.js';
  *  1. Environment (`ADMIN_PASSWORD_HASH` + `SESSION_SECRET`) — declarative, and
  *     the right choice when the deployment is managed as code. It describes one
  *     account, so account management is unavailable in that mode: the file is
- *     the source of truth and the dashboard must not fight it.
+ *     the source of truth and the control panel must not fight it.
  *  2. First-run setup in the browser, persisted to the state directory — the
  *     right choice for a WebUI-only install where running a CLI to generate a
  *     bcrypt hash is a real barrier.
@@ -173,7 +173,7 @@ export async function initialize(): Promise<void> {
       ],
     };
     loaded = true;
-    logger.info('using dashboard credentials from the environment');
+    logger.info('using control panel credentials from the environment');
     return;
   }
 
@@ -185,7 +185,7 @@ export async function initialize(): Promise<void> {
   if (!cache || cache.accounts.length === 0) {
     cache = null;
     logger.warn(
-      'No dashboard account exists yet. Open the dashboard in a browser to create one. ' +
+      'No control panel account exists yet. Open the control panel in a browser to create one. ' +
         'Until you do, anyone who can reach this port can claim it — complete setup now, ' +
         'or set ADMIN_PASSWORD_HASH in the environment instead.',
     );
@@ -204,7 +204,7 @@ async function persistedSecret(stored: Store | null): Promise<string> {
   try {
     await writeStore({ version: 2, sessionSecret: secret, accounts: stored?.accounts ?? [] });
   } catch (err) {
-    // Not fatal: the dashboard still works, but everyone is signed out on restart.
+    // Not fatal: the control panel still works, but everyone is signed out on restart.
     logger.warn({ err }, 'could not persist a session secret — sessions will not survive a restart');
   }
   return secret;
@@ -315,7 +315,7 @@ export async function createAccount(
   newPassword: string,
 ): Promise<PublicAccount> {
   if (isConfigured()) {
-    throw new SetupError('A dashboard account already exists', 'already-configured');
+    throw new SetupError('A control panel account already exists', 'already-configured');
   }
   assertUsable(newPassword);
 
@@ -331,7 +331,7 @@ export async function createAccount(
     sessionSecret: cache?.sessionSecret ?? randomBytes(32).toString('hex'),
     accounts: [account],
   });
-  logger.info({ username: newUsername }, 'dashboard account created via first-run setup');
+  logger.info({ username: newUsername }, 'control panel account created via first-run setup');
 
   return publicView(account);
 }
@@ -366,7 +366,7 @@ export async function addAccount(
  *
  * Two things are refused. The last account, because there would be no way back
  * in — the store file would have to be deleted from a shell, which is exactly
- * the situation this dashboard exists to avoid. And your own account, because
+ * the situation this control panel exists to avoid. And your own account, because
  * the effect is signing yourself out mid-action: another administrator can
  * remove you, which keeps the operation deliberate.
  */
@@ -412,7 +412,7 @@ export async function changePassword(
   assertNotEnvironmentManaged();
 
   await replaceHash(username, newPassword);
-  logger.info({ username }, 'dashboard password changed');
+  logger.info({ username }, 'control panel password changed');
 }
 
 /**

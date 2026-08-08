@@ -18,7 +18,7 @@ export const authRouter = Router();
 /**
  * Brute-force protection on the only unauthenticated write endpoint. The window
  * is per-IP; on a LAN that is per-machine, which is the right granularity for a
- * single-operator dashboard.
+ * single-operator control panel.
  */
 const loginLimiter = rateLimit({
   windowMs: 10 * 60 * 1_000,
@@ -60,7 +60,7 @@ const setupSchema = z.object({
  * First-run account creation.
  *
  * Rate-limited like login, and refuses once an account exists — so it cannot be
- * used to take over a configured dashboard. There is intentionally no
+ * used to take over a configured control panel. There is intentionally no
  * unauthenticated password reset; recovery means deleting the credential store
  * on the host, which requires access to the host.
  */
@@ -72,7 +72,7 @@ authRouter.post(
       throw new ApiError(
         409,
         'already_configured',
-        'A dashboard account already exists. Sign in instead.',
+        'A control panel account already exists. Sign in instead.',
       );
     }
 
@@ -98,7 +98,7 @@ authRouter.post(
       throw new ApiError(
         409,
         'needs_setup',
-        'No dashboard account exists yet. Reload the page to create one.',
+        'No control panel account exists yet. Reload the page to create one.',
       );
     }
 
@@ -129,7 +129,7 @@ authRouter.get('/session', requireAuth, (req, res) => {
 /**
  * Administrator accounts.
  *
- * Every account has the same rights — there are no roles, because a dashboard
+ * Every account has the same rights — there are no roles, because a control panel
  * that can restart the game server and holds the Docker socket has only one
  * meaningful level of access. What this adds is being able to give a second
  * person their own credentials instead of sharing one password.

@@ -126,7 +126,7 @@ class Poller extends EventEmitter {
       // Skip the UDP query when the container is known to be down — otherwise
       // every poll pays the full timeout for nothing. But when Docker itself is
       // unreachable the container state is *unknown*, not "stopped", so query
-      // anyway: a dashboard running without the Docker socket must still report
+      // anyway: a control panel running without the Docker socket must still report
       // a live game server truthfully rather than declaring it offline on no
       // evidence.
       const containerKnown = gameContainer?.exists ?? false;

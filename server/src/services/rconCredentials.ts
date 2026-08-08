@@ -2,10 +2,10 @@ import { env } from '../env.js';
 import { cvarMap, readConfig } from './serverConfig.js';
 
 /**
- * Where the dashboard gets its rcon password.
+ * Where the control panel gets its rcon password.
  *
  * The password used to live only in RCON_PASSWORD, which made it a second copy
- * of a secret whose real home is the server config — and the dashboard can edit
+ * of a secret whose real home is the server config — and the control panel can edit
  * that config but not its own environment. Changing the password in the UI
  * therefore broke the console, and the console is exactly what you would need
  * to fix it. Operators hit this repeatedly and recovered by restoring a backup,
@@ -13,7 +13,7 @@ import { cvarMap, readConfig } from './serverConfig.js';
  *
  * So the config file is the source of truth: it is what the game server itself
  * reads, which makes it the best predictor of what the server will accept.
- * RCON_PASSWORD remains as an override for deployments where the dashboard
+ * RCON_PASSWORD remains as an override for deployments where the control panel
  * cannot see the config, or where the operator would rather keep the secret out
  * of a file the UI can display.
  */
@@ -59,7 +59,7 @@ export function selectRconPassword(
   return { password: '', source: 'none', environmentIgnored: false };
 }
 
-/** Reads the current config and resolves the password the dashboard should use. */
+/** Reads the current config and resolves the password the control panel should use. */
 export async function resolveRconPassword(): Promise<RconCredential> {
   // A missing or unreadable config is normal on a fresh install, and must not
   // stop the environment override from working.

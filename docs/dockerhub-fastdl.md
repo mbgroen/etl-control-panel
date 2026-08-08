@@ -3,11 +3,11 @@
 An nginx web server that serves **Wolfenstein: Enemy Territory (ET: Legacy)**
 map packages to game clients over HTTP, instead of the slow in-game UDP
 transfer. Part of the
-[ET: Legacy Server Dashboard](https://github.com/mbgroen/etlegacy_dashboard)
+[ET: Legacy Control Panel](https://github.com/mbgroen/etl-control-panel)
 stack, and usable on its own.
 
 📖 **Full documentation and compose file:**
-<https://github.com/mbgroen/etlegacy_dashboard>
+<https://github.com/mbgroen/etl-control-panel>
 
 ---
 
@@ -42,7 +42,7 @@ set sv_wwwDownload    "1"
 set sv_wwwBaseURL     "http://<address players can reach>:8081"
 ```
 
-The dashboard does both halves in one action if you run the full stack.
+The control panel does both halves in one action if you run the full stack.
 
 **The base URL must be reachable by players** — a public address or LAN IP, not
 `localhost` and not an internal Docker name. Forward the port on your router if
@@ -83,7 +83,7 @@ is the quickest way to tell the two apart.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `2.8.0` | An exact version. Never moves — use this to pin |
+| `3.0.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 
@@ -96,4 +96,4 @@ configuration is baked in, so no config file needs mounting.
 
 ## Licence
 
-MIT — see the [repository](https://github.com/mbgroen/etlegacy_dashboard).
+MIT — see the [repository](https://github.com/mbgroen/etl-control-panel).

@@ -36,7 +36,7 @@ on:
   workflow_dispatch:
 
 env:
-  DASHBOARD_IMAGE: etlegacy-dashboard
+  CONTROL_PANEL_IMAGE: etl-control-panel
   FASTDL_IMAGE: etlegacy-fastdl
 
 jobs:
@@ -60,15 +60,15 @@ jobs:
       - uses: actions/checkout@v4
         if: steps.guard.outputs.ready == 'true'
 
-      - name: Dashboard
+      - name: Control panel
         if: steps.guard.outputs.ready == 'true'
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-          repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DASHBOARD_IMAGE }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.CONTROL_PANEL_IMAGE }}
           short-description: 'Web control panel for a Wolfenstein: Enemy Territory (ET: Legacy) game server'
-          readme-filepath: ./docs/dockerhub-dashboard.md
+          readme-filepath: ./docs/dockerhub-control-panel.md
 
       - name: FastDL
         if: steps.guard.outputs.ready == 'true'

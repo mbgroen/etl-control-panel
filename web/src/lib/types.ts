@@ -140,8 +140,8 @@ export interface AdminAccount {
   createdAt: string;
 }
 
-/** Dashboard preferences, stored in its own state directory. */
-export interface DashboardSettings {
+/** Control panel preferences, stored in its own state directory. */
+export interface ControlPanelSettings {
   maxUploadMb: number;
   maxBackups: number;
   maxPlayerSessions: number;

@@ -7,7 +7,7 @@ import { poller, type Snapshot } from '../services/poller.js';
 import { authenticateUpgrade } from './auth.js';
 
 /**
- * Realtime channel for the dashboard.
+ * Realtime channel for the control panel.
  *
  * Two things stream: the poller's status snapshots (fan-out of one shared
  * poll), and container logs. Log follow streams are opened once per service and

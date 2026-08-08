@@ -28,7 +28,7 @@ const PALETTE: Record<string, string> = {
  *
  * The engine takes the low three bits of the character code for anything
  * outside 0-9, which is why letters produce colours at all; mirroring that
- * keeps names looking the same in the dashboard as they do in game.
+ * keeps names looking the same in the control panel as they do in game.
  */
 function colorFor(char: string): string {
   const direct = PALETTE[char];

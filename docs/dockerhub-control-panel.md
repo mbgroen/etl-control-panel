@@ -1,4 +1,4 @@
-# ET: Legacy Server Dashboard
+# ET: Legacy Control Panel
 
 A self-hosted web control panel for a **Wolfenstein: Enemy Territory (ET: Legacy)**
 game server running in Docker. Monitor players live, start and stop the server,
@@ -6,7 +6,7 @@ edit the server config safely, manage custom maps, and run an optional HTTP
 download (FastDL) server — all from a browser.
 
 📖 **Full documentation, compose file and setup guide:**
-<https://github.com/mbgroen/etlegacy_dashboard>
+<https://github.com/mbgroen/etl-control-panel>
 
 ---
 
@@ -36,23 +36,23 @@ download (FastDL) server — all from a browser.
 
 ## Quick start
 
-This image is one service of a three-container stack (game server, dashboard,
+This image is one service of a three-container stack (game server, control panel,
 FastDL). The simplest way to run it is the ready-made compose file:
 
 ```bash
 mkdir -p ~/etlegacy && cd ~/etlegacy
-curl -fsSLO https://raw.githubusercontent.com/mbgroen/etlegacy_dashboard/main/deploy/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/mbgroen/etl-control-panel/main/deploy/docker-compose.yml
 docker compose up -d
 ```
 
 Then open **`http://<host-ip>:8085`** and create your administrator account.
 Do that straight away — until you do, anyone who can reach the port can claim
-the dashboard.
+the control panel.
 
 **You must supply the base game data.** The ET: Legacy server image ships the
 engine and the Legacy mod but no game assets. Copy `pak0.pk3`, `pak1.pk3`,
 `pak2.pk3` and `mp_bin.pk3` from any Enemy Territory installation into
-`etmain/`, or upload them from the dashboard's Maps page. ET has been freeware
+`etmain/`, or upload them from the control panel's Maps page. ET has been freeware
 since 2003, so the files are a free download.
 
 ## Configuration
@@ -63,12 +63,12 @@ since 2003, so the files are a free download.
 | `ETL_HOST` / `ETL_PORT` | `etlegacy` / `27960` | How to reach the game server for status and RCON |
 | `ETL_CONTAINER` | `etlegacy-server` | Container to start/stop and read logs from |
 | `ETMAIN_PATH` | `/data/etlegacy/etmain` | Game data directory inside this container |
-| `STATE_PATH` | `/data/dashboard` | Admin account, config backups, activity history |
+| `STATE_PATH` | `/data/control-panel` | Admin account, config backups, activity history |
 | `MAX_UPLOAD_MB` | `256` | Initial upload limit; editable under Settings afterwards, along with backup and visit retention |
 | `COOKIE_SECURE` | `false` | Set `true` only when serving over HTTPS |
 
 The full list is in
-[`.env.example`](https://github.com/mbgroen/etlegacy_dashboard/blob/main/.env.example).
+[`.env.example`](https://github.com/mbgroen/etl-control-panel/blob/main/.env.example).
 
 **Ports and volumes.** Listens on **8080** inside the container (the compose
 file publishes it on 8085, since 8080 is heavily contended on home servers).
@@ -80,7 +80,7 @@ Docker socket for container control and log streaming.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `2.8.0` | An exact version. Never moves — use this to pin |
+| `3.0.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 
@@ -93,7 +93,7 @@ the repository if you run on ARM.
 
 ## Security
 
-The dashboard controls a game server and mounts the Docker socket, which is
+The control panel controls a game server and mounts the Docker socket, which is
 root-equivalent on the host. **Keep it on your LAN**; do not port-forward it.
 FastDL (8081) and the game port (27960/udp) are the only ones that need to face
 the internet. See the security notes in the repository for the hardened,
@@ -101,4 +101,4 @@ unprivileged variant.
 
 ## Licence
 
-MIT — see the [repository](https://github.com/mbgroen/etlegacy_dashboard).
+MIT — see the [repository](https://github.com/mbgroen/etl-control-panel).

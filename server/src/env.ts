@@ -12,7 +12,7 @@ const schema = z.object({
 
   /**
    * Credentials are optional here on purpose. Leave them unset and the
-   * dashboard runs a first-run setup wizard in the browser, which is what makes
+   * control panel runs a first-run setup wizard in the browser, which is what makes
    * a WebUI-only install possible. Set them and they take precedence, for
    * deployments managed as code. See services/credentials.ts.
    */
@@ -27,7 +27,7 @@ const schema = z.object({
     .default('')
     .refine((v) => v === '' || v.length >= 32, 'SESSION_SECRET must be at least 32 characters'),
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
-  /** Set false only when serving the dashboard over plain HTTP on a trusted LAN. */
+  /** Set false only when serving the control panel over plain HTTP on a trusted LAN. */
   COOKIE_SECURE: z
     .enum(['true', 'false'])
     .default('false')
@@ -36,7 +36,7 @@ const schema = z.object({
   /**
    * Whether to resolve player addresses to a country.
    *
-   * The only outbound request this dashboard makes. Public player addresses are
+   * The only outbound request this control panel makes. Public player addresses are
    * sent to ipwho.is; private addresses never leave the host, and no player
    * name is ever included. Set false to keep the process entirely local — the
    * Players page still works, without countries.
@@ -58,14 +58,14 @@ const schema = z.object({
   RCON_TIMEOUT_MS: z.coerce.number().int().min(250).max(30_000).default(3_000),
 
   /**
-   * Path *inside the dashboard container* to the game server's etmain directory.
+   * Path *inside the control panel container* to the game server's etmain directory.
    * Must be the same host directory the game server mounts, or edits will not
    * be visible to the running server.
    */
   ETMAIN_PATH: z.string().min(1).default('/data/etlegacy/etmain'),
   LEGACY_PATH: z.string().min(1).default('/data/etlegacy/legacy'),
-  /** Dashboard-owned state: config backups and the metrics ring buffer. */
-  STATE_PATH: z.string().min(1).default('/data/dashboard'),
+  /** Control-panel-owned state: config backups and the metrics ring buffer. */
+  STATE_PATH: z.string().min(1).default('/data/control-panel'),
   /** Filename of the server config, relative to ETMAIN_PATH. */
   SERVER_CONFIG_NAME: z.string().min(1).default('etl_server.cfg'),
 

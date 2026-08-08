@@ -17,7 +17,7 @@
 export const DEFAULT_SERVER_CONFIG = `// =============================================================================
 // ET: Legacy — server configuration
 //
-// Created by the dashboard. Edit here or on the Configuration page, which
+// Created by the control panel. Edit here or on the Configuration page, which
 // keeps a timestamped backup of every change.
 //
 // Colour codes:
@@ -44,8 +44,8 @@ set g_password       ""     // empty = public server
 set sv_privateClients  "2"
 set sv_privatePassword ""   // set this to use the reserved slots
 
-// Needed for the dashboard console and player kick/ban. Set the SAME value in
-// the RCON_PASSWORD environment variable of the dashboard container.
+// Needed for the control panel console and player kick/ban. Set the SAME value in
+// the RCON_PASSWORD environment variable of the control panel container.
 set rconpassword     ""
 
 set sv_floodProtect  "1"
@@ -76,7 +76,7 @@ set g_speed          "320"  // engine default
 // Leave this on: with it off, anyone missing a custom map cannot join at all.
 set sv_allowDownload "1"
 
-// Managed from the dashboard's FastDL page — it sets both values together
+// Managed from the control panel's FastDL page — it sets both values together
 // and verifies the URL is reachable.
 set sv_wwwDownload   "0"
 set sv_wwwBaseURL    ""
@@ -91,9 +91,9 @@ set sv_dlRate        "100"
 // loops back to the first. The trailing vstr is what starts the rotation —
 // without it the server sits on whatever map it booted with.
 //
-// The dashboard rewrites this block when you edit the rotation in the UI.
+// The control panel rewrites this block when you edit the rotation in the UI.
 //
-// >>> dashboard:rotation — managed block, edit via the dashboard
+// >>> control-panel:rotation — managed block, edit via the control panel
 set mr1 "map oasis ; set nextmap vstr mr2"
 set mr2 "map radar ; set nextmap vstr mr3"
 set mr3 "map railgun ; set nextmap vstr mr4"
@@ -101,5 +101,5 @@ set mr4 "map fueldump ; set nextmap vstr mr5"
 set mr5 "map battery ; set nextmap vstr mr6"
 set mr6 "map goldrush ; set nextmap vstr mr1"
 vstr mr1
-// <<< dashboard:rotation
+// <<< control-panel:rotation
 `;

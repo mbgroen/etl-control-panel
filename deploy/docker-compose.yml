@@ -1,8 +1,8 @@
 # =============================================================================
-# ET: Legacy server + dashboard + FastDL — prebuilt images
+# ET: Legacy server + control panel + FastDL — prebuilt images
 #
 # Runs the whole stack from published images, so this file is all you need on
-# the host: no source checkout, no build step. The dashboard asks you to create
+# the host: no source checkout, no build step. The control panel asks you to create
 # an admin account the first time you open it.
 #
 #   docker compose up -d
@@ -19,7 +19,7 @@
 #
 # Ports:
 #   27960/udp  game server
-#   8085/tcp   dashboard   (set DASHBOARD_PORT to move it)
+#   8085/tcp   control panel   (set CONTROL_PANEL_PORT to move it)
 #   8081/tcp   FastDL (map downloads)
 # =============================================================================
 
@@ -60,31 +60,31 @@ services:
         max-file: "5"
 
   # ---------------------------------------------------------------------------
-  # Dashboard — web UI and API.
+  # Control panel — web UI and API.
   # ---------------------------------------------------------------------------
-  dashboard:
-    container_name: etlegacy-dashboard
+  control panel:
+    container_name: etl-control-panel
     # Tracks the latest release. Pin to a version tag (e.g. :1.1.0) if you would
     # rather decide when to move; upgrade either way with
     # "docker compose pull && docker compose up -d".
-    image: mbgroen/etlegacy-dashboard:latest
+    image: mbgroen/etl-control-panel:latest
     ports:
       # Published on 8085 by default: 8080 is one of the most contended ports
       # on a home server — NAS UIs, UniFi controllers and countless other
       # services claim it. The container still listens on 8080 inside; only the
       # host side moves, so nothing internal has to change.
-      - "${DASHBOARD_PORT:-8085}:8080"
+      - "${CONTROL_PANEL_PORT:-8085}:8080"
     volumes:
-      # Read-write: the dashboard edits the server config and installs maps.
+      # Read-write: the control panel edits the server config and installs maps.
       - ${COMPOSE_DATA_PATH:-./data}/etlegacy:/data/etlegacy
-      # Dashboard state: admin account, config backups, activity history.
+      # Control panel state: admin account, config backups, activity history.
       #
       # Deliberately a sibling of etlegacy/ rather than a directory inside it.
       # The game data tree is bind-mounted into the FastDL container, which is
       # usually the one service published to the internet, so keeping the
       # credential store outside that tree means no nginx rule stands between
       # this file and the public — it is simply not there to be served.
-      - ${COMPOSE_DATA_PATH:-./data}/etlegacy-dashboard:/data/dashboard
+      - ${COMPOSE_DATA_PATH:-./data}/etl-control-panel:/data/control-panel
       # Container start/stop/restart and log streaming.
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -93,7 +93,7 @@ services:
       RCON_PASSWORD: ""
 
       # Optional: pre-fills the FastDL address. You can also just type it in the
-      # dashboard later. Use the NAS's LAN IP — not localhost.
+      # control panel later. Use the NAS's LAN IP — not localhost.
       FASTDL_BASE_URL: ""
 
       ETL_HOST: etlegacy
@@ -102,7 +102,7 @@ services:
       FASTDL_CONTAINER: etlegacy-fastdl
       ETMAIN_PATH: /data/etlegacy/etmain
       LEGACY_PATH: /data/etlegacy/legacy
-      STATE_PATH: /data/dashboard
+      STATE_PATH: /data/control-panel
       SERVER_CONFIG_NAME: etl_server.cfg
 
     # Runs as root so it can use the Docker socket and write to the game data
@@ -126,19 +126,19 @@ services:
   # ---------------------------------------------------------------------------
   # FastDL — HTTP map downloads.
   #
-  # Always created so the dashboard can start and stop it on demand. Its
-  # restart policy honours a manual stop, so switching it off in the dashboard
+  # Always created so the control panel can start and stop it on demand. Its
+  # restart policy honours a manual stop, so switching it off in the control panel
   # survives a reboot.
   # ---------------------------------------------------------------------------
   fastdl:
     container_name: etlegacy-fastdl
-    # Kept on the same channel as the dashboard; see the note on its image line.
+    # Kept on the same channel as the control panel; see the note on its image line.
     image: mbgroen/etlegacy-fastdl:latest
     ports:
       - "8081:80"
     volumes:
       # Read-only, and only the two directories nginx actually serves — not the
-      # whole data tree. dashboard/ lives alongside these and holds the admin
+      # whole data tree. control panel/ lives alongside these and holds the admin
       # credential store and config backups, which have no business being
       # inside a container published to the internet. nginx would refuse to
       # serve them anyway (it allowlists .pk3 under these two paths), but a

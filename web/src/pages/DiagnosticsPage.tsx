@@ -40,7 +40,7 @@ export function DiagnosticsPage() {
       setLoadError(
         health.reason instanceof ApiError
           ? health.reason.message
-          : 'The dashboard could not reach its own API.',
+          : 'The control panel could not reach its own API.',
       );
     }
 
@@ -63,7 +63,7 @@ export function DiagnosticsPage() {
   const description = !checks
     ? (loadError ?? 'The checks could not be loaded.')
     : failing === 0
-      ? 'Everything the dashboard needs is available.'
+      ? 'Everything the control panel needs is available.'
       : `${failing} check${failing === 1 ? '' : 's'} need attention.`;
 
   return (
@@ -80,7 +80,7 @@ export function DiagnosticsPage() {
       >
         {!checks && (
           <p className="px-4 py-3 text-xs text-danger">
-            No results to show. Re-run the checks, and if this persists look at the dashboard
+            No results to show. Re-run the checks, and if this persists look at the control panel
             container logs.
           </p>
         )}
@@ -121,7 +121,7 @@ export function DiagnosticsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Runtime configuration" bodyClassName="p-0">
           <dl className="divide-y divide-line text-[13px]">
-            <Row label="Dashboard version" value={info?.version ?? '—'} />
+            <Row label="Control panel version" value={info?.version ?? '—'} />
             <Row label="Game container" value={info?.gameServer.container ?? '—'} mono />
             <Row
               label="Query address"

@@ -15,7 +15,7 @@ import {
   MIN_UPLOAD_MB,
   readSettings,
   writeSettings,
-} from '../services/dashboardSettings.js';
+} from '../services/controlPanelSettings.js';
 import { rcon, RconError } from '../services/q3protocol.js';
 import { resolveRconPassword } from '../services/rconCredentials.js';
 import { configExists, CONFIG_PATH } from '../services/serverConfig.js';
@@ -27,7 +27,7 @@ const rconTarget = { host: env.ETL_HOST, port: env.ETL_PORT, timeoutMs: env.RCON
  *
  * npm_package_version is populated only when the process is started by an npm
  * script, and the image runs `node dist/index.js` directly — so it was always
- * undefined and the dashboard showed a hardcoded 1.0.0 whatever was released.
+ * undefined and the control panel showed a hardcoded 1.0.0 whatever was released.
  * Read package.json instead; the Dockerfile copies it beside dist exactly so it
  * is available at run time. Both the compiled and the source layout put it two
  * directories up from here.
@@ -68,7 +68,7 @@ async function checkRcon(): Promise<RconCheck> {
       ok: false,
       detail: 'Not set — console and player admin are disabled',
       remedy:
-        'Set rconpassword on the Configuration page. The dashboard picks it up straight away; no restart and no environment variable needed.',
+        'Set rconpassword on the Configuration page. The control panel picks it up straight away; no restart and no environment variable needed.',
     };
   }
 
@@ -92,7 +92,7 @@ async function checkRcon(): Promise<RconCheck> {
     return {
       ok: false,
       detail: err instanceof Error ? err.message : 'RCON check failed',
-      remedy: 'Confirm the game server is running and reachable from the dashboard container.',
+      remedy: 'Confirm the game server is running and reachable from the control panel container.',
     };
   }
 }
@@ -102,7 +102,7 @@ export const systemRouter = Router();
 /**
  * Diagnostics for the "is this thing wired up correctly?" question.
  *
- * Every dependency the dashboard needs is checked here and reported with a
+ * Every dependency the control panel needs is checked here and reported with a
  * remedy, because the failure modes (socket not mounted, wrong data path,
  * missing rcon password) all look identical from the UI otherwise: nothing
  * works and no error says why.
@@ -128,7 +128,7 @@ systemRouter.get(
           : (dockerPing.error ?? 'Unreachable'),
         remedy: dockerPing.ok
           ? null
-          : `Mount the socket into the dashboard container: -v ${env.DOCKER_SOCKET}:${env.DOCKER_SOCKET}`,
+          : `Mount the socket into the control panel container: -v ${env.DOCKER_SOCKET}:${env.DOCKER_SOCKET}`,
       },
       {
         id: 'game_container',
@@ -205,10 +205,10 @@ systemRouter.get(
 );
 
 /**
- * Dashboard preferences.
+ * Control panel preferences.
  *
  * Separate from /config, which owns the game server's cvar file. These are the
- * dashboard's own settings and are stored in its state directory, so restoring
+ * control panel's own settings and are stored in its state directory, so restoring
  * an old server-config backup cannot change them.
  */
 systemRouter.get(

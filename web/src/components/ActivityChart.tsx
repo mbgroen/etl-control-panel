@@ -45,7 +45,7 @@ export function ActivityChart({
         className="flex items-center justify-center text-xs text-faint"
         style={{ height }}
       >
-        Collecting data — the chart fills in as the dashboard polls the server.
+        Collecting data — the chart fills in as the control panel polls the server.
       </div>
     );
   }

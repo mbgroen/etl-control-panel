@@ -4,7 +4,7 @@ import type {
   CommandGroup,
   ConfigPayload,
   ConfigProblem,
-  DashboardSettings,
+  ControlPanelSettings,
   FastdlPayload,
   HealthCheck,
   HistoryPayload,
@@ -136,13 +136,13 @@ export const api = {
   system: {
     health: () => request<{ status: string; checks: HealthCheck[] }>('/system/health'),
     info: () => request<SystemInfo>('/system/info'),
-    settings: () => request<DashboardSettings>('/system/settings'),
+    settings: () => request<ControlPanelSettings>('/system/settings'),
     saveSettings: (body: {
       maxUploadMb: number;
       maxBackups: number;
       maxPlayerSessions: number;
     }) =>
-      request<DashboardSettings>('/system/settings', { method: 'PATCH', ...json(body) }),
+      request<ControlPanelSettings>('/system/settings', { method: 'PATCH', ...json(body) }),
     logs: (service: 'game' | 'fastdl', tail = 300) =>
       request<{ service: string; lines: string[] }>(`/system/logs/${service}?tail=${tail}`),
   },

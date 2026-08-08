@@ -3,10 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, Field, Input, Panel, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { useToast } from '../lib/toast';
-import type { DashboardSettings } from '../lib/types';
+import type { ControlPanelSettings } from '../lib/types';
 
 /**
- * Settings for the dashboard itself.
+ * Settings for the control panel itself.
  *
  * These used to sit in a tab on the Configuration page, next to the tabs that
  * edit the game server's config file. That put two unrelated things behind one
@@ -21,7 +21,7 @@ import type { DashboardSettings } from '../lib/types';
  */
 export function SettingsPage() {
   const toast = useToast();
-  const [settings, setSettings] = useState<DashboardSettings | null>(null);
+  const [settings, setSettings] = useState<ControlPanelSettings | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -136,8 +136,8 @@ export function SettingsPage() {
   return (
     <div className="flex flex-col gap-4">
       <Panel
-        title="Dashboard settings"
-        description="Preferences for the dashboard itself. Not part of the server config, and unaffected by restoring a config backup."
+        title="Control panel settings"
+        description="Preferences for the control panel itself. Not part of the server config, and unaffected by restoring a config backup."
       >
         <div className="flex max-w-xl flex-col gap-5">
           {numberField(

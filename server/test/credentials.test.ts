@@ -7,7 +7,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 /**
  * The multi-account store, exercised through its own file.
  *
- * These are the rules that decide who can get into a dashboard holding the
+ * These are the rules that decide who can get into a control panel holding the
  * Docker socket, so each one is pinned rather than assumed: the last account
  * cannot be removed, an account cannot remove itself, usernames do not collide,
  * a removed account is gone immediately, and a v1 store keeps working.

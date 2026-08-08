@@ -33,7 +33,7 @@ export function App() {
     setUnauthorizedHandler(() => setSession({ status: 'out' }));
 
     // Resolve in one pass: an existing session wins, otherwise ask whether the
-    // dashboard has been claimed yet, so a fresh install lands on setup rather
+    // control panel has been claimed yet, so a fresh install lands on setup rather
     // than on a login form nobody has credentials for.
     void (async () => {
       try {
@@ -68,7 +68,7 @@ export function App() {
   if (session.status === 'checking') {
     return (
       <div className="flex h-full items-center justify-center bg-canvas">
-        <Spinner label="Starting dashboard" />
+        <Spinner label="Starting control panel" />
       </div>
     );
   }

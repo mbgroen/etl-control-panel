@@ -49,7 +49,7 @@ export function FastdlPage() {
     try {
       setState(await api.fastdl.get());
     } catch (err) {
-      // Reaching FastDL needs the Docker socket, so this fails on a dashboard
+      // Reaching FastDL needs the Docker socket, so this fails on a control panel
       // running without it — a state the panel below explains rather than
       // leaving the page blank.
       setState(null);
@@ -76,7 +76,7 @@ export function FastdlPage() {
       <div className="flex flex-col gap-4">
         <Panel title="HTTP downloads (FastDL)">
           <p className="text-xs text-muted">
-            Unavailable — the dashboard cannot reach the Docker daemon, which it needs to inspect
+            Unavailable — the control panel cannot reach the Docker daemon, which it needs to inspect
             and control the FastDL container. See Diagnostics for the fix. The settings below are
             read from the server config and still work.
           </p>

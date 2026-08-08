@@ -36,7 +36,7 @@ on:
           - linux/arm64
 
 env:
-  DASHBOARD_IMAGE: etlegacy-dashboard
+  CONTROL_PANEL_IMAGE: etl-control-panel
   FASTDL_IMAGE: etlegacy-fastdl
 
 jobs:
@@ -129,11 +129,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Derive tags for the dashboard image
-        id: dashboard-meta
+      - name: Derive tags for the control panel image
+        id: control panel-meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DASHBOARD_IMAGE }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.CONTROL_PANEL_IMAGE }}
           tags: |
             type=raw,value=latest,enable=${{ steps.release.outputs.latest == 'true' }}
             # Full version only. A floating x.y tag looks like a pin but moves
@@ -147,18 +147,18 @@ jobs:
             # metadata-action emits, so any image can still be traced back:
             #   docker inspect <image> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 
-      - name: Build and push the dashboard image
+      - name: Build and push the control panel image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           platforms: ${{ env.PLATFORMS }}
           push: true
-          tags: ${{ steps.dashboard-meta.outputs.tags }}
-          labels: ${{ steps.dashboard-meta.outputs.labels }}
+          tags: ${{ steps.control panel-meta.outputs.tags }}
+          labels: ${{ steps.control panel-meta.outputs.labels }}
           # Layer cache in the Actions cache keeps rebuilds to a couple of minutes.
-          cache-from: type=gha,scope=dashboard
-          cache-to: type=gha,scope=dashboard,mode=max
+          cache-from: type=gha,scope=control panel
+          cache-to: type=gha,scope=control panel,mode=max
 
       - name: Derive tags for the FastDL image
         id: fastdl-meta
@@ -196,7 +196,7 @@ jobs:
             echo "### Images published"
             echo
             echo '```'
-            echo "${{ steps.dashboard-meta.outputs.tags }}"
+            echo "${{ steps.control panel-meta.outputs.tags }}"
             echo "${{ steps.fastdl-meta.outputs.tags }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

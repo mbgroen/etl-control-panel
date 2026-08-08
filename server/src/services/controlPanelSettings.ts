@@ -4,16 +4,16 @@ import { env } from '../env.js';
 import { logger } from '../logger.js';
 
 /**
- * Dashboard preferences that an operator can change from the browser.
+ * Control panel preferences that an operator can change from the browser.
  *
  * Deliberately not part of etl_server.cfg. That file belongs to the game
  * server: everything in it is a cvar the engine reads, it is backed up and
  * restored as a unit, and it is served to clients' download directory. A
- * dashboard preference has no business there — it would be an unknown cvar the
+ * control panel preference has no business there — it would be an unknown cvar the
  * engine ignores, and a restore of an old backup would silently change it.
  *
  * So it lives beside the credential store in the state directory, which is
- * already the dashboard's own writable space.
+ * already the control panel's own writable space.
  */
 
 const SETTINGS_FILE = path.join(env.STATE_PATH, 'settings.json');
@@ -42,7 +42,7 @@ export const MAX_BACKUPS_CEILING = 200;
 export const MIN_HISTORY = 10;
 export const MAX_HISTORY_CEILING = 5000;
 
-export interface DashboardSettings {
+export interface ControlPanelSettings {
   maxUploadMb: number;
   /** Config snapshots kept before the oldest is pruned. */
   maxBackups: number;
@@ -50,7 +50,7 @@ export interface DashboardSettings {
   maxPlayerSessions: number;
 }
 
-let cache: DashboardSettings | null = null;
+let cache: ControlPanelSettings | null = null;
 
 /**
  * Validates an upload limit, returning null for anything unusable.
@@ -79,10 +79,10 @@ export function parseBounded(value: unknown, min: number, max: number): number |
  * a value the operator chose in the browser should not be silently overridden
  * by one they configured months ago and forgot.
  */
-export async function readSettings(): Promise<DashboardSettings> {
+export async function readSettings(): Promise<ControlPanelSettings> {
   if (cache) return cache;
 
-  const fallback: DashboardSettings = {
+  const fallback: ControlPanelSettings = {
     maxUploadMb: env.MAX_UPLOAD_MB,
     maxBackups: 30,
     maxPlayerSessions: 500,
@@ -90,7 +90,7 @@ export async function readSettings(): Promise<DashboardSettings> {
 
   try {
     const raw = await fs.readFile(SETTINGS_FILE, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<Record<keyof DashboardSettings, unknown>>;
+    const parsed = JSON.parse(raw) as Partial<Record<keyof ControlPanelSettings, unknown>>;
     // Each setting falls back independently, so one unreadable value does not
     // discard the others.
     cache = {
@@ -103,7 +103,7 @@ export async function readSettings(): Promise<DashboardSettings> {
     };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      logger.warn({ err }, 'could not read dashboard settings — using the environment defaults');
+      logger.warn({ err }, 'could not read control panel settings — using the environment defaults');
     }
     cache = fallback;
   }
@@ -111,7 +111,7 @@ export async function readSettings(): Promise<DashboardSettings> {
   return cache;
 }
 
-export async function writeSettings(next: DashboardSettings): Promise<DashboardSettings> {
+export async function writeSettings(next: ControlPanelSettings): Promise<ControlPanelSettings> {
   const maxUploadMb = parseUploadMb(next.maxUploadMb);
   if (maxUploadMb === null) {
     throw new RangeError(
@@ -129,7 +129,7 @@ export async function writeSettings(next: DashboardSettings): Promise<DashboardS
     );
   }
 
-  const settings: DashboardSettings = { maxUploadMb, maxBackups, maxPlayerSessions };
+  const settings: ControlPanelSettings = { maxUploadMb, maxBackups, maxPlayerSessions };
   await fs.mkdir(path.dirname(SETTINGS_FILE), { recursive: true });
 
   // Written to a temp file and renamed, so a crash mid-write cannot leave a
@@ -139,7 +139,7 @@ export async function writeSettings(next: DashboardSettings): Promise<DashboardS
   await fs.rename(temp, SETTINGS_FILE);
 
   cache = settings;
-  logger.info({ maxUploadMb, maxBackups, maxPlayerSessions }, 'dashboard settings updated');
+  logger.info({ maxUploadMb, maxBackups, maxPlayerSessions }, 'control panel settings updated');
   return settings;
 }
 

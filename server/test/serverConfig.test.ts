@@ -74,7 +74,7 @@ describe('applyCvarUpdates', () => {
 
   it('appends unknown cvars in a marked block', () => {
     const next = applyCvarUpdates(SAMPLE, { g_friendlyFire: '1' });
-    assert.match(next, /Added by the dashboard/);
+    assert.match(next, /Added by the control panel/);
     assert.equal(cvarMap(next).g_friendlyfire, '1');
   });
 
@@ -89,7 +89,25 @@ describe('applyCvarUpdates', () => {
   it('still finds an existing cvar whose case differs', () => {
     const next = applyCvarUpdates('set G_GRAVITY "800"', { g_gravity: '700' });
     assert.equal(next, 'set G_GRAVITY "700"');
-    assert.ok(!next.includes('Added by the dashboard'));
+    assert.ok(!next.includes('Added by the control panel'));
+  });
+
+  // A config written before the rename says dashboard:rotation. Rewriting the
+  // rotation has to replace that block, not leave it in place and append a
+  // second one — the trailing vstr would then decide which rotation runs.
+  it('replaces a rotation block written under the old marker', () => {
+    const legacy = [
+      'set sv_hostname "x"',
+      '// >>> dashboard:rotation — managed block, edit via the dashboard',
+      'set mr1 "map oasis ; set nextmap vstr mr1"',
+      'vstr mr1',
+      '// <<< dashboard:rotation',
+    ].join('\n');
+
+    const next = buildRotation(legacy, ['radar', 'battery']);
+    assert.equal((next.match(/:rotation —/g) ?? []).length, 1);
+    assert.ok(!next.includes('dashboard:rotation'));
+    assert.deepEqual(parseRotation(next).map((entry) => entry.map), ['radar', 'battery']);
   });
 
   it('patches only the last assignment, which is the one the engine applies', () => {
@@ -156,7 +174,7 @@ describe('map rotation', () => {
   it('replaces the managed block instead of stacking duplicates', () => {
     const once = buildRotation(SAMPLE, ['oasis', 'radar']);
     const twice = buildRotation(once, ['battery']);
-    assert.equal((twice.match(/dashboard:rotation —/g) ?? []).length, 1);
+    assert.equal((twice.match(/control-panel:rotation —/g) ?? []).length, 1);
     assert.deepEqual(parseRotation(twice).map((e) => e.map), ['battery']);
   });
 
@@ -175,6 +193,6 @@ describe('map rotation', () => {
 
   it('clearing the rotation removes the managed block', () => {
     const cfg = buildRotation(buildRotation(SAMPLE, ['oasis']), []);
-    assert.ok(!cfg.includes('dashboard:rotation'));
+    assert.ok(!cfg.includes('control-panel:rotation'));
   });
 });

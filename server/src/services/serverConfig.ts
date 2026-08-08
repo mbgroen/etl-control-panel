@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../env.js';
-import { readSettings } from './dashboardSettings.js';
+import { readSettings } from './controlPanelSettings.js';
 import { logger } from '../logger.js';
 
 /**
@@ -209,7 +209,7 @@ export function validateConfig(content: string): ConfigProblem[] {
     problems.push({
       line: null,
       severity: 'warning',
-      message: 'No rconpassword set — the dashboard console and player admin will be unavailable',
+      message: 'No rconpassword set — the control panel console and player admin will be unavailable',
     });
   }
 
@@ -288,7 +288,7 @@ export function applyCvarUpdates(content: string, updates: Record<string, string
     const added = [...pending.values()].map(
       (entry) => `set ${entry.key} "${escapeValue(entry.value)}"`,
     );
-    lines.push('', '// --- Added by the dashboard ---', ...added);
+    lines.push('', '// --- Added by the control panel ---', ...added);
   }
 
   return lines.join('\n');
@@ -303,8 +303,19 @@ function escapeValue(value: string): string {
  * Map rotation
  * ------------------------------------------------------------------ */
 
-const ROTATION_START = '// >>> dashboard:rotation — managed block, edit via the dashboard';
-const ROTATION_END = '// <<< dashboard:rotation';
+const ROTATION_START = '// >>> control-panel:rotation — managed block, edit via the control panel';
+const ROTATION_END = '// <<< control-panel:rotation';
+
+/**
+ * Both spellings of the markers, because configs written before the rename say
+ * `dashboard:rotation`.
+ *
+ * Matching only the new name would leave the old block in place and append a
+ * second one below it — two rotations in one file, with the last `vstr` quietly
+ * deciding which one runs. Read either, write the current one.
+ */
+const ROTATION_START_ANY = /^\/\/\s*>>>\s*(control-panel|dashboard):rotation\b/;
+const ROTATION_END_ANY = /^\/\/\s*<<<\s*(control-panel|dashboard):rotation\b/;
 
 export interface RotationEntry {
   map: string;
@@ -387,9 +398,9 @@ export function buildRotation(content: string, maps: string[]): string {
 
 function removeManagedRotation(content: string): string {
   const lines = content.split('\n');
-  const start = lines.findIndex((l) => l.trim().startsWith(ROTATION_START.slice(0, 24)));
+  const start = lines.findIndex((l) => ROTATION_START_ANY.test(l.trim()));
   if (start === -1) return content;
-  const end = lines.findIndex((l, i) => i > start && l.trim().startsWith(ROTATION_END));
+  const end = lines.findIndex((l, i) => i > start && ROTATION_END_ANY.test(l.trim()));
   if (end === -1) return content;
   lines.splice(start, end - start + 1);
   return lines.join('\n');
@@ -414,7 +425,7 @@ async function ensureBackupDir(): Promise<void> {
  * Snapshots the current config before it is overwritten.
  *
  * Backups are plain files named by timestamp so an operator can recover one
- * with `cp` alone if the dashboard itself is down — recovery tooling that
+ * with `cp` alone if the control panel itself is down — recovery tooling that
  * depends on the thing that broke is not recovery tooling.
  */
 async function createBackup(note: string): Promise<string | null> {
@@ -520,7 +531,7 @@ export async function saveConfig(
     }
   }
 
-  const backupId = await createBackup(options.note ?? 'Saved from dashboard');
+  const backupId = await createBackup(options.note ?? 'Saved from control panel');
 
   await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
 

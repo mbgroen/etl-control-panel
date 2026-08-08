@@ -161,7 +161,7 @@ export function ConfigPage() {
  * to work out that you just switched three other things on — and "set it to 1"
  * quietly switches them off. Bits the schema does not name are left untouched
  * rather than cleared, because a newer server may define more of them than this
- * dashboard knows about.
+ * control panel knows about.
  */
 function FlagField({
   spec,
@@ -318,7 +318,7 @@ function ProblemList({ problems }: { problems: ConfigProblem[] }) {
  *
  * Removing the Downloads section fixed one problem — two screens claiming to
  * own sv_wwwBaseURL — and would have created another: someone who knows the
- * cvar searches for it, finds nothing, and concludes the dashboard cannot set
+ * cvar searches for it, finds nothing, and concludes the control panel cannot set
  * it. A search that comes up empty should say where to look.
  */
 const MOVED = [

@@ -1,5 +1,5 @@
 /**
- * The ET: Legacy server settings the dashboard exposes as a form.
+ * The ET: Legacy server settings the control panel exposes as a form.
  *
  * Names and defaults are taken from the configs the official server image
  * ships — etl_server.cfg and legacy.cfg — rather than from memory, because a
@@ -39,7 +39,7 @@ export interface CvarSpec {
    *
    * For settings that point at files, load code, or run bots: getting one wrong
    * does not tune the server, it stops it from starting. They belong in the
-   * dashboard — hunting for them in a text editor is worse — but not one
+   * control panel — hunting for them in a text editor is worse — but not one
    * mis-click away from someone looking for the round timer.
    */
   expert?: boolean;
@@ -230,7 +230,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         key: 'rconpassword',
         label: 'RCON password',
         kind: 'password',
-        hint: 'Unlocks the console and player kick/ban. The dashboard picks this up immediately — nothing to copy elsewhere, no restart.',
+        hint: 'Unlocks the console and player kick/ban. The control panel picks this up immediately — nothing to copy elsewhere, no restart.',
         appliesOn: 'immediately',
       },
       {

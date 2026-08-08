@@ -28,7 +28,7 @@ export function Login({ onSuccess }: { onSuccess: (username: string) => void }) 
       setError(
         err instanceof ApiError
           ? err.message
-          : 'Could not reach the dashboard API. Is the container running?',
+          : 'Could not reach the control panel API. Is the container running?',
       );
       setPassword('');
     } finally {
@@ -46,7 +46,7 @@ export function Login({ onSuccess }: { onSuccess: (username: string) => void }) 
           >
             ET
           </span>
-          <h1 className="text-lg font-semibold text-body">ET: Legacy Dashboard</h1>
+          <h1 className="text-lg font-semibold text-body">ET: Legacy Control Panel</h1>
           <p className="mt-1 text-[13px] text-muted">Sign in to manage your game server</p>
         </div>
 
@@ -96,7 +96,7 @@ export function Login({ onSuccess }: { onSuccess: (username: string) => void }) 
         </form>
 
         <p className="mt-4 text-center text-[11px] text-faint">
-          Locked out? Delete <code className="font-mono">credentials.json</code> from the dashboard
+          Locked out? Delete <code className="font-mono">credentials.json</code> from the control panel
           data directory to run setup again.
         </p>
       </div>

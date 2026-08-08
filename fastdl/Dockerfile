@@ -12,7 +12,7 @@ FROM nginx:1.27-alpine
 
 LABEL org.opencontainers.image.title="ET: Legacy FastDL" \
       org.opencontainers.image.description="HTTP download server for ET: Legacy map packages" \
-      org.opencontainers.image.source="https://github.com/mbgroen/etlegacy_dashboard" \
+      org.opencontainers.image.source="https://github.com/mbgroen/etl-control-panel" \
       org.opencontainers.image.licenses="MIT"
 
 # Replaces the stock default site.

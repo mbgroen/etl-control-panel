@@ -1,4 +1,4 @@
-# ET: Legacy Server Dashboard
+# ET: Legacy Control Panel
 
 A self-hosted control panel for a Wolfenstein: Enemy Territory (ET: Legacy) game
 server running in Docker. Monitor players in real time, start and stop the
@@ -7,14 +7,14 @@ HTTP download (FastDL) server — all from a browser on your LAN.
 
 It is plain Docker Compose and runs anywhere Docker does — a NAS, a home server,
 a VPS, or a spare machine. No prior experience of running an ET server is
-assumed: the dashboard writes a working config for you, and everything after
+assumed: the control panel writes a working config for you, and everything after
 that is done in the browser.
 
 Ready-built images, no account needed:
 
 | Image | Purpose |
 |---|---|
-| [`mbgroen/etlegacy-dashboard`](https://hub.docker.com/r/mbgroen/etlegacy-dashboard) | This control panel |
+| [`mbgroen/etl-control-panel`](https://hub.docker.com/r/mbgroen/etl-control-panel) | This control panel |
 | [`mbgroen/etlegacy-fastdl`](https://hub.docker.com/r/mbgroen/etlegacy-fastdl) | HTTP map downloads for clients |
 
 The game server itself comes from the official
@@ -31,7 +31,7 @@ The game server itself comes from the official
 - [Publishing your own images](#publishing-your-own-images)
 - [Installation](#installation)
 - [Configuration reference](#configuration-reference)
-- [Using the dashboard](#using-the-dashboard)
+- [Using the control panel](#using-the-control panel)
 - [FastDL — HTTP map downloads](#fastdl--http-map-downloads)
 - [Security](#security)
 - [API reference](#api-reference)
@@ -61,11 +61,43 @@ width, and ships light and dark themes.
 
 ---
 
+## Upgrading from the Dashboard releases (2.x)
+
+The project was called **ET: Legacy Dashboard** up to 2.8.1. Version 3.0.0
+renames it, and four names change with it. Nothing in your server config or your
+map files is affected; the game server and FastDL containers are untouched.
+
+| Was | Is now |
+|---|---|
+| `mbgroen/etlegacy-dashboard` | `mbgroen/etl-control-panel` |
+| `container_name: etlegacy-dashboard` | `container_name: etl-control-panel` |
+| `STATE_PATH: /data/dashboard` | `STATE_PATH: /data/control-panel` |
+| `DASHBOARD_PORT` | `CONTROL_PANEL_PORT` |
+
+**Move the state directory before you start 3.0.0**, or the control panel comes
+up with no account, no settings and no player history and asks you to run setup
+again — the data is not lost, it is simply in the old folder:
+
+```bash
+docker compose down && mv /srv/etlegacy/dashboard /srv/etlegacy/control-panel
+```
+
+Use whatever your `COMPOSE_DATA_PATH` actually is. If you start it first and see
+the setup screen, stop, move the folder, and start again — nothing is written
+until you create an account. The container logs the same instruction with the
+exact paths when it finds the old folder.
+
+Configs written by 2.x are read unchanged, including the
+`// >>> dashboard:rotation` marker around the managed rotation block; saving
+rewrites it under the new name.
+
+---
+
 ## Architecture
 
 ```
                         ┌──────────────────────────────┐
-   browser  ──HTTP/WS──▶│  etlegacy-dashboard  :8085   │
+   browser  ──HTTP/WS──▶│  etl-control-panel  :8085   │
                         │  Node 22 · Express · React   │
                         └──┬──────────┬────────────┬───┘
                            │          │            │
@@ -86,15 +118,15 @@ width, and ships light and dark themes.
 Three containers on one bridge network:
 
 - **`etlegacy-server`** — the game server, unchanged from the official image.
-- **`etlegacy-dashboard`** — this project. Talks to the Docker daemon for
+- **`etl-control-panel`** — this project. Talks to the Docker daemon for
   container lifecycle and logs, to the game server over UDP for status and
   RCON, and to the bind-mounted `etmain` directory for config and map files.
 - **`etlegacy-fastdl`** — nginx serving `etmain` read-only over HTTP. Optional;
-  the dashboard starts and stops it on demand.
+  the control panel starts and stops it on demand.
 
-The dashboard and FastDL both mount **the same host directory** the game server
+The control panel and FastDL both mount **the same host directory** the game server
 uses. There is no copying or syncing: what the server has installed is exactly
-what the dashboard lists and what clients can download.
+what the control panel lists and what clients can download.
 
 ---
 
@@ -105,8 +137,8 @@ what the dashboard lists and what clients can download.
   disk.
 - **UDP port 27960** reachable by players (port-forwarded on your router if the
   server should be public).
-- **TCP port 8085** for the dashboard (moved off the much-contended 8080;
-  change it with `DASHBOARD_PORT`), and **8081** if you use FastDL.
+- **TCP port 8085** for the control panel (moved off the much-contended 8080;
+  change it with `CONTROL_PANEL_PORT`), and **8081** if you use FastDL.
 - Roughly **400 MB of disk** for the images, plus whatever your maps need.
 - **The base game data** — `pak0.pk3`, `pak1.pk3`, `pak2.pk3` and `mp_bin.pk3`.
   The server image does not ship these and cannot start a map without them; see
@@ -116,13 +148,13 @@ what the dashboard lists and what clients can download.
 > directory your current server uses. Point `COMPOSE_DATA_PATH` at your existing
 > data location and your maps and config carry over untouched.
 
-> **Coming from a version before 1.2.0?** The dashboard state directory is now
-> called `etlegacy-dashboard/` instead of `dashboard/`, so both directories this
+> **Coming from a version before 1.2.0?** The control panel state directory is now
+> called `etl-control-panel/` instead of `control panel/`, so both directories this
 > stack owns are named after it. Rename it before starting the new version, or
-> the dashboard finds no account and reopens the setup wizard:
+> the control panel finds no account and reopens the setup wizard:
 >
 > ```bash
-> mv "$DATA"/dashboard "$DATA"/etlegacy-dashboard
+> mv "$DATA"/control panel "$DATA"/etl-control-panel
 > ```
 >
 > Nothing is lost if you start it first — the old directory is still there. Stop
@@ -146,7 +178,7 @@ directory on the host — that single file is the whole install.
 
 ```bash
 mkdir -p ~/etlegacy && cd ~/etlegacy
-curl -fsSLO https://raw.githubusercontent.com/mbgroen/etlegacy_dashboard/main/deploy/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/mbgroen/etl-control-panel/main/deploy/docker-compose.yml
 ```
 
 ### 2. Choose where data lives
@@ -160,7 +192,7 @@ echo 'COMPOSE_DATA_PATH=/srv/appdata' > .env
 ```
 
 Leave `RCON_PASSWORD` blank. It is optional — you set the RCON password on the
-Configuration page in step 5, and the dashboard reads it from the server config
+Configuration page in step 5, and the control panel reads it from the server config
 from then on.
 
 > **Using a Docker management UI?** Many — Portainer, Dockge, the compose
@@ -179,10 +211,10 @@ docker compose up -d
 
 ### 4. Create your account
 
-Open **`http://<host-ip>:8085`**. The dashboard asks you to create an
+Open **`http://<host-ip>:8085`**. The control panel asks you to create an
 administrator account — this replaces generating a password hash on the command
 line. Do it straight away: until you do, anyone who can reach that port can
-claim the dashboard.
+claim the control panel.
 
 ### 5. Create the server config
 
@@ -191,7 +223,7 @@ page offers **Create default configuration** — a working objective server with
 six-map rotation. Set your server name, RCON password and private-slot password
 there.
 
-The RCON password you set here is picked up by the dashboard automatically —
+The RCON password you set here is picked up by the control panel automatically —
 there is nothing to copy into the compose file and nothing to restart. See
 [The RCON password](#the-rcon-password).
 
@@ -209,7 +241,7 @@ RCON, and names the fix for anything that is wrong.
 That's the whole installation. Map uploads, FastDL and rotation are all managed
 from the interface.
 
-> **Note on privileges.** This compose runs the dashboard as root so it can use
+> **Note on privileges.** This compose runs the control panel as root so it can use
 > the Docker socket and write the game data directory regardless of ownership —
 > which is what removes the `PUID`/`PGID`/`DOCKER_GID` lookups from setup. The
 > socket is already root-equivalent, so this adds little on top of mounting it.
@@ -221,7 +253,7 @@ from the interface.
 ## Publishing your own images
 
 You do not need to — the images above are public and ready to use. Publish your
-own if you want to modify the dashboard, or would rather not depend on someone
+own if you want to modify the control panel, or would rather not depend on someone
 else's registry account.
 
 The repository ships a GitHub Actions workflow that builds both images and
@@ -255,8 +287,8 @@ git tag v1.0.0 && git push origin v1.0.0
 It typechecks, runs the tests, then publishes two tags per image:
 
 ```
-<username>/etlegacy-dashboard:1.0.0     the exact version — never moves
-<username>/etlegacy-dashboard:latest    the newest release
+<username>/etl-control-panel:1.0.0     the exact version — never moves
+<username>/etl-control-panel:latest    the newest release
 ```
 
 **Pushing to `main` publishes nothing.** Images are built for releases only, so
@@ -290,8 +322,8 @@ code or would rather not depend on a registry.
 
 ```bash
 cd /srv/appdata          # wherever you keep persistent data
-git clone https://github.com/mbgroen/etlegacy_dashboard.git
-cd etlegacy_dashboard
+git clone https://github.com/mbgroen/etl-control-panel.git
+cd etl-control-panel
 ```
 
 ### 2. Create the data directories
@@ -300,7 +332,7 @@ cd etlegacy_dashboard
 # Substitute your own data path
 export DATA=/srv/appdata
 
-mkdir -p "$DATA"/etlegacy/{etmain,legacy} "$DATA"/etlegacy-dashboard
+mkdir -p "$DATA"/etlegacy/{etmain,legacy} "$DATA"/etl-control-panel
 ```
 
 Two directories, deliberately siblings:
@@ -310,11 +342,11 @@ $DATA/
 ├── etlegacy/                game data, mounted into FastDL
 │   ├── etmain/              maps and server config   (served over HTTP)
 │   └── legacy/              Legacy mod data          (served over HTTP)
-└── etlegacy-dashboard/      admin account, config backups, activity history
+└── etl-control-panel/      admin account, config backups, activity history
 ```
 
 The split is the point: FastDL is the service you publish to the internet, and
-it only ever mounts `etmain/` and `legacy/`. Keeping dashboard state out of that
+it only ever mounts `etmain/` and `legacy/`. Keeping control panel state out of that
 tree means the credential store is not merely blocked from being served — it is
 not present in the container at all.
 
@@ -325,19 +357,19 @@ cp config/etl_server.cfg.example "$DATA"/etlegacy/etmain/etl_server.cfg
 ```
 
 Open it and change at least `sv_hostname`. Passwords are empty by default and
-are best set on the dashboard's Configuration page, which applies the RCON
+are best set on the control panel's Configuration page, which applies the RCON
 password to the running server for you.
 
 ### 4. Credentials (optional)
 
 You can skip this entirely — leave `ADMIN_PASSWORD_HASH` and `SESSION_SECRET`
-empty and the dashboard will ask you to create an account on first visit.
+empty and the control panel will ask you to create an account on first visit.
 
 To manage them declaratively instead, build the image and use the generator:
 
 ```bash
-docker compose build dashboard
-docker compose run --rm --no-deps --entrypoint node dashboard dist/cli/hashPassword.js
+docker compose build control panel
+docker compose run --rm --no-deps --entrypoint node control panel dist/cli/hashPassword.js
 ```
 
 It prompts for a password and prints an `ADMIN_PASSWORD_HASH` and a random
@@ -355,10 +387,10 @@ The values you must set are `COMPOSE_DATA_PATH`, `ADMIN_PASSWORD_HASH`,
 `SESSION_SECRET`, and `RCON_PASSWORD`. Find the two ID values like this:
 
 ```bash
-# GID of the docker group — lets the dashboard use the socket unprivileged
+# GID of the docker group — lets the control panel use the socket unprivileged
 getent group docker | cut -d: -f3
 
-# Owner of your etmain directory — the dashboard must be able to write here
+# Owner of your etmain directory — the control panel must be able to write here
 stat -c '%u %g' "$DATA"/etlegacy/etmain
 ```
 
@@ -408,8 +440,8 @@ list. The ones that matter most:
 
 | Variable | Default | Notes |
 |---|---|---|
-| `COMPOSE_DATA_PATH` | — | **Required.** Host directory holding `etlegacy/` (game data) and `etlegacy-dashboard/` (dashboard state) |
-| `ADMIN_USERNAME` | `admin` | Dashboard login |
+| `COMPOSE_DATA_PATH` | — | **Required.** Host directory holding `etlegacy/` (game data) and `etl-control-panel/` (control panel state) |
+| `ADMIN_USERNAME` | `admin` | Control panel login |
 | `ADMIN_PASSWORD_HASH` | empty | Optional. Empty ⇒ first-run wizard in the browser |
 | `SESSION_SECRET` | empty | Optional. Generated and persisted when empty |
 | `RCON_PASSWORD` | empty | **Optional override.** Used only when the server config has no `rconpassword` of its own — see [The RCON password](#the-rcon-password) |
@@ -419,7 +451,7 @@ list. The ones that matter most:
 | `PUID` / `PGID` | `1000` / `100` | Must be able to write `etmain` |
 | `DOCKER_GID` | `999` | Host `docker` group GID |
 | `POLL_INTERVAL_SEC` | `10` | Status poll frequency |
-| `GEO_LOOKUP` | `true` | Resolve player addresses to a country. The only outbound request the dashboard makes; private addresses are never sent |
+| `GEO_LOOKUP` | `true` | Resolve player addresses to a country. The only outbound request the control panel makes; private addresses are never sent |
 | `MAX_UPLOAD_MB` | `256` | *Initial* per-file `.pk3` upload limit. Change it under **Settings**; once set there, the stored value wins |
 
 ### Adding the base game files
@@ -444,7 +476,7 @@ game is a free download from Splash Damage or the ET: Legacy site. Copy them out
 of an existing install or a fresh download — a desktop client works fine, since
 these are the same files.
 
-**You can upload them from the dashboard.** Go to **Maps → Add map
+**You can upload them from the control panel.** Go to **Maps → Add map
 packages** and drop all four in. The default upload ceiling is 256 MB, which
 `pak0.pk3` fits under, and uploads are written world-readable so FastDL can
 serve them straight away. If you would rather copy them in over the shell, put
@@ -464,17 +496,17 @@ docker compose restart etlegacy
 ### The RCON password
 
 **Set it on the Configuration page and nothing else is required.** The server
-config is the single source of truth: the dashboard reads `rconpassword` from
+config is the single source of truth: the control panel reads `rconpassword` from
 the same file the game server does, so the two cannot drift apart.
 
-Changing it is safe while the server is running. On save, the dashboard moves
+Changing it is safe while the server is running. On save, the control panel moves
 the live server onto the new password *using the old one, while it is still
-valid*, so the file, the running server and the dashboard all change together —
+valid*, so the file, the running server and the control panel all change together —
 no restart, and no window where the console locks you out. The save reports
 what happened, including when it could not do the handover (server offline, or
 no previous password to authenticate with) and what remains to be done.
 
-`RCON_PASSWORD` is now **optional**. Set it only if the dashboard cannot read
+`RCON_PASSWORD` is now **optional**. Set it only if the control panel cannot read
 the config, or if you would rather keep the secret out of a file the UI can
 display; it is used when the config has no `rconpassword` of its own. If both
 are set to different values the config wins, and Diagnostics says so rather
@@ -491,15 +523,15 @@ password is set somewhere.
 
 ---
 
-## Using the dashboard
+## Using the control panel
 
 > **New to ET servers? What RCON is.** "Remote console" is the game engine's
 > own admin channel: you send a password plus a command over the network, and
 > the server runs it as though it had been typed at its console. It is what
 > kicking, banning, changing map and reading the live player list all go
-> through. Set `rconpassword` on the **Configuration** page and the dashboard
+> through. Set `rconpassword` on the **Configuration** page and the control panel
 > handles the rest — it reads the password from the config, so there is nothing
-> to copy anywhere and no restart. Without it the dashboard still shows status
+> to copy anywhere and no restart. Without it the control panel still shows status
 > and manages files; only the live-control features are unavailable.
 
 **Overview** — status, players, trends, and the start/stop/restart controls.
@@ -538,11 +570,11 @@ Bitmask cvars — `g_xpSaver` is the one most people meet — are a row of
 checkboxes rather than a number, with the total shown beside them. A guide that
 says "set it to 15" is really asking you to switch four things on, and one that
 says "set it to 1" switches three of them back off; here you can see which.
-Bits this dashboard does not name are preserved rather than cleared, so a newer
+Bits this control panel does not name are preserved rather than cleared, so a newer
 server's flags survive a save.
 
 Be aware that the raw config — passwords included — is sent to the browser, as
-it must be for the raw editor to work. Anyone who can sign in to the dashboard
+it must be for the raw editor to work. Anyone who can sign in to the control panel
 can read every password in the server config, exactly as they could by opening
 the file on the host. The masking is there to keep secrets off the screen in
 passing, not to withhold them from an administrator.
@@ -591,7 +623,7 @@ It serves the same directory the map library manages, but that is a fact about
 the implementation: installing maps happens often, setting up downloads happens
 roughly once.
 
-**Settings** — the dashboard's own preferences, kept apart from the game
+**Settings** — the control panel's own preferences, kept apart from the game
 server's config: the upload limit, and how many config backups and player visits
 to retain. Nothing here is a cvar, none of it is touched by restoring a config
 backup.
@@ -602,14 +634,14 @@ account instead of changing a password and redistributing it. Removal takes
 effect on their next request, not when their session would have expired.
 
 There are no roles. Anyone who can sign in can restart the game server and read
-the config, so a "read-only" tier would suggest a boundary this dashboard cannot
+the config, so a "read-only" tier would suggest a boundary this control panel cannot
 enforce. Set someone's password for them if they lose it — you are not asked for
 their old one — while changing your own still requires the current password.
 
 If `ADMIN_PASSWORD_HASH` is set in the environment, that account is the only one
 and this page says so: environment values are authoritative on purpose, so an
 operator who declares credentials in compose cannot have them silently
-overridden. Remove the variable to manage accounts from the dashboard.
+overridden. Remove the variable to manage accounts from the control panel.
 
 **Diagnostics** — dependency checks and the exact remedy for each failure.
 
@@ -650,11 +682,11 @@ picks up the new download settings.
 
 ## Security
 
-**This dashboard is not built to face the public internet.** Run it on your LAN,
+**This control panel is not built to face the public internet.** Run it on your LAN,
 or behind a VPN or an authenticating reverse proxy.
 
 - **The Docker socket is mounted.** That is equivalent to root on the host. The
-  dashboard refuses to touch any container except the two it is configured to
+  control panel refuses to touch any container except the two it is configured to
   manage, but the socket itself is the trust boundary. For a hardened setup, put
   a socket proxy such as `tecnativa/docker-socket-proxy` in front of it and
   grant only `CONTAINERS=1`, `POST=1`.
@@ -670,7 +702,7 @@ or behind a VPN or an authenticating reverse proxy.
   config file, but they are checked by the client, so treat them as a guardrail
   rather than a defence.
 - **RCON is cleartext UDP** — that is the protocol, not this implementation.
-  Keep the game server and dashboard on the same host or a trusted network.
+  Keep the game server and control panel on the same host or a trusted network.
 - Sessions are httpOnly, `SameSite=Strict` JWT cookies. Login is rate-limited
   to 10 attempts per 10 minutes per IP; the RCON endpoint to 60/minute.
 - Every request re-checks that the signed-in account still exists, so removing
@@ -793,13 +825,13 @@ curl -b jar -X POST http://localhost:8085/api/console/rcon \
 | Symptom | Cause and fix |
 |---|---|
 | Sign-in does nothing, no error | `COOKIE_SECURE=true` on plain HTTP. Set it to `false`, or serve over HTTPS |
-| Forgot the dashboard password | Delete `credentials.json` from the dashboard data directory and restart the container — the setup wizard runs again |
-| Setup wizard reappears after a restart | `STATE_PATH` is not on a persistent volume. Check the `dashboard` bind mount |
-| Setup wizard reappears after upgrading | The state directory was renamed in 1.2.0. `mv <data>/dashboard <data>/etlegacy-dashboard` and restart — nothing was deleted |
+| Forgot the control panel password | Delete `credentials.json` from the control panel data directory and restart the container — the setup wizard runs again |
+| Setup wizard reappears after a restart | `STATE_PATH` is not on a persistent volume. Check the `control panel` bind mount |
+| Setup wizard reappears after upgrading | The state directory was renamed in 1.2.0. `mv <data>/control panel <data>/etl-control-panel` and restart — nothing was deleted |
 | Configuration page says no config exists | Press **Create default configuration**, or check that `ETMAIN_PATH` is the directory the game server mounts |
 | "Container does not exist" | `ETL_CONTAINER` does not match `container_name` in the compose file |
 | Docker socket check fails | Socket not mounted, or `DOCKER_GID` is wrong. Check `getent group docker \| cut -d: -f3` |
-| Server shows offline but players are on it | The dashboard cannot reach `etlegacy:27960`. Confirm both containers share the `etlegacy` network |
+| Server shows offline but players are on it | The control panel cannot reach `etlegacy:27960`. Confirm both containers share the `etlegacy` network |
 | Console says RCON is not set | Set `rconpassword` on the Configuration page — it takes effect immediately, with no restart |
 | "Bad rconpassword" | The running server holds an older password than the config. Restart the game server so it re-reads the config |
 | Config saves fail with a permission error | `PUID`/`PGID` cannot write `etmain`. Compare with `stat -c '%u %g' …/etmain` |
@@ -836,13 +868,13 @@ chmod o+r <data path>/etlegacy/etmain/*.pk3
 chmod o+rx <data path>/etlegacy/etmain
 ```
 
-Map packages are not secrets, and uploads made through the dashboard are already
+Map packages are not secrets, and uploads made through the control panel are already
 created world-readable — this only affects files brought in by other means.
 
 Logs:
 
 ```bash
-docker compose logs -f dashboard
+docker compose logs -f control panel
 docker compose logs -f etlegacy
 ```
 

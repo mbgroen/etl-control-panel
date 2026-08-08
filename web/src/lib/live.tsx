@@ -17,7 +17,7 @@ import type { Snapshot } from './types';
  * One WebSocket is shared by the whole app. It carries status snapshots
  * continuously and container logs on demand; when it drops, an exponential
  * backoff reconnects and an HTTP poll keeps the UI truthful in the meantime.
- * A dashboard that silently shows stale numbers is worse than one that admits
+ * A control panel that silently shows stale numbers is worse than one that admits
  * it is disconnected, so connection state is surfaced, never hidden.
  */
 

@@ -2,7 +2,7 @@
 // ET: Legacy — server configuration
 //
 // Copy this to <COMPOSE_DATA_PATH>/etlegacy/etmain/etl_server.cfg and edit it,
-// or manage it from the dashboard's Configuration page (which keeps timestamped
+// or manage it from the control panel's Configuration page (which keeps timestamped
 // backups of every change).
 //
 // Colour codes for names and messages:
@@ -31,10 +31,10 @@ set g_password      ""      // empty = public server
 set sv_privateClients  "2"
 set sv_privatePassword ""   // set this to use the reserved slots
 
-// Required by the dashboard console and by player kick/ban. Left empty on
+// Required by the control panel console and by player kick/ban. Left empty on
 // purpose: a placeholder that ships in a public repository is a known password
 // on every server whose operator did not get round to changing it. Set it on
-// the dashboard's Configuration page — it is picked up immediately, and the
+// the control panel's Configuration page — it is picked up immediately, and the
 // running server is moved onto it without a restart.
 set rconpassword    ""
 
@@ -68,7 +68,7 @@ set g_blood         "1"
 // cannot join.
 set sv_allowDownload "1"
 
-// HTTP (FastDL) settings. Manage these from the dashboard's Maps & FastDL page
+// HTTP (FastDL) settings. Manage these from the control panel's Maps & FastDL page
 // rather than by hand — it sets both values together and verifies the URL is
 // actually reachable, which is the step people usually miss.
 set sv_wwwDownload   "0"
@@ -84,9 +84,9 @@ set sv_dl_maxRate    "42000"
 // The trailing `vstr` is what actually starts the rotation — without it nothing
 // happens and the server sits on whatever map it booted with.
 //
-// The dashboard rewrites this block when you edit the rotation in the UI.
+// The control panel rewrites this block when you edit the rotation in the UI.
 //
-// >>> dashboard:rotation — managed block, edit via the dashboard
+// >>> control-panel:rotation — managed block, edit via the control panel
 set mr1 "map oasis ; set nextmap vstr mr2"
 set mr2 "map radar ; set nextmap vstr mr3"
 set mr3 "map railgun ; set nextmap vstr mr4"
@@ -94,7 +94,7 @@ set mr4 "map fueldump ; set nextmap vstr mr5"
 set mr5 "map battery ; set nextmap vstr mr6"
 set mr6 "map goldrush ; set nextmap vstr mr1"
 vstr mr1
-// <<< dashboard:rotation
+// <<< control-panel:rotation
 
 
 // --- Campaign mode (only for g_gametype 4) -----------------------------------

@@ -1,7 +1,7 @@
 # =============================================================================
-# ET: Legacy server + management dashboard + FastDL
+# ET: Legacy server + management control panel + FastDL
 #
-# Builds the dashboard from this checkout. For a no-build install from
+# Builds the control panel from this checkout. For a no-build install from
 # published images, use deploy/docker-compose.yml instead.
 #
 # Copy .env.example to .env and fill it in before starting.
@@ -10,7 +10,7 @@
 #
 # Ports published:
 #   27960/udp  game server
-#   8085/tcp   dashboard  (change with DASHBOARD_PORT)
+#   8085/tcp   control panel  (change with CONTROL_PANEL_PORT)
 #   8081/tcp   FastDL     (change with FASTDL_PORT)
 # =============================================================================
 
@@ -51,34 +51,34 @@ services:
         max-file: "5"
 
   # ---------------------------------------------------------------------------
-  # Dashboard: REST API, WebSocket, and the web UI.
+  # Control panel: REST API, WebSocket, and the web UI.
   # ---------------------------------------------------------------------------
-  dashboard:
-    container_name: etlegacy-dashboard
+  control panel:
+    container_name: etl-control-panel
     build:
       context: .
       dockerfile: Dockerfile
     # Prefer a published image once you have one:
-    # image: ghcr.io/mbgroen/etlegacy-dashboard:latest
+    # image: ghcr.io/mbgroen/etl-control-panel:latest
     ports:
-      - "${DASHBOARD_PORT:-8085}:8080"
+      - "${CONTROL_PANEL_PORT:-8085}:8080"
     volumes:
-      # Read-write: the dashboard edits the server config and installs pk3s.
+      # Read-write: the control panel edits the server config and installs pk3s.
       - ${COMPOSE_DATA_PATH}/etlegacy:/data/etlegacy
-      # Dashboard-owned state: config backups and the activity history.
+      # Control-panel-owned state: config backups and the activity history.
       # A sibling of etlegacy/, not a directory inside it: the game data tree is
       # mounted into the internet-facing FastDL container, and the credential
       # store has no business being anywhere near it.
-      - ${COMPOSE_DATA_PATH}/etlegacy-dashboard:/data/dashboard
+      - ${COMPOSE_DATA_PATH}/etl-control-panel:/data/control-panel
       # Container lifecycle control. See the security note in the README —
-      # swap this for a socket proxy if the dashboard is exposed beyond a LAN.
+      # swap this for a socket proxy if the control panel is exposed beyond a LAN.
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       NODE_ENV: production
       PORT: 8080
       LOG_LEVEL: ${LOG_LEVEL:-info}
 
-      # Optional. Leave empty and the dashboard runs a first-run setup wizard in
+      # Optional. Leave empty and the control panel runs a first-run setup wizard in
       # the browser, storing the account in the state directory. Set them to
       # manage credentials declaratively instead; they then take precedence.
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
@@ -95,10 +95,10 @@ services:
       RCON_PASSWORD: ${RCON_PASSWORD}
 
       # Must resolve to the same host directory the game server mounts, or the
-      # dashboard will edit a config the server never reads.
+      # control panel will edit a config the server never reads.
       ETMAIN_PATH: /data/etlegacy/etmain
       LEGACY_PATH: /data/etlegacy/legacy
-      STATE_PATH: /data/dashboard
+      STATE_PATH: /data/control-panel
       SERVER_CONFIG_NAME: ${SERVER_CONFIG_NAME:-etl_server.cfg}
 
       FASTDL_BASE_URL: ${FASTDL_BASE_URL:-}
@@ -124,8 +124,8 @@ services:
   # ---------------------------------------------------------------------------
   # FastDL: HTTP downloads for custom maps.
   #
-  # Always defined so the dashboard can start and stop it on demand. Its
-  # "unless-stopped" policy means a stop from the dashboard survives a reboot.
+  # Always defined so the control panel can start and stop it on demand. Its
+  # "unless-stopped" policy means a stop from the control panel survives a reboot.
   # ---------------------------------------------------------------------------
   fastdl:
     container_name: etlegacy-fastdl
@@ -134,7 +134,7 @@ services:
       - "${FASTDL_PORT:-8081}:80"
     volumes:
       # Read-only, and only the two directories nginx actually serves — not the
-      # whole data tree. dashboard/ sits alongside these and holds the admin
+      # whole data tree. control panel/ sits alongside these and holds the admin
       # credential store and config backups, which have no business being inside
       # a container published to the internet. nginx would refuse to serve them
       # anyway (it allowlists .pk3 under these two paths), but a mount is a

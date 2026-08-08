@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ==============================================================================
-# ET: Legacy Dashboard
+# ET: Legacy Control Panel
 #
 # Multi-stage build producing a single image that serves both the REST/WebSocket
 # API and the pre-built React SPA. The frontend and backend are built in
@@ -57,7 +57,7 @@ COPY --from=web-build /build/dist         ./public
 COPY server/package.json ./package.json
 
 # Default state location; the compose file bind-mounts over it for persistence.
-RUN mkdir -p /data/dashboard && chown -R node:node /data/dashboard /app
+RUN mkdir -p /data/control-panel && chown -R node:node /data/control-panel /app
 
 # Runs unprivileged by default. Access to the Docker socket is granted in the
 # compose file via group_add rather than by running this process as root.

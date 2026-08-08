@@ -304,14 +304,14 @@ export interface RconHandover {
  *
  * Writing a new `rconpassword` to the config leaves three copies disagreeing:
  * the file has the new one, the running server still holds the old one in
- * memory until something re-execs the config, and the dashboard needs whichever
+ * memory until something re-execs the config, and the control panel needs whichever
  * the server will actually accept. Left alone that window never closes on its
  * own, and it locks the operator out of the console — the one place they would
  * go to fix it.
  *
  * The way out is to do the handover while the *old* password is still valid:
  * authenticate with it and set the cvar live. After this returns ok the file,
- * the server and the dashboard all agree, with no restart and no gap.
+ * the server and the control panel all agree, with no restart and no gap.
  *
  * Returns null when the password did not change, so callers can stay quiet.
  */

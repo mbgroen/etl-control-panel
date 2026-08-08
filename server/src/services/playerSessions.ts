@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../env.js';
 import { logger } from '../logger.js';
-import { readSettings } from './dashboardSettings.js';
+import { readSettings } from './controlPanelSettings.js';
 import { classify, lookupCached, normaliseAddress, resolveInBackground } from './geoip.js';
 import type { PlayerStatus } from './q3protocol.js';
 
@@ -14,7 +14,7 @@ import type { PlayerStatus } from './q3protocol.js';
  * my server?" was unanswerable — which is the question an operator running a
  * public server actually has.
  *
- * Sessions are derived from the status the dashboard already polls. A player
+ * Sessions are derived from the status the control panel already polls. A player
  * present in one poll and absent from the next has left; the gap between their
  * first and last sighting is how long they stayed. That makes the resolution
  * one poll interval, which for "played for 40 minutes" is ample and costs the

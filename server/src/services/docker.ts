@@ -6,10 +6,10 @@ import { logger } from '../logger.js';
 /**
  * Docker control plane.
  *
- * The dashboard is given the Docker socket, which is equivalent to root on the
+ * The control panel is given the Docker socket, which is equivalent to root on the
  * host. To keep the blast radius small, every operation in this module is gated
  * through `resolve()`, which refuses to touch any container other than the two
- * this dashboard is configured to manage. A compromised session can therefore
+ * this control panel is configured to manage. A compromised session can therefore
  * restart the game server — it cannot spawn a privileged container.
  */
 const docker = new Docker({ socketPath: env.DOCKER_SOCKET });
@@ -249,7 +249,7 @@ export async function logsStream(service: ManagedService, tail = 100): Promise<D
  * Containers started without a TTY get their logs framed in 8-byte headers
  * (stream type + 4-byte big-endian length). Containers *with* a TTY emit raw
  * bytes. We detect the framing per-chunk instead of assuming, because the same
- * dashboard may manage containers configured either way.
+ * control panel may manage containers configured either way.
  */
 export function demultiplex(chunk: Buffer): string {
   let offset = 0;
@@ -279,7 +279,7 @@ export function demultiplex(chunk: Buffer): string {
   return parts.join('');
 }
 
-/** Verifies the dashboard can actually talk to the Docker daemon. */
+/** Verifies the control panel can actually talk to the Docker daemon. */
 export async function ping(): Promise<{ ok: boolean; version?: string; error?: string }> {
   try {
     const version = await docker.version();

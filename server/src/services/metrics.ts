@@ -4,7 +4,7 @@ import { env } from '../env.js';
 import { logger } from '../logger.js';
 
 /**
- * Rolling activity history for the dashboard charts.
+ * Rolling activity history for the control panel charts.
  *
  * This is deliberately a bounded in-memory ring buffer flushed to a single JSON
  * file, not a time-series database. At the default 10s poll interval, 2880

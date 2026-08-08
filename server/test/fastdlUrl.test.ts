@@ -18,7 +18,7 @@ describe('fastdl baseUrlSchema', () => {
     assert.equal(parse('https://dl.example.com'), 'https://dl.example.com');
   });
 
-  // The dashboard's own hint renders "host:port/etmain/<map>.pk3", so typing it
+  // The control panel's own hint renders "host:port/etmain/<map>.pk3", so typing it
   // without a scheme is the natural thing to do — and used to fail validation.
   it('adds http:// when the scheme was left off', () => {
     assert.equal(parse('192.168.1.50:8081'), 'http://192.168.1.50:8081');

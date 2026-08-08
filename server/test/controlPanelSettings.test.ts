@@ -4,7 +4,7 @@ import {
   MAX_UPLOAD_MB_CEILING,
   MIN_UPLOAD_MB,
   parseUploadMb,
-} from '../src/services/dashboardSettings.js';
+} from '../src/services/controlPanelSettings.js';
 
 describe('parseUploadMb', () => {
   it('accepts values inside the allowed range', () => {
