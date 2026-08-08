@@ -1,6 +1,6 @@
 {
   "name": "etlegacy-dashboard-server",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "private": true,
   "type": "module",
   "description": "API and control plane for the ET: Legacy server dashboard",

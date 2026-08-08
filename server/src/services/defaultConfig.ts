@@ -8,6 +8,11 @@
  *
  * Passwords are left empty on purpose — the operator sets them in the
  * Configuration page, which keeps them out of any file this project ships.
+ *
+ * Every cvar here is one ET: Legacy 2.84 actually reads, checked against
+ * g_cvars.c and sv_init.c. A starter config is the first thing an operator
+ * copies from, so a plausible-looking line the engine ignores — fraglimit,
+ * g_blood and sv_dl_maxRate all used to be here — propagates for years.
  */
 export const DEFAULT_SERVER_CONFIG = `// =============================================================================
 // ET: Legacy — server configuration
@@ -50,33 +55,35 @@ set sv_floodProtect  "1"
 set net_ip           ""     // empty = bind all interfaces (required in Docker)
 set net_port         "27960"
 
-// The engine's stock rate limits date from the dial-up era.
-set sv_maxRate       "25000"
+// Bytes per second per client. 0 lets each client ask for what it wants; a
+// cap only helps when the server's uplink is the bottleneck.
+set sv_maxRate       "0"
 
 
 // --- Gameplay ----------------------------------------------------------------
 // 2 = Objective, 3 = Stopwatch, 4 = Campaign, 5 = Last Man Standing
 set g_gametype       "2"
 
+// Usually replaced by the map script; this is only the fallback.
 set timelimit        "25"
-set fraglimit        "0"    // 0 = objectives decide the round, not kills
+
 set g_friendlyFire   "1"
 set g_gravity        "800"  // engine default
 set g_speed          "320"  // engine default
-set g_blood          "1"
 
 
 // --- Downloads ---------------------------------------------------------------
 // Leave this on: with it off, anyone missing a custom map cannot join at all.
 set sv_allowDownload "1"
 
-// Managed from the dashboard's Maps & FastDL page — it sets both values
-// together and verifies the URL is reachable.
+// Managed from the dashboard's FastDL page — it sets both values together
+// and verifies the URL is reachable.
 set sv_wwwDownload   "0"
 set sv_wwwBaseURL    ""
 
-// Only used when FastDL is off; this is the slow in-game UDP transfer.
-set sv_dl_maxRate    "42000"
+// KB/s for the slow in-game UDP transfer, used when FastDL is off or a
+// client cannot reach it. FastDL itself runs at whatever nginx manages.
+set sv_dlRate        "100"
 
 
 // --- Map rotation ------------------------------------------------------------
