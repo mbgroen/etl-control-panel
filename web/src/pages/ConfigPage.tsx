@@ -366,8 +366,27 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
     [values, initial],
   );
 
+  /**
+   * Numeric fields that have been cleared.
+   *
+   * An empty value is not "unset": the engine stores the empty string and reads
+   * it back as 0, and 0 is a live value with consequences — g_redlimbotime "" is
+   * a modulo by zero in the respawn code. Blocking the save is the only honest
+   * response, because the config format has no way to say "no value".
+   */
+  const emptied = useMemo(
+    () =>
+      changed
+        .filter(([key, value]) => {
+          const spec = ALL_CVARS.find((candidate) => candidate.key.toLowerCase() === key);
+          return spec?.kind === 'number' && value.trim() === '';
+        })
+        .map(([key]) => key),
+    [changed],
+  );
+
   const save = async () => {
-    if (changed.length === 0) return;
+    if (changed.length === 0 || emptied.length > 0) return;
     setSaving(true);
     try {
       // State is keyed lower-case so a config that writes G_GRAVITY still
@@ -499,6 +518,7 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
                 key={spec.key}
                 spec={spec}
                 value={values[spec.key.toLowerCase()] ?? ''}
+                emptied={emptied.includes(spec.key.toLowerCase())}
                 defined={initial[spec.key.toLowerCase()] !== undefined}
                 onChange={(next) =>
                   setValues((current) => ({ ...current, [spec.key.toLowerCase()]: next }))
@@ -514,10 +534,12 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
       <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur lg:-mx-6 lg:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted">
-              {changed.length === 0
-                ? 'No unsaved changes'
-                : `${changed.length} unsaved change${changed.length === 1 ? '' : 's'}`}
+            <span className={`text-xs ${emptied.length > 0 ? 'text-danger' : 'text-muted'}`}>
+              {emptied.length > 0
+                ? `${emptied.length} field${emptied.length === 1 ? ' needs' : 's need'} a number, or put the old value back`
+                : changed.length === 0
+                  ? 'No unsaved changes'
+                  : `${changed.length} unsaved change${changed.length === 1 ? '' : 's'}`}
             </span>
             <Toggle
               checked={reload}
@@ -534,7 +556,7 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
               variant="primary"
               icon={<Save size={14} aria-hidden />}
               loading={saving}
-              disabled={changed.length === 0}
+              disabled={changed.length === 0 || emptied.length > 0}
               onClick={() => void save()}
             >
               Save changes
@@ -550,11 +572,14 @@ function CvarField({
   spec,
   value,
   defined,
+  emptied = false,
   onChange,
 }: {
   spec: CvarSpec;
   value: string;
   defined: boolean;
+  /** Cleared numeric field: saving it would write 0, not nothing. */
+  emptied?: boolean;
   onChange: (next: string) => void;
 }) {
   const hint = (
@@ -585,7 +610,16 @@ function CvarField({
   }
 
   return (
-    <Field label={spec.label} hint={hint} htmlFor={`cvar-${spec.key}`}>
+    <Field
+      label={spec.label}
+      hint={hint}
+      error={
+        emptied
+          ? 'Empty is written as 0, not left unset. Type a number, or restore the previous value.'
+          : undefined
+      }
+      htmlFor={`cvar-${spec.key}`}
+    >
       {spec.kind === 'select' ? (
         <Select id={`cvar-${spec.key}`} value={value} onChange={(e) => onChange(e.target.value)}>
           {/* Preserve an unrecognised existing value rather than silently
