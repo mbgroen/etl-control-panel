@@ -286,12 +286,19 @@ export function Toggle({
   label,
   description,
   disabled = false,
+  hideLabel = false,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
   label: string;
   description?: string;
   disabled?: boolean;
+  /**
+   * Keeps the label for assistive tech but not on screen. For dense rows where
+   * the surrounding content already names the thing — never a reason to ship a
+   * switch with no accessible name.
+   */
+  hideLabel?: boolean;
 }) {
   return (
     <label
@@ -314,10 +321,12 @@ export function Toggle({
           }`}
         />
       </button>
-      <span className="min-w-0">
-        <span className="block text-[13px] font-medium text-body">{label}</span>
-        {description && <span className="block text-xs text-muted">{description}</span>}
-      </span>
+      {!hideLabel && (
+        <span className="min-w-0">
+          <span className="block text-[13px] font-medium text-body">{label}</span>
+          {description && <span className="block text-xs text-muted">{description}</span>}
+        </span>
+      )}
     </label>
   );
 }

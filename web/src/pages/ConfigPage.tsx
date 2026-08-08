@@ -1,7 +1,5 @@
 import {
   AlertCircle,
-  ArrowDown,
-  ArrowUp,
   FileCode2,
   History,
   ListOrdered,
@@ -14,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { RotationEditor } from '../components/RotationEditor';
 import {
   Badge,
   Button,
@@ -28,7 +27,7 @@ import {
 } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { ALL_CVARS, APPLIES_LABEL, CVAR_SECTIONS, type CvarSpec } from '../lib/cvarSchema';
-import { formatDateTime, formatRelative, prettifyMapName } from '../lib/format';
+import { formatDateTime, formatRelative } from '../lib/format';
 import { useToast } from '../lib/toast';
 import type {
   BackupEntry,
@@ -512,179 +511,29 @@ function CvarField({
 
 /* -------------------------------------------------------------------------- */
 
-const STOCK_MAPS = [
-  'oasis',
-  'battery',
-  'goldrush',
-  'radar',
-  'railgun',
-  'fueldump',
-  'beach',
-  'braundorf_b4',
-  'sw_goldrush_te',
-  'supply',
-  'adlernest',
-  'et_beach',
-];
 
 function RotationTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Promise<void> }) {
-  const toast = useToast();
-  const [maps, setMaps] = useState<string[]>(config.rotation.map((entry) => entry.map));
-  const [candidate, setCandidate] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [available, setAvailable] = useState<string[]>([]);
 
-  useEffect(() => setMaps(config.rotation.map((entry) => entry.map)), [config.rotation]);
-
-  const dirty = useMemo(
-    () => JSON.stringify(maps) !== JSON.stringify(config.rotation.map((e) => e.map)),
-    [maps, config.rotation],
-  );
-
-  const move = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= maps.length) return;
-    const next = [...maps];
-    const [moved] = next.splice(index, 1);
-    next.splice(target, 0, moved as string);
-    setMaps(next);
-  };
-
-  const add = (name: string) => {
-    const clean = name.trim().toLowerCase();
-    if (!clean || !/^[a-z0-9_-]+$/.test(clean)) {
-      toast.warning('Invalid map name', 'Use only letters, digits, dashes and underscores.');
-      return;
-    }
-    setMaps((current) => [...current, clean]);
-    setCandidate('');
-  };
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await api.config.setRotation(maps, config.revision);
-      toast.success(
-        maps.length === 0 ? 'Rotation cleared' : `Rotation saved (${maps.length} maps)`,
-        'It takes effect at the next map change.',
-      );
-      await onSaved();
-    } catch (err) {
-      toast.error('Could not save rotation', err instanceof ApiError ? err.message : 'Unexpected error');
-    } finally {
-      setSaving(false);
-    }
-  };
+  // The rotation is stored in the config, but the useful question is "which of
+  // my installed maps are playing?" — so the editor is fed the map library and
+  // shown here and on the Maps page as one component rather than two.
+  useEffect(() => {
+    void api.maps
+      .list()
+      .then((payload) => setAvailable(payload.maps.flatMap((pack) => pack.maps)))
+      .catch(() => setAvailable([]));
+  }, []);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
-      <Panel
-        title="Rotation order"
-        description="Maps play in this order and then loop back to the first."
-        bodyClassName="p-0"
-        actions={
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Save size={13} aria-hidden />}
-            loading={saving}
-            disabled={!dirty}
-            onClick={() => void save()}
-          >
-            Save rotation
-          </Button>
-        }
-      >
-        {maps.length === 0 ? (
-          <EmptyState
-            icon={<ListOrdered size={26} aria-hidden />}
-            title="No rotation configured"
-            description="Without a rotation the server stays on whichever map it loaded at start-up. Add maps on the right to build one."
-          />
-        ) : (
-          <ol className="divide-y divide-line">
-            {maps.map((map, index) => (
-              <li key={`${map}-${index}`} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="tabular w-6 shrink-0 text-xs text-faint">{index + 1}</span>
-                <span className="min-w-0 flex-1 truncate text-[13px] text-body">
-                  {prettifyMapName(map)}
-                  <span className="ml-2 font-mono text-[11px] text-faint">{map}</span>
-                </span>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => move(index, -1)}
-                    disabled={index === 0}
-                    aria-label={`Move ${map} earlier`}
-                    icon={<ArrowUp size={13} aria-hidden />}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => move(index, 1)}
-                    disabled={index === maps.length - 1}
-                    aria-label={`Move ${map} later`}
-                    icon={<ArrowDown size={13} aria-hidden />}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setMaps((current) => current.filter((_, i) => i !== index))}
-                    aria-label={`Remove ${map} from rotation`}
-                    icon={<Trash2 size={13} aria-hidden />}
-                  />
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </Panel>
-
-      <Panel title="Add a map" bodyClassName="p-3">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            add(candidate);
-          }}
-          className="flex gap-2"
-        >
-          <Input
-            value={candidate}
-            onChange={(event) => setCandidate(event.target.value)}
-            placeholder="map name"
-            aria-label="Map name"
-            className="font-mono"
-          />
-          <Button type="submit" variant="primary" disabled={!candidate.trim()}>
-            Add
-          </Button>
-        </form>
-
-        <p className="mt-3 text-[11px] font-medium uppercase tracking-wide text-faint">Stock maps</p>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {STOCK_MAPS.map((map) => (
-            <button
-              key={map}
-              type="button"
-              onClick={() => add(map)}
-              className="rounded-md border border-line px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
-            >
-              {map}
-            </button>
-          ))}
-        </div>
-
-        <p className="mt-4 text-xs text-muted">
-          Custom maps must be installed as <code className="font-mono">.pk3</code> files before they can be
-          rotated. Manage those on the Maps &amp; FastDL page.
-        </p>
-      </Panel>
-    </div>
+    <RotationEditor
+      availableMaps={available}
+      rotation={config.rotation.map((entry) => entry.map)}
+      revision={config.revision}
+      onSaved={onSaved}
+    />
   );
 }
-
-/* -------------------------------------------------------------------------- */
-
 function RawTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Promise<void> }) {
   const toast = useToast();
   const [content, setContent] = useState(config.content);

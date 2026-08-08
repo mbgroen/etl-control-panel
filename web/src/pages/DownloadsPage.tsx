@@ -1,6 +1,5 @@
 import {
   Check,
-  Plus,
   CheckCircle2,
   CloudDownload,
   FileArchive,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { RotationEditor } from '../components/RotationEditor';
 import {
   Badge,
   Button,
@@ -48,54 +48,52 @@ export function DownloadsPage() {
   const [loading, setLoading] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<MapPackage | null>(null);
   const [busy, setBusy] = useState(false);
-  const [rotationBusy, setRotationBusy] = useState<string | null>(null);
   const [inRotation, setInRotation] = useState<Set<string>>(new Set());
+  const [config, setConfig] = useState<{ rotation: string[]; revision: string } | null>(null);
 
   // The rotation lives in the server config rather than in the map list, so it
   // is fetched here purely to mark which maps are already scheduled. A tick
   // beside the name is far cheaper than sending someone to another page to
   // check, which is what this workflow used to require.
   useEffect(() => {
-    void api.config
-      .get()
-      .then((config) => setInRotation(new Set(config.rotation.map((entry) => entry.map))))
-      .catch(() => setInRotation(new Set()));
+    void loadRotation();
   }, []);
 
-  const addToRotation = async (name: string) => {
-    setRotationBusy(name);
+  const loadRotation = useCallback(async () => {
     try {
-      const result = await api.config.addToRotation([name]);
-      setInRotation(new Set(result.rotation.map((entry) => entry.map)));
-      toast.success(
-        `${name} added to the rotation`,
-        'It joins the end of the cycle. The running server picks it up on the next map change.',
-      );
-    } catch (err) {
-      toast.error(
-        'Could not add to the rotation',
-        err instanceof ApiError ? err.message : 'Unexpected error',
-      );
-    } finally {
-      setRotationBusy(null);
+      const current = await api.config.get();
+      setConfig({ rotation: current.rotation.map((entry) => entry.map), revision: current.revision });
+      setInRotation(new Set(current.rotation.map((entry) => entry.map)));
+    } catch {
+      // No config yet is a normal state on a fresh install; the editor simply
+      // has nothing to show until one exists.
+      setConfig(null);
+      setInRotation(new Set());
     }
-  };
+  }, []);
 
   const load = useCallback(async () => {
-    try {
-      const [mapsData, fastdlData, infoData] = await Promise.all([
-        api.maps.list(),
-        api.fastdl.get(),
-        api.system.info(),
-      ]);
-      setMaps(mapsData);
-      setFastdl(fastdlData);
-      setInfo(infoData);
-    } catch (err) {
-      toast.error('Could not load map data', err instanceof ApiError ? err.message : 'Unexpected error');
-    } finally {
-      setLoading(false);
+    // Loaded independently. FastDL needs the Docker socket and the map library
+    // does not, so sharing one try/catch meant an unreachable daemon took the
+    // whole page down — including uploading and the rotation, which work fine
+    // without it.
+    const [mapsData, fastdlData, infoData] = await Promise.allSettled([
+      api.maps.list(),
+      api.fastdl.get(),
+      api.system.info(),
+    ]);
+
+    if (mapsData.status === 'fulfilled') {
+      setMaps(mapsData.value);
+    } else {
+      toast.error(
+        'Could not load the map library',
+        mapsData.reason instanceof ApiError ? mapsData.reason.message : 'Unexpected error',
+      );
     }
+    setFastdl(fastdlData.status === 'fulfilled' ? fastdlData.value : null);
+    setInfo(infoData.status === 'fulfilled' ? infoData.value : null);
+    setLoading(false);
   }, [toast]);
 
   useEffect(() => {
@@ -118,7 +116,7 @@ export function DownloadsPage() {
   };
 
   if (loading) return <Spinner label="Loading map library" />;
-  if (!maps || !fastdl) return null;
+  if (!maps) return null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -137,29 +135,64 @@ export function DownloadsPage() {
         />
         <Stat
           label="HTTP downloads"
-          value={fastdl.configured ? 'Enabled' : 'Disabled'}
-          sub={fastdl.configured ? 'Clients fetch over HTTP' : 'Slow in-game transfer only'}
-          tone={fastdl.configured ? 'success' : 'neutral'}
+          value={fastdl ? (fastdl.configured ? 'Enabled' : 'Disabled') : '—'}
+          sub={
+            fastdl
+              ? fastdl.configured
+                ? 'Clients fetch over HTTP'
+                : 'Slow in-game transfer only'
+              : 'Needs the Docker socket'
+          }
+          tone={fastdl?.configured ? 'success' : 'neutral'}
           icon={<CloudDownload size={17} aria-hidden />}
         />
         <Stat
           label="Web server"
-          value={fastdl.container.running ? 'Running' : 'Stopped'}
-          sub={fastdl.containerName}
-          tone={fastdl.container.running ? 'success' : 'neutral'}
+          value={fastdl ? (fastdl.container.running ? 'Running' : 'Stopped') : '—'}
+          sub={fastdl?.containerName ?? 'Unavailable'}
+          tone={fastdl?.container.running ? 'success' : 'neutral'}
           icon={<FileArchive size={17} aria-hidden />}
         />
       </div>
 
-      <FastdlPanel
-        state={fastdl}
-        onChanged={async () => {
+      {fastdl ? (
+        <FastdlPanel
+          state={fastdl}
+          onChanged={async () => {
+            await load();
+            await refresh();
+          }}
+        />
+      ) : (
+        <Panel title="HTTP downloads (FastDL)">
+          <p className="text-xs text-muted">
+            Unavailable — the dashboard cannot reach the Docker daemon, which it needs to inspect
+            and control the FastDL container. Everything else on this page still works. See
+            Diagnostics for the fix.
+          </p>
+        </Panel>
+      )}
+
+      <UploadPanel
+        maxMb={info?.limits.maxUploadMb ?? 256}
+        onUploaded={async () => {
           await load();
-          await refresh();
+          // A freshly uploaded map should appear in the rotation editor below
+          // straight away — switched off, but there, on the same screen.
+          await loadRotation();
         }}
       />
 
-      <UploadPanel maxMb={info?.limits.maxUploadMb ?? 256} onUploaded={load} />
+      {/* Directly under the uploader on purpose: install a map and schedule it
+          without changing screens, which is what this used to require. */}
+      {config && (
+        <RotationEditor
+          availableMaps={maps.maps.flatMap((pack) => pack.maps)}
+          rotation={config.rotation}
+          revision={config.revision}
+          onSaved={loadRotation}
+        />
+      )}
 
       <Panel
         title={`Installed map packages (${maps.maps.length})`}
@@ -208,29 +241,22 @@ export function DownloadsPage() {
                       ) : (
                         <div className="flex flex-wrap items-center gap-1">
                           {map.maps.map((name) => (
-                            <button
+                            <span
                               key={name}
-                              type="button"
-                              disabled={rotationBusy === name || inRotation.has(name)}
-                              onClick={() => void addToRotation(name)}
                               title={
                                 inRotation.has(name)
-                                  ? `${name} is already in the rotation`
-                                  : `Add ${name} to the map rotation`
+                                  ? `${name} is in the rotation`
+                                  : `${name} is installed but not in the rotation`
                               }
-                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[11px] transition-colors ${
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[11px] ${
                                 inRotation.has(name)
-                                  ? 'cursor-default border-success/30 bg-success-soft text-success'
-                                  : 'border-line text-muted hover:border-accent hover:bg-accent-soft hover:text-accent'
+                                  ? 'border-success/30 bg-success-soft text-success'
+                                  : 'border-line text-muted'
                               }`}
                             >
-                              {inRotation.has(name) ? (
-                                <Check size={10} aria-hidden />
-                              ) : (
-                                <Plus size={10} aria-hidden />
-                              )}
+                              {inRotation.has(name) && <Check size={10} aria-hidden />}
                               {name}
-                            </button>
+                            </span>
                           ))}
                         </div>
                       )}

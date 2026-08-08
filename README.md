@@ -545,12 +545,21 @@ page still works, without countries.
 
 **Maps & FastDL** — the pk3 library and the download server.
 
-Each package lists the maps it actually contains, read from the `maps/*.bsp`
-entries inside the archive. That matters because a pk3 is often named nothing
-like the map inside it: `mapbundle.pk3` may hold `braundorf_b4` and
-`frostbite`. Click a map name to append it to the rotation — a tick means it is
-already scheduled. Previously this meant asking the server over RCON what it
-had loaded, then going to the Configuration page to type the name in by hand.
+The rotation editor sits directly under the uploader, listing **every installed
+map** with a switch: on to include it, off to drop it, arrows to order it.
+Upload a pk3 and its maps appear there immediately — **switched off**, because
+adding a file should never silently change what the server plays next.
+
+Map names are read from the `maps/*.bsp` entries inside each archive, which
+matters because a pk3 is often named nothing like the map inside it:
+`mapbundle.pk3` may hold `braundorf_b4` and `frostbite`. Previously finding that
+out meant asking the server over RCON and retyping the name on another page.
+
+A map in the rotation whose pk3 is no longer installed is marked *file missing*
+rather than quietly dropped — the rotation is yours to change, not ours.
+
+The same editor appears under **Configuration → Map rotation**; it is one
+component, so the two can never disagree.
 
 **Settings** — the dashboard's own preferences, kept apart from the game
 server's config: the upload limit, how many config backups and player visits to
