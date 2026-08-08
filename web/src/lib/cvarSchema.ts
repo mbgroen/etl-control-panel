@@ -1382,12 +1382,25 @@ export const CVAR_SECTIONS: CvarSection[] = [
       {
         key: 'sv_protect',
         label: 'Server protection',
-        kind: 'select',
-        options: [
-          { value: '0', label: 'Off' },
-          { value: '1', label: 'DDoS protection' },
-          { value: '2', label: 'DRDoS protection' },
+        kind: 'flags',
+        // A bitmask, not a choice of three. Offering it as a select made these
+        // mutually exclusive, so anyone picking "DDoS protection" silently gave
+        // up the reflection guard — the one that stops the server being used as
+        // a weapon against a third party.
+        flags: [
+          {
+            bit: 1,
+            label: 'Rate-limit status queries',
+            hint: 'Caps getstatus and getinfo at 10 per second per address, so a flood of them cannot wedge the server.',
+          },
+          {
+            bit: 2,
+            label: 'Block reflection attacks (DRDoS)',
+            hint: 'A spoofed query makes the server fire a much larger reply at whoever the attacker named. This stops it — protecting the victim, your uplink and your standing with your ISP. Your LAN is exempt.',
+          },
+          { bit: 4, label: 'Print blocked attempts to the console' },
         ],
+        hint: 'Leave both of the first two on unless you have a reason not to.',
         appliesOn: 'restart',
       },
       {

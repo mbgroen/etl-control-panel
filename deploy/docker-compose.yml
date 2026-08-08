@@ -138,8 +138,8 @@ services:
       - "8081:80"
     volumes:
       # Read-only, and only the two directories nginx actually serves — not the
-      # whole data tree. control panel/ lives alongside these and holds the admin
-      # credential store and config backups, which have no business being
+      # whole data tree. etl-control-panel/ lives alongside these and holds the
+      # admin credential store and config backups, which have no business being
       # inside a container published to the internet. nginx would refuse to
       # serve them anyway (it allowlists .pk3 under these two paths), but a
       # mount is a stronger boundary than a location block: what is not mounted
