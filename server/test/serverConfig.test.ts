@@ -78,6 +78,20 @@ describe('applyCvarUpdates', () => {
     assert.equal(cvarMap(next).g_friendlyfire, '1');
   });
 
+  // The engine does not care about case, but an appended line that shouts
+  // g_medicchargetime in a file full of camelCase reads like something went
+  // wrong. Whatever spelling comes in is the spelling written out.
+  it('appends a new cvar with the spelling it was given', () => {
+    const next = applyCvarUpdates(SAMPLE, { g_medicChargeTime: '30000' });
+    assert.match(next, /set g_medicChargeTime "30000"/);
+  });
+
+  it('still finds an existing cvar whose case differs', () => {
+    const next = applyCvarUpdates('set G_GRAVITY "800"', { g_gravity: '700' });
+    assert.equal(next, 'set G_GRAVITY "700"');
+    assert.ok(!next.includes('Added by the dashboard'));
+  });
+
   it('patches only the last assignment, which is the one the engine applies', () => {
     const doubled = 'set timelimit "10"\nset timelimit "20"';
     const next = applyCvarUpdates(doubled, { timelimit: '30' });

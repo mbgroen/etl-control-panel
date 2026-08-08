@@ -83,7 +83,7 @@ is the quickest way to tell the two apart.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `2.6.0` | An exact version. Never moves — use this to pin |
+| `2.7.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 

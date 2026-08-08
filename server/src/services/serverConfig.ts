@@ -250,7 +250,13 @@ export function validateConfig(content: string): ConfigProblem[] {
  */
 export function applyCvarUpdates(content: string, updates: Record<string, string>): string {
   const lines = content.split('\n');
-  const pending = new Map(Object.entries(updates).map(([k, v]) => [k.toLowerCase(), v]));
+  // Keyed case-insensitively, because a config may spell a cvar any way it
+  // likes and the engine does not care — but the original spelling is kept so
+  // an appended line reads like the rest of the file rather than shouting
+  // g_medicchargetime at someone who wrote g_medicChargeTime everywhere else.
+  const pending = new Map(
+    Object.entries(updates).map(([k, v]) => [k.toLowerCase(), { key: k, value: v }]),
+  );
 
   const lastOccurrence = new Map<string, number>();
   lines.forEach((raw, index) => {
@@ -268,7 +274,7 @@ export function applyCvarUpdates(content: string, updates: Record<string, string
     const indent = /^\s*/.exec(raw)?.[0] ?? '';
     const command = match[1] ?? 'set';
     const original = match[2] ?? key;
-    const value = pending.get(key) ?? '';
+    const value = pending.get(key)?.value ?? '';
 
     // Preserve any trailing comment the operator left on the line.
     const consumed = match[0].length;
@@ -279,7 +285,9 @@ export function applyCvarUpdates(content: string, updates: Record<string, string
   }
 
   if (pending.size > 0) {
-    const added = [...pending.entries()].map(([key, value]) => `set ${key} "${escapeValue(value)}"`);
+    const added = [...pending.values()].map(
+      (entry) => `set ${entry.key} "${escapeValue(entry.value)}"`,
+    );
     lines.push('', '// --- Added by the dashboard ---', ...added);
   }
 

@@ -313,6 +313,9 @@ function ProblemList({ problems }: { problems: ConfigProblem[] }) {
 
 /* -------------------------------------------------------------------------- */
 
+/** Lower-case cvar name to the spelling the schema uses. */
+const CANONICAL_KEYS = new Map(ALL_CVARS.map((spec) => [spec.key.toLowerCase(), spec.key]));
+
 function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Promise<void> }) {
   const toast = useToast();
 
@@ -338,6 +341,7 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
   const [reload, setReload] = useState(true);
   const [query, setQuery] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showExpert, setShowExpert] = useState(false);
 
   useEffect(() => setValues(initial), [initial]);
 
@@ -351,7 +355,12 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
     if (changed.length === 0) return;
     setSaving(true);
     try {
-      const updates = Object.fromEntries(changed);
+      // State is keyed lower-case so a config that writes G_GRAVITY still
+      // matches the field, but what gets written back should be the spelling
+      // the schema uses — that is what every other line in the file looks like.
+      const updates = Object.fromEntries(
+        changed.map(([key, value]) => [CANONICAL_KEYS.get(key) ?? key, value]),
+      );
       const result = await api.config.patch(updates, config.revision, reload);
       reportRconHandover(result.rconPassword, toast);
       toast.success(
@@ -378,7 +387,11 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
     return CVAR_SECTIONS.map((section) => ({
       ...section,
       cvars: section.cvars.filter((spec) => {
-        if (!showAdvanced && spec.advanced && !needle) return false;
+        // Search reaches everything. Someone typing "omnibot" knows what they
+        // are looking for, and hiding the match would only send them to the raw
+        // editor to do the same edit with less help.
+        if (!needle && spec.expert && !showExpert) return false;
+        if (!needle && spec.advanced && !showAdvanced) return false;
         if (!needle) return true;
         return (
           spec.label.toLowerCase().includes(needle) ||
@@ -387,10 +400,11 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
         );
       }),
     })).filter((section) => section.cvars.length > 0);
-  }, [query, showAdvanced]);
+  }, [query, showAdvanced, showExpert]);
 
   const matchCount = visibleSections.reduce((total, section) => total + section.cvars.length, 0);
-  const advancedCount = ALL_CVARS.filter((spec) => spec.advanced).length;
+  const advancedCount = ALL_CVARS.filter((spec) => spec.advanced && !spec.expert).length;
+  const expertCount = ALL_CVARS.filter((spec) => spec.expert).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -416,10 +430,23 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
           </div>
           <Toggle
             checked={showAdvanced}
-            onChange={setShowAdvanced}
+            onChange={(next) => {
+              setShowAdvanced(next);
+              // Expert lives inside advanced; leaving it on while its parent is
+              // off would hide settings that the toggle says are showing.
+              if (!next) setShowExpert(false);
+            }}
             label="Show advanced"
             description={`${advancedCount} rarely-changed settings`}
           />
+          {showAdvanced && (
+            <Toggle
+              checked={showExpert}
+              onChange={setShowExpert}
+              label="Expert"
+              description={`${expertCount} settings that can stop the server booting`}
+            />
+          )}
         </div>
 
         {query.trim() ? (

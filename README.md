@@ -48,7 +48,7 @@ The game server itself comes from the official
 | **Control** | Start / stop / restart the game server container; kick, ban and mute players |
 | **Console** | Full RCON console with command history, plus one-click common commands |
 | **Logs** | Live-streamed container logs with filtering, pause-and-buffer, and follow-tail |
-| **Configuration** | Around 120 settings in guided forms — everything the game's own HOST menus offer and more — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
+| **Configuration** | Around 190 settings in guided forms — every server-side cvar ET: Legacy 2.84 reads that is worth setting — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
 | **Maps** | Upload `.pk3` packages, see the maps inside each one, and switch any of them into the rotation — all on one page |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
 | **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts |
@@ -515,8 +515,16 @@ to read something, and pausing buffers rather than drops lines.
 
 **Configuration** — four views over one file:
 
-- *Settings* — guided fields for the cvars people actually change. Each says
-  whether it applies immediately, at the next map, or needs a restart.
+- *Settings* — guided fields for the cvars people actually change, in nineteen
+  sections from Identity to Protection. Each says whether it applies
+  immediately, at the next map, or needs a restart.
+
+  Three levels of detail, because "everything at once" is not a form anyone can
+  read: the plain view holds what most servers touch, **Show advanced** adds the
+  rest, and **Expert** — inside advanced — adds bots, Lua modules and the
+  file paths the server reads at start-up. Those last ones do not tune a server
+  when they are wrong; they stop it booting, so they are not one mis-click from
+  the round timer. Search ignores all three levels and finds everything.
 - *Raw file* — the whole config, validated as you type. Always the source of
   truth; the other views only patch it.
 - *Backups* — every save is snapshotted first, selectable and deletable. How

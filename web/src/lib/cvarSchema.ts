@@ -34,6 +34,15 @@ export interface CvarSpec {
   appliesOn: 'immediately' | 'map-change' | 'restart';
   /** Hidden behind "Show advanced" — correct defaults, rarely worth touching. */
   advanced?: boolean;
+  /**
+   * Hidden behind "Expert" on top of advanced.
+   *
+   * For settings that point at files, load code, or run bots: getting one wrong
+   * does not tune the server, it stops it from starting. They belong in the
+   * dashboard — hunting for them in a text editor is worse — but not one
+   * mis-click away from someone looking for the round timer.
+   */
+  expert?: boolean;
 }
 
 export interface CvarSection {
@@ -159,6 +168,14 @@ export const CVAR_SECTIONS: CvarSection[] = [
     title: 'Players & access',
     description: 'Capacity, reserved slots and who is allowed in.',
     cvars: [
+      {
+        key: 'g_extendedNames',
+        label: 'Allow extended characters in names',
+        kind: 'boolean',
+        hint: 'Off strips anything outside the classic character set, which keeps names readable in the console and the logs.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
       {
         key: 'sv_maxclients',
         label: 'Maximum players',
@@ -448,6 +465,46 @@ export const CVAR_SECTIONS: CvarSection[] = [
         hint: 'Seconds. 86400 is a day, 604800 a week. Ignored while "never reset" is ticked.',
         appliesOn: 'restart',
       },
+
+      ...(
+        [
+          ['skill_battlesense', 'Battle sense'],
+          ['skill_engineer', 'Engineering'],
+          ['skill_medic', 'First aid'],
+          ['skill_fieldops', 'Signals'],
+          ['skill_lightweapons', 'Light weapons'],
+          ['skill_soldier', 'Heavy weapons'],
+          ['skill_covertops', 'Covert ops'],
+        ] as const
+      ).map(([key, label]) => ({
+        key,
+        label: `${label} levels`,
+        kind: 'text' as const,
+        hint: 'Four XP thresholds, lowest first — the default is "20 50 90 140".',
+        appliesOn: 'map-change' as const,
+        advanced: true,
+      })),
+      {
+        key: 'g_skillRating',
+        label: 'Skill rating',
+        kind: 'select',
+        options: [
+          { value: '0', label: 'Off' },
+          { value: '1', label: 'Rate players' },
+          { value: '2', label: 'Rate players and maps' },
+        ],
+        hint: 'Estimates player strength across matches. Level 2 also weighs how one-sided each map is.',
+        appliesOn: 'restart',
+        advanced: true,
+      },
+      {
+        key: 'g_prestige',
+        label: 'Prestige',
+        kind: 'boolean',
+        hint: 'Lets players who have maxed out a skill trade it for a prestige level. Objective, Stopwatch and LMS ignore it.',
+        appliesOn: 'restart',
+        advanced: true,
+      },
       {
         key: 'g_resetXPMapCount',
         label: 'Reset XP every N maps',
@@ -461,10 +518,379 @@ export const CVAR_SECTIONS: CvarSection[] = [
   },
 
   {
+    id: 'respawn',
+    title: 'Respawn & limbo',
+    description: 'How long the dead wait, and what happens to players who stop playing.',
+    cvars: [
+      {
+        key: 'g_redlimbotime',
+        label: 'Axis respawn interval',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds between Axis spawn waves. 30000 is the stock 30 seconds; maps may override it.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_bluelimbotime',
+        label: 'Allied respawn interval',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds between Allied spawn waves.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_forcerespawn',
+        label: 'Force respawn after',
+        kind: 'number',
+        hint: 'Seconds a body may stay in limbo before it is sent back automatically. 0 lets players lie there; -1 respawns instantly.',
+        appliesOn: 'immediately',
+      },
+      {
+        key: 'g_inactivity',
+        label: 'Move idle players to spectator after',
+        kind: 'number',
+        min: 0,
+        hint: 'Seconds without input. 0 never does. Frees a slot on a full server without kicking anyone.',
+        appliesOn: 'immediately',
+      },
+      {
+        key: 'g_enforcemaxlives',
+        label: 'Enforce the life limit',
+        kind: 'boolean',
+        hint: 'Stops a player who is out of lives from rejoining to get more. Only matters with a limit set under Gameplay.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_maxlivesRespawnPenalty',
+        label: 'Extra wait after losing a life',
+        kind: 'number',
+        min: 0,
+        hint: 'Seconds added to the respawn wait while a life limit is in force.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+    ],
+  },
+
+  {
+    id: 'charge',
+    title: 'Class charge times',
+    description:
+      'How long each class waits for its special ability. Lower is more airstrikes, more ammo, more of everything.',
+    cvars: [
+      {
+        key: 'g_soldierChargeTime',
+        label: 'Soldier',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds. Default 20000 — panzer, mortar, flamer and mobile MG fuel.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_medicChargeTime',
+        label: 'Medic',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds. Default 45000 — the syringe.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_engineerChargeTime',
+        label: 'Engineer',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds. Default 30000 — landmines, dynamite and repairs.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_fieldopsChargeTime',
+        label: 'Field ops',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds. Default 40000 — artillery and airstrikes.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_covertopsChargeTime',
+        label: 'Covert ops',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds. Default 30000 — satchel, smoke and the disguise.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_stickyCharge',
+        label: 'Keep the charge bar on death',
+        kind: 'select',
+        options: [
+          { value: '0', label: 'Reset on any death' },
+          { value: '1', label: 'Keep after a selfkill or team kill' },
+          { value: '2', label: 'Keep after any death' },
+        ],
+        hint: 'Option 1 removes the reason to selfkill for a fresh charge bar.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+    ],
+  },
+
+  {
+    id: 'combat',
+    title: 'Weapons & medics',
+    description: 'The small rules that decide how a firefight ends.',
+    cvars: [
+      {
+        key: 'g_syringeHealing',
+        label: 'Syringe heals living players',
+        kind: 'boolean',
+        hint: 'A medic can top up a teammate who is still standing, not only revive the dead.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_legacyRevives',
+        label: 'Revive rules',
+        kind: 'select',
+        options: [
+          { value: '1', label: 'Legacy — revived players keep more health' },
+          { value: '0', label: 'Vanilla 2.60b behaviour' },
+        ],
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_corpses',
+        label: 'Leave bodies lying',
+        kind: 'boolean',
+        hint: 'Off removes a body as soon as its player respawns. On is prettier and costs entities.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_landminetimeout',
+        label: 'Blow up mines when their engineer leaves',
+        kind: 'boolean',
+        hint: 'Off leaves mines armed after the player who planted them disconnects or switches team.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_dropObjDelay',
+        label: 'Delay before the objective can be dropped',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds after picking it up. Default 3000 — stops the objective being tossed around a spawn.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_shoveNoZ',
+        label: 'No boost when shoving upward',
+        kind: 'boolean',
+        hint: 'Only applies while the shove-boost flag under Movement is off.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+    ],
+  },
+
+  {
+    id: 'movement',
+    title: 'Movement & physics',
+    description:
+      'The feel of the game. These are the settings that make a server "trickjump" or "vanilla" — change one and regulars will notice.',
+    cvars: [
+      {
+        key: 'g_speed',
+        label: 'Player speed',
+        kind: 'number',
+        min: 1,
+        hint: 'Default 320. Anything else is a mod, not a tweak.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_gravity',
+        label: 'Gravity',
+        kind: 'number',
+        min: 0,
+        hint: 'Default 800.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_knockback',
+        label: 'Knockback',
+        kind: 'number',
+        min: 0,
+        hint: 'How far explosions throw a player. Default 1000.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_movespeed',
+        label: 'Movement speed scale',
+        kind: 'number',
+        min: 1,
+        hint: 'Default 76. Used by the engine alongside player speed; leave it alone unless you are copying a known config.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_pronedelay',
+        label: 'Delay before firing after going prone',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds. 0 is stock behaviour.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_misc',
+        label: 'Movement options',
+        kind: 'flags',
+        flags: [
+          {
+            bit: 1,
+            label: 'ETPro-style shove boost',
+            hint: 'Shoving someone upward gives a real boost instead of a fixed nudge. This is what trickjump servers turn on.',
+          },
+        ],
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_fixedphysics',
+        label: 'Frame-rate independent physics',
+        kind: 'boolean',
+        hint: 'Makes jumps behave the same regardless of a player\u2019s FPS.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_fixedphysicsfps',
+        label: 'Physics emulated at',
+        kind: 'number',
+        min: 1,
+        hint: 'FPS the physics above pretends everyone runs at. Default 125.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_realHead',
+        label: 'Accurate head hitbox',
+        kind: 'boolean',
+        hint: 'Head shots follow the model\u2019s actual head rather than a fixed box.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_moverScale',
+        label: 'Mover speed scale',
+        kind: 'text',
+        hint: 'How fast tanks and doors travel. Default 1.0.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_filtercams',
+        label: 'Filter camera movement',
+        kind: 'boolean',
+        hint: 'Smooths scripted camera paths in cutscenes.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+    ],
+  },
+
+  {
+    id: 'mapvote',
+    title: 'Map voting',
+    description:
+      'Only used by the Map voting game type. Players pick the next map from the ones installed.',
+    cvars: [
+      {
+        key: 'g_maxMapsVotedFor',
+        label: 'Maps on the ballot',
+        kind: 'number',
+        min: 1,
+        hint: 'How many candidates players choose between. Default 6.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_minMapAge',
+        label: 'Maps to wait before a repeat',
+        kind: 'number',
+        min: 0,
+        hint: 'A map that has just been played is kept off the ballot this many rounds. Default 3.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_excludedMaps',
+        label: 'Never offer these maps',
+        kind: 'text',
+        hint: 'Space-separated map names, e.g. "railgun". They stay installed and playable by other means.',
+        appliesOn: 'map-change',
+      },
+      {
+        key: 'g_mapVoteFlags',
+        label: 'Voting options',
+        kind: 'flags',
+        flags: [
+          { bit: 1, label: 'Break a tie in favour of the least-played map' },
+          { bit: 4, label: 'Let a player vote for more than one map' },
+          { bit: 16, label: 'Let players vote for the next map mid-round' },
+        ],
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+    ],
+  },
+
+  {
     id: 'match',
     title: 'Match & warm-up',
     description: 'How a match starts, pauses and ends.',
     cvars: [
+      {
+        key: 'g_maxGameClients',
+        label: 'Maximum playing clients',
+        kind: 'number',
+        min: 0,
+        hint: '0 means every slot may play. Anything higher keeps the rest as spectators.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
+        key: 'match_timeoutlength',
+        label: 'Time-out length',
+        kind: 'number',
+        min: 0,
+        hint: 'Seconds a called time-out lasts. Default 180.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
+        key: 'g_multiview',
+        label: 'Multiview for spectators',
+        kind: 'boolean',
+        hint: 'Lets a spectator watch several players at once. Needs a restart, and clients must support it.',
+        appliesOn: 'restart',
+        advanced: true,
+      },
+      {
+        key: 'g_etltv_flags',
+        label: 'ETLTV connections',
+        kind: 'flags',
+        flags: [
+          {
+            bit: 1,
+            label: 'Keep them out of the teams',
+            hint: 'They also cannot be vote-kicked, so a stray vote does not end the broadcast.',
+          },
+          { bit: 2, label: 'Make them shoutcasters automatically' },
+        ],
+        hint: 'Only affects clients connecting as an ETLTV relay.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
       {
         key: 'g_doWarmup',
         label: 'Warm-up period',
@@ -560,6 +986,14 @@ export const CVAR_SECTIONS: CvarSection[] = [
     title: 'Complaints',
     description: 'The team-kill complaint system.',
     cvars: [
+      {
+        key: 'g_teambleedComplaint',
+        label: 'Team-damage complaint threshold',
+        kind: 'number',
+        hint: 'Percentage of a player\u2019s health that team damage must reach before a complaint is offered. Negative disables it.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
       {
         key: 'g_complaintlimit',
         label: 'Complaints before a kick',
@@ -669,10 +1103,30 @@ export const CVAR_SECTIONS: CvarSection[] = [
     description: 'What players may put to a vote, and how a vote passes.',
     cvars: [
       {
+        key: 'g_voting',
+        label: 'Vote counting',
+        kind: 'flags',
+        flags: [
+          {
+            bit: 1,
+            label: 'Count everyone, not just those who voted',
+            hint: 'Silence counts as "no", so a vote needs real support to pass.',
+          },
+          { bit: 2, label: 'A vote that passes does not count towards a player’s vote limit' },
+          { bit: 4, label: 'Show who called the vote' },
+        ],
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
         key: 'g_allowVote',
         label: 'Allow voting',
         kind: 'boolean',
-        hint: 'Turns the whole voting system on or off.',
+        // Kept because the mod's own sample config still sets it and every
+        // guide repeats it — but nothing in 2.83 or 2.84 reads it. Saying so
+        // here is the difference between "voting is off" and an evening spent
+        // wondering why players can still call votes.
+        hint: 'Older builds used this as the master switch. ET: Legacy 2.83 and later ignore it — switch the individual votes below off instead.',
         appliesOn: 'immediately',
       },
       {
@@ -772,6 +1226,39 @@ export const CVAR_SECTIONS: CvarSection[] = [
     description: 'Who may connect, and how much bandwidth each client gets.',
     cvars: [
       {
+        key: 'g_antiwarp',
+        label: 'Anti-warp',
+        kind: 'boolean',
+        hint: 'Smooths players whose connection stutters instead of letting them teleport around.',
+        appliesOn: 'immediately',
+      },
+      {
+        key: 'g_maxWarp',
+        label: 'Warp tolerance',
+        kind: 'number',
+        min: 1,
+        hint: 'Server frames a client may fall behind before anti-warp steps in. Default 4; higher is more forgiving.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
+        key: 'g_skipCorrection',
+        label: 'Correct skipped movement',
+        kind: 'boolean',
+        hint: 'Replays movement a lagging client missed rather than dropping it.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
+        key: 'g_teamInfoUpdateRate',
+        label: 'Team overlay update interval',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds between team status updates sent to clients. Default 1000; lower costs bandwidth.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
         key: 'sv_minPing',
         label: 'Minimum ping',
         kind: 'number',
@@ -858,6 +1345,60 @@ export const CVAR_SECTIONS: CvarSection[] = [
     description: 'Defences against abuse, and what gets written to disk.',
     cvars: [
       {
+        key: 'g_floodProtection',
+        label: 'Chat flood protection',
+        kind: 'boolean',
+        hint: 'Game-side, for chat and commands. The engine has its own limit under Connection quality.',
+        appliesOn: 'immediately',
+      },
+      {
+        key: 'g_floodLimit',
+        label: 'Messages allowed',
+        kind: 'number',
+        min: 1,
+        hint: 'Within the window below. Default 5.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
+        key: 'g_floodWait',
+        label: 'Flood window',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds. Default 1000.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
+        key: 'g_logTimestamp',
+        label: 'Log timestamps',
+        kind: 'select',
+        options: [
+          { value: '1', label: 'Level time' },
+          { value: '2', label: 'Time since start-up' },
+          { value: '3', label: 'Clock time' },
+          { value: '0', label: 'None' },
+        ],
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
+        key: 'g_banIPs',
+        label: 'Banned addresses',
+        kind: 'text',
+        hint: 'Space-separated. A trailing 0 wildcards an octet, e.g. "192.168.1.0".',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
+        key: 'g_filterBan',
+        label: 'Enforce the ban list',
+        kind: 'boolean',
+        hint: 'Off leaves the addresses above listed but lets them connect.',
+        appliesOn: 'immediately',
+        advanced: true,
+      },
+      {
         key: 'sv_protect',
         label: 'Server protection',
         kind: 'select',
@@ -913,6 +1454,140 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
     ],
   },
+
+  {
+    id: 'bots',
+    title: 'Bots (Omni-bot)',
+    description:
+      'Requires Omni-bot installed on the server. Wrong paths here mean bots silently never appear.',
+    cvars: [
+      {
+        key: 'omnibot_enable',
+        label: 'Enable bots',
+        kind: 'boolean',
+        appliesOn: 'restart',
+        advanced: true,
+        expert: true,
+      },
+      {
+        key: 'omnibot_path',
+        label: 'Omni-bot directory',
+        kind: 'text',
+        hint: 'Inside the container, e.g. "legacy/omni-bot". Must be the path the game server sees, not the host path.',
+        appliesOn: 'restart',
+        advanced: true,
+        expert: true,
+      },
+      {
+        key: 'omnibot_flags',
+        label: 'Bot behaviour',
+        kind: 'flags',
+        flags: [
+          { bit: 1, label: 'Do not save XP for bots' },
+          { bit: 2, label: 'Bots cannot mount tanks' },
+          { bit: 4, label: 'Bots cannot mount emplaced guns' },
+          { bit: 8, label: 'Do not count bots in the player count' },
+          { bit: 16, label: 'Bots finish off wounded enemies' },
+          { bit: 32, label: 'Bots trigger team and spotted mines' },
+          { bit: 64, label: 'Bots may shove' },
+        ],
+        appliesOn: 'restart',
+        advanced: true,
+        expert: true,
+      },
+      {
+        key: 'g_allowBotSwap',
+        label: 'Let a joining player take a bot\u2019s place',
+        kind: 'boolean',
+        hint: 'Keeps the teams the same size when a human arrives on a full server.',
+        appliesOn: 'map-change',
+        advanced: true,
+        expert: true,
+      },
+    ],
+  },
+
+  {
+    id: 'lua',
+    title: 'Lua modules',
+    description:
+      'Server-side scripts such as WolfAdmin. A module that fails to load takes its features with it and says so only in the log.',
+    cvars: [
+      {
+        key: 'lua_modules',
+        label: 'Modules to load',
+        kind: 'text',
+        hint: 'Space-separated paths, e.g. "luascripts/wolfadmin/main.lua". Ignored when a module list file is set below.',
+        appliesOn: 'map-change',
+        advanced: true,
+        expert: true,
+      },
+      {
+        key: 'lua_allowedModules',
+        label: 'Allowed module signatures',
+        kind: 'text',
+        hint: 'Empty allows any module. Otherwise only modules whose signature is listed here may load.',
+        appliesOn: 'map-change',
+        advanced: true,
+        expert: true,
+      },
+      {
+        key: 'g_luaModuleList',
+        label: 'Module list file',
+        kind: 'text',
+        hint: 'A file listing modules to load. When set, it replaces the list above entirely.',
+        appliesOn: 'map-change',
+        advanced: true,
+        expert: true,
+      },
+    ],
+  },
+
+  {
+    id: 'files',
+    title: 'Config & campaign files',
+    description:
+      'Paths the server reads at start-up. A typo here is not a wrong setting — it is a server that comes up with defaults you did not choose.',
+    cvars: [
+      {
+        key: 'g_customConfig',
+        label: 'Extra config to apply',
+        kind: 'text',
+        hint: 'Executed after the main config, so it wins. Public servers often use "defaultpublic".',
+        appliesOn: 'restart',
+        advanced: true,
+        expert: true,
+      },
+      {
+        key: 'g_mapConfigs',
+        label: 'Per-map config directory',
+        kind: 'text',
+        hint: 'A config in here named after the map is applied when that map loads. Empty disables it.',
+        appliesOn: 'map-change',
+        advanced: true,
+        expert: true,
+      },
+      {
+        key: 'g_campaignFile',
+        label: 'Campaign file',
+        kind: 'text',
+        hint: 'Only used by the Campaign game type. Empty uses the campaigns found in the installed pk3 files.',
+        appliesOn: 'restart',
+        advanced: true,
+        expert: true,
+      },
+      {
+        key: 'g_mapScriptDirectory',
+        label: 'Map script directory',
+        kind: 'text',
+        hint: 'Default "mapscripts". Scripts here override the ones inside a map\u2019s pk3.',
+        appliesOn: 'map-change',
+        advanced: true,
+        expert: true,
+      },
+    ],
+  },
+
 ];
 
 export const APPLIES_LABEL: Record<CvarSpec['appliesOn'], string> = {
