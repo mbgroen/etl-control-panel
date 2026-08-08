@@ -523,20 +523,40 @@ export const CVAR_SECTIONS: CvarSection[] = [
     description: 'How long the dead wait, and what happens to players who stop playing.',
     cvars: [
       {
-        key: 'g_redlimbotime',
-        label: 'Axis respawn interval',
+        key: 'g_userAxisRespawnTime',
+        label: 'Axis respawn wave',
         kind: 'number',
         min: 0,
-        hint: 'Milliseconds between Axis spawn waves. 30000 is the stock 30 seconds; maps may override it.',
+        hint: 'Seconds. 0 uses whatever each map asks for — most maps set their own. Anything else overrides every map, which is what makes a faster server stay faster.',
         appliesOn: 'map-change',
       },
       {
-        key: 'g_bluelimbotime',
-        label: 'Allied respawn interval',
+        key: 'g_userAlliedRespawnTime',
+        label: 'Allied respawn wave',
         kind: 'number',
         min: 0,
-        hint: 'Milliseconds between Allied spawn waves.',
+        hint: 'Seconds. 0 uses the map\u2019s own value.',
         appliesOn: 'map-change',
+      },
+      {
+        key: 'g_redlimbotime',
+        label: 'Axis respawn interval (raw)',
+        kind: 'number',
+        min: 0,
+        // The units trip everyone up, and setting it is usually pointless: the
+        // map script rewrites it at load from wm_axis_respawntime.
+        hint: 'Milliseconds — 30000 is thirty seconds. Prefer the seconds field above: map scripts overwrite this one at map load, and they honour that field instead.',
+        appliesOn: 'map-change',
+        advanced: true,
+      },
+      {
+        key: 'g_bluelimbotime',
+        label: 'Allied respawn interval (raw)',
+        kind: 'number',
+        min: 0,
+        hint: 'Milliseconds. Same caveat as the Axis field above.',
+        appliesOn: 'map-change',
+        advanced: true,
       },
       {
         key: 'g_forcerespawn',
