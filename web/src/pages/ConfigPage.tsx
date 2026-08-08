@@ -9,7 +9,7 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   Badge,
@@ -150,6 +150,76 @@ export function ConfigPage() {
       {tab === 'settings' && <SettingsTab config={config} onSaved={load} />}
       {tab === 'raw' && <RawTab config={config} onSaved={load} />}
       {tab === 'backups' && <BackupsTab onRestored={load} />}
+    </div>
+  );
+}
+
+/**
+ * A bitmask cvar, as one checkbox per bit.
+ *
+ * The engine reads a single number, so guides say "set it to 15" and leave you
+ * to work out that you just switched three other things on — and "set it to 1"
+ * quietly switches them off. Bits the schema does not name are left untouched
+ * rather than cleared, because a newer server may define more of them than this
+ * dashboard knows about.
+ */
+function FlagField({
+  spec,
+  value,
+  hint,
+  onChange,
+}: {
+  spec: CvarSpec;
+  value: string;
+  hint: ReactNode;
+  onChange: (next: string) => void;
+}) {
+  const parsed = Number.parseInt(value, 10);
+  const numeric = Number.isNaN(parsed) ? 0 : parsed;
+  // An unparseable value is shown as-is rather than silently read as zero: the
+  // file says something this field cannot represent, and saying so beats
+  // pretending every box is simply unticked.
+  const unreadable = value.trim() !== '' && Number.isNaN(parsed);
+
+  return (
+    <div className="flex flex-col gap-2 md:col-span-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[13px] font-medium text-body">{spec.label}</p>
+        <p className="font-mono text-xs text-faint">
+          {spec.key} {unreadable ? value : numeric}
+        </p>
+      </div>
+
+      <div className="grid gap-1.5 rounded-lg border border-line bg-sunken p-3 sm:grid-cols-2">
+        {spec.flags?.map((flag) => (
+          <label key={flag.bit} className="flex cursor-pointer items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-accent"
+              // The wrapping label names it visually; the explicit label keeps
+              // the hint text out of the announced name.
+              aria-label={flag.label}
+              checked={(numeric & flag.bit) !== 0}
+              onChange={(event) =>
+                onChange(String(event.target.checked ? numeric | flag.bit : numeric & ~flag.bit))
+              }
+            />
+            <span>
+              <span className="text-body">{flag.label}</span>
+              <span className="ml-1.5 font-mono text-faint">{flag.bit}</span>
+              {flag.hint && <span className="block text-muted">{flag.hint}</span>}
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {unreadable && (
+        <p className="text-xs text-warn">
+          The file has <span className="font-mono">{value}</span>, which is not a number. Ticking a
+          box replaces it.
+        </p>
+      )}
+      <p className="text-xs text-muted">{hint}</p>
     </div>
   );
 }
@@ -453,6 +523,10 @@ function CvarField({
       {!defined && <Badge tone="info">not set — will be added</Badge>}
     </span>
   );
+
+  if (spec.kind === 'flags') {
+    return <FlagField spec={spec} value={value} hint={hint} onChange={onChange} />;
+  }
 
   if (spec.kind === 'boolean') {
     return (

@@ -48,7 +48,7 @@ The game server itself comes from the official
 | **Control** | Start / stop / restart the game server container; kick, ban and mute players |
 | **Console** | Full RCON console with command history, plus one-click common commands |
 | **Logs** | Live-streamed container logs with filtering, pause-and-buffer, and follow-tail |
-| **Configuration** | Around 100 settings in guided forms — everything the game's own HOST menus offer and more — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
+| **Configuration** | Around 120 settings in guided forms — everything the game's own HOST menus offer and more — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
 | **Maps** | Upload `.pk3` packages, see the maps inside each one, and switch any of them into the rotation — all on one page |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
 | **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts |
@@ -525,6 +525,13 @@ to read something, and pausing buffers rather than drops lines.
 
 Password fields are masked, with a reveal button so you can check what you
 typed. Leaving one untouched leaves it unchanged.
+
+Bitmask cvars — `g_xpSaver` is the one most people meet — are a row of
+checkboxes rather than a number, with the total shown beside them. A guide that
+says "set it to 15" is really asking you to switch four things on, and one that
+says "set it to 1" switches three of them back off; here you can see which.
+Bits this dashboard does not name are preserved rather than cleared, so a newer
+server's flags survive a save.
 
 Be aware that the raw config — passwords included — is sent to the browser, as
 it must be for the raw editor to work. Anyone who can sign in to the dashboard

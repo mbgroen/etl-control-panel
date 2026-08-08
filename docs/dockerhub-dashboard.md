@@ -77,7 +77,7 @@ Docker socket for container control and log streaming.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `2.5.0` | An exact version. Never moves — use this to pin |
+| `2.6.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 

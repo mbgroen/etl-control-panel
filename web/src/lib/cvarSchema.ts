@@ -14,7 +14,7 @@
  * are latched by the engine and only take effect on a map change or restart.
  */
 
-export type CvarKind = 'text' | 'number' | 'boolean' | 'select' | 'password';
+export type CvarKind = 'text' | 'number' | 'boolean' | 'select' | 'password' | 'flags';
 
 export interface CvarSpec {
   key: string;
@@ -24,6 +24,13 @@ export interface CvarSpec {
   min?: number;
   max?: number;
   options?: { value: string; label: string }[];
+  /**
+   * For `flags`: the bits of a bitmask cvar, each shown as its own checkbox.
+   *
+   * The engine takes one number, which is why a config guide will tell you to
+   * write 15 and leave you to work out what you just switched off.
+   */
+  flags?: { bit: number; label: string; hint?: string }[];
   appliesOn: 'immediately' | 'map-change' | 'restart';
   /** Hidden behind "Show advanced" — correct defaults, rarely worth touching. */
   advanced?: boolean;
@@ -391,6 +398,63 @@ export const CVAR_SECTIONS: CvarSection[] = [
         max: 50,
         hint: 'Caps voice-chat spam without muting anyone.',
         appliesOn: 'immediately',
+        advanced: true,
+      },
+    ],
+  },
+
+  {
+    id: 'xp',
+    title: 'XP & progression',
+    description:
+      'Whether players keep the XP they earn, and when it is wiped. Off by default: a fresh server resets everyone at every map.',
+    cvars: [
+      {
+        key: 'g_xpSaver',
+        label: 'XP saving',
+        kind: 'flags',
+        flags: [
+          {
+            bit: 1,
+            label: 'Save XP when a player disconnects',
+            hint: 'Required — with this off the server sets the whole cvar back to 0 at start-up.',
+          },
+          { bit: 2, label: 'Keep the current map\u2019s XP through a map restart' },
+          {
+            bit: 4,
+            label: 'Never reset saved XP',
+            hint: 'Makes the map count and the maximum age below irrelevant. !resetxp still works.',
+          },
+          {
+            bit: 8,
+            label: 'Drop an existing client with the same GUID',
+            hint: 'Two connections sharing a GUID can corrupt each other\u2019s saved XP.',
+          },
+          { bit: 16, label: 'Do not save XP in Stopwatch' },
+          {
+            bit: 32,
+            label: 'Import XP from the old .xp files once',
+            hint: 'Only useful when migrating a server that predates the database. Turn it off afterwards.',
+          },
+        ],
+        hint: 'Saved XP lives in the server database (db_mode 2 by default, in etl.db).',
+        appliesOn: 'restart',
+      },
+      {
+        key: 'g_xpSaverMaxAge',
+        label: 'Keep saved XP for',
+        kind: 'number',
+        min: 0,
+        hint: 'Seconds. 86400 is a day, 604800 a week. Ignored while "never reset" is ticked.',
+        appliesOn: 'restart',
+      },
+      {
+        key: 'g_resetXPMapCount',
+        label: 'Reset XP every N maps',
+        kind: 'number',
+        min: 0,
+        hint: '0 never resets on a map count. Ignored while "never reset" is ticked.',
+        appliesOn: 'map-change',
         advanced: true,
       },
     ],
