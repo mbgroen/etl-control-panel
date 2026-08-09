@@ -8,6 +8,7 @@ process.env.SESSION_SECRET ??= 'x'.repeat(48);
 const {
   applyCvarUpdates,
   buildRotation,
+  removeCvars,
   cvarMap,
   maskSecrets,
   MASK,
@@ -120,6 +121,31 @@ describe('applyCvarUpdates', () => {
     const next = applyCvarUpdates(SAMPLE, { sv_hostname: 'say "hi"' });
     assert.ok(!/set sv_hostname "say "hi""/.test(next));
     assert.equal(validateConfig(next).filter((p) => p.severity === 'error').length, 0);
+  });
+});
+
+describe('removeCvars', () => {
+  // Handing a setting back to the engine means deleting the line. Writing an
+  // empty value instead reads back as 0, which for g_redlimbotime is a modulo
+  // by zero in the respawn path.
+  it('deletes the line rather than blanking it', () => {
+    const next = removeCvars('set sv_hostname "x"\nset g_redlimbotime "3000"', ['g_redlimbotime']);
+    assert.equal(next, 'set sv_hostname "x"');
+    assert.equal(cvarMap(next).g_redlimbotime, undefined);
+  });
+
+  it('removes every assignment, not just the last', () => {
+    const next = removeCvars('set timelimit "10"\nset x "1"\nset timelimit "20"', ['timelimit']);
+    assert.equal(next, 'set x "1"');
+  });
+
+  it('matches case-insensitively and leaves everything else alone', () => {
+    const next = removeCvars('set G_GRAVITY "800"\n// a comment\nset g_speed "320"', ['g_gravity']);
+    assert.equal(next, '// a comment\nset g_speed "320"');
+  });
+
+  it('does nothing when asked for nothing', () => {
+    assert.equal(removeCvars('set a "1"', []), 'set a "1"');
   });
 });
 

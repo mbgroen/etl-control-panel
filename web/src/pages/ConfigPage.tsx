@@ -367,38 +367,50 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
   );
 
   /**
-   * Numeric fields that have been cleared.
+   * Numeric fields cleared by the operator, which means "remove this setting".
    *
-   * An empty value is not "unset": the engine stores the empty string and reads
-   * it back as 0, and 0 is a live value with consequences — g_redlimbotime "" is
-   * a modulo by zero in the respawn code. Blocking the save is the only honest
-   * response, because the config format has no way to say "no value".
+   * Writing an empty value would be wrong — the engine reads it back as 0, and
+   * 0 in g_redlimbotime is a modulo by zero — and blocking the save, which is
+   * what this used to do, left no way to hand a setting back to the engine
+   * short of editing the raw file. Clearing the box deletes the line instead,
+   * which is what someone clearing a box means.
+   *
+   * Only for numbers: an empty message of the day is a legitimate value.
    */
-  const emptied = useMemo(
+  const removed = useMemo(
     () =>
       changed
         .filter(([key, value]) => {
           const spec = ALL_CVARS.find((candidate) => candidate.key.toLowerCase() === key);
-          return spec?.kind === 'number' && value.trim() === '';
+          return spec?.kind === 'number' && value.trim() === '' && initial[key] !== undefined;
         })
         .map(([key]) => key),
-    [changed],
+    [changed, initial],
   );
 
   const save = async () => {
-    if (changed.length === 0 || emptied.length > 0) return;
+    if (changed.length === 0) return;
     setSaving(true);
     try {
       // State is keyed lower-case so a config that writes G_GRAVITY still
       // matches the field, but what gets written back should be the spelling
       // the schema uses — that is what every other line in the file looks like.
       const updates = Object.fromEntries(
-        changed.map(([key, value]) => [CANONICAL_KEYS.get(key) ?? key, value]),
+        changed
+          .filter(([key]) => !removed.includes(key))
+          .map(([key, value]) => [CANONICAL_KEYS.get(key) ?? key, value]),
       );
-      const result = await api.config.patch(updates, config.revision, reload);
+      const result = await api.config.patch(
+        updates,
+        config.revision,
+        reload,
+        removed.map((key) => CANONICAL_KEYS.get(key) ?? key),
+      );
       reportRconHandover(result.rconPassword, toast);
       toast.success(
-        `Saved ${result.applied.length} setting${result.applied.length === 1 ? '' : 's'}`,
+        removed.length > 0
+          ? `Saved — ${removed.length} setting${removed.length === 1 ? '' : 's'} handed back to the server default`
+          : `Saved ${result.applied.length} setting${result.applied.length === 1 ? '' : 's'}`,
         reload ? 'The running server was asked to re-read its config.' : undefined,
       );
       await onSaved();
@@ -518,7 +530,7 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
                 key={spec.key}
                 spec={spec}
                 value={values[spec.key.toLowerCase()] ?? ''}
-                emptied={emptied.includes(spec.key.toLowerCase())}
+                removing={removed.includes(spec.key.toLowerCase())}
                 defined={initial[spec.key.toLowerCase()] !== undefined}
                 onChange={(next) =>
                   setValues((current) => ({ ...current, [spec.key.toLowerCase()]: next }))
@@ -534,12 +546,11 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
       <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur lg:-mx-6 lg:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className={`text-xs ${emptied.length > 0 ? 'text-danger' : 'text-muted'}`}>
-              {emptied.length > 0
-                ? `${emptied.length} field${emptied.length === 1 ? ' needs' : 's need'} a number, or put the old value back`
-                : changed.length === 0
-                  ? 'No unsaved changes'
-                  : `${changed.length} unsaved change${changed.length === 1 ? '' : 's'}`}
+            <span className="text-xs text-muted">
+              {changed.length === 0
+                ? 'No unsaved changes'
+                : `${changed.length} unsaved change${changed.length === 1 ? '' : 's'}` +
+                  (removed.length > 0 ? `, ${removed.length} removed` : '')}
             </span>
             <Toggle
               checked={reload}
@@ -556,7 +567,7 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
               variant="primary"
               icon={<Save size={14} aria-hidden />}
               loading={saving}
-              disabled={changed.length === 0 || emptied.length > 0}
+              disabled={changed.length === 0}
               onClick={() => void save()}
             >
               Save changes
@@ -572,14 +583,14 @@ function CvarField({
   spec,
   value,
   defined,
-  emptied = false,
+  removing = false,
   onChange,
 }: {
   spec: CvarSpec;
   value: string;
   defined: boolean;
-  /** Cleared numeric field: saving it would write 0, not nothing. */
-  emptied?: boolean;
+  /** Cleared numeric field: saving deletes the line rather than writing 0. */
+  removing?: boolean;
   onChange: (next: string) => void;
 }) {
   /**
@@ -627,11 +638,15 @@ function CvarField({
   return (
     <Field
       label={spec.label}
-      hint={hint}
-      error={
-        emptied
-          ? 'Empty is written as 0, not left unset. Type a number, or restore the previous value.'
-          : undefined
+      hint={
+        removing ? (
+          <span className="text-info">
+            Saving removes this setting; the server falls back to its default
+            {spec.defaultValue ? ` of ${spec.defaultValue}` : ''}.
+          </span>
+        ) : (
+          hint
+        )
       }
       htmlFor={`cvar-${spec.key}`}
     >

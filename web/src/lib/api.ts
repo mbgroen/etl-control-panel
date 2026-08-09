@@ -197,12 +197,17 @@ export const api = {
         method: 'PUT',
         ...json(body),
       }),
-    patch: (updates: Record<string, string>, expectedRevision?: string, reload = false) =>
+    patch: (
+      updates: Record<string, string>,
+      expectedRevision?: string,
+      reload = false,
+      remove: string[] = [],
+    ) =>
       request<{ revision: string; applied: string[]; rconPassword: RconHandover | null }>(
         '/config/cvars',
         {
           method: 'PATCH',
-          ...json({ updates, expectedRevision, reload }),
+          ...json({ updates, remove, expectedRevision, reload }),
         },
       ),
     validate: (content: string) =>

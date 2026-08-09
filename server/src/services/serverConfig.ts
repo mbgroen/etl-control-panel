@@ -294,6 +294,33 @@ export function applyCvarUpdates(content: string, updates: Record<string, string
   return lines.join('\n');
 }
 
+/**
+ * Deletes assignments of the given cvars.
+ *
+ * Setting a cvar to nothing is not the same as not setting it: the engine reads
+ * an empty value back as 0, which for g_redlimbotime is a modulo by zero. The
+ * only way to hand a setting back to the engine's own default is to take the
+ * line out, so that has to be an operation the API offers rather than something
+ * only the raw editor can do.
+ *
+ * Every assignment of the key goes, not just the last: leaving an earlier one
+ * behind would look like the setting had been removed while the engine still
+ * applied it.
+ */
+export function removeCvars(content: string, keys: string[]): string {
+  if (keys.length === 0) return content;
+  const wanted = new Set(keys.map((key) => key.toLowerCase()));
+
+  return content
+    .split('\n')
+    .filter((line) => {
+      const match = CVAR_RE.exec(line);
+      const key = match?.[2]?.toLowerCase();
+      return !(key && wanted.has(key));
+    })
+    .join('\n');
+}
+
 /** Config values cannot contain a raw double quote; the parser has no escape. */
 function escapeValue(value: string): string {
   return value.replace(/"/g, "'");

@@ -9,6 +9,7 @@ import { rcon } from '../services/q3protocol.js';
 import { canSendAsRconArgument, resolveRconPassword } from '../services/rconCredentials.js';
 import {
   applyCvarUpdates,
+  removeCvars,
   buildRotation,
   configExists,
   CONFIG_PATH,
@@ -112,6 +113,8 @@ configRouter.put(
  */
 const patchSchema = z.object({
   updates: z.record(z.string().max(1_024)),
+  /** Cvars to delete outright, handing them back to the engine's default. */
+  remove: z.array(z.string().max(64)).default([]),
   expectedRevision: z.string().optional(),
   reload: z.boolean().default(false),
 });
@@ -119,20 +122,26 @@ const patchSchema = z.object({
 configRouter.patch(
   '/cvars',
   asyncHandler(async (req, res) => {
-    const { updates, expectedRevision, reload } = patchSchema.parse(req.body);
+    const { updates, remove, expectedRevision, reload } = patchSchema.parse(req.body);
 
     const effective = Object.fromEntries(
       Object.entries(updates).filter(([, value]) => value !== MASK),
     );
-    if (Object.keys(effective).length === 0) {
+    if (Object.keys(effective).length === 0 && remove.length === 0) {
       throw new ApiError(400, 'no_changes', 'No changes to apply');
     }
 
     const current = await readConfig();
-    const next = applyCvarUpdates(current.content, effective);
+    const next = removeCvars(applyCvarUpdates(current.content, effective), remove);
+    const note = [
+      Object.keys(effective).length > 0 ? `Updated ${Object.keys(effective).join(', ')}` : '',
+      remove.length > 0 ? `Removed ${remove.join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join('; ');
     const result = await saveConfig(next, {
       expectedRevision: expectedRevision ?? current.revision,
-      note: `Updated ${Object.keys(effective).join(', ')}`,
+      note,
     });
 
     // Before the reload, so the running server is already on the new password

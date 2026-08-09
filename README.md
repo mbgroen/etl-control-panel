@@ -519,6 +519,12 @@ to read something, and pausing buffers rather than drops lines.
   sections from Identity to Protection. Each says whether it applies
   immediately, at the next map, or needs a restart.
 
+  Clearing a numeric field removes the setting from the file rather than writing
+  an empty value, and the field says so before you save. That is the only way to
+  hand a cvar back to the engine, and writing empty instead is worse than it
+  looks: the engine reads it as 0, and 0 in the respawn interval is a division
+  by zero.
+
   A setting the config does not mention shows the value the **server** is using,
   marked *server default*, not a blank or an off switch. That distinction
   matters more than it sounds: every `vote_allow_*` except referee and time
