@@ -1,11 +1,11 @@
 import { CornerDownLeft, Eraser, ShieldAlert, Terminal } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, EmptyState, Panel } from '../components/ui';
+import { Badge, Button, EmptyState, Input, Panel } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { formatClock } from '../lib/format';
 import { useToast } from '../lib/toast';
-import type { CommandGroup } from '../lib/types';
+import type { CommandEntry, CommandGroup } from '../lib/types';
 
 /**
  * RCON console.
@@ -25,6 +25,56 @@ interface Entry {
 
 const MAX_ENTRIES = 400;
 let entryId = 0;
+
+/**
+ * A quick command that needs a number.
+ *
+ * Three buttons guessing at 4, 8 and 10 bots is three wrong answers for
+ * anyone who wanted 6. One field and one button is smaller on screen and
+ * covers every case; the command that will be sent is shown beside it, so
+ * pressing Apply holds no surprises.
+ */
+function NumberCommand({
+  entry,
+  disabled,
+  onRun,
+}: {
+  entry: CommandEntry;
+  disabled: boolean;
+  onRun: (command: string) => void;
+}) {
+  const [value, setValue] = useState(String(entry.input?.defaultValue ?? 0));
+  const clean = value.trim();
+  const numeric = Number(clean);
+  const valid =
+    clean !== '' &&
+    Number.isInteger(numeric) &&
+    numeric >= (entry.input?.min ?? 0) &&
+    numeric <= (entry.input?.max ?? 99);
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1.5">
+      <span className="min-w-0 flex-1 truncate text-[13px] text-body">{entry.label}</span>
+      <Input
+        type="number"
+        min={entry.input?.min}
+        max={entry.input?.max}
+        value={value}
+        aria-label={entry.label}
+        title={`Sends: ${entry.command} ${clean || '…'}`}
+        onChange={(event) => setValue(event.target.value)}
+        className="h-7 w-16 px-2 text-right text-xs"
+      />
+      <Button
+        size="sm"
+        disabled={disabled || !valid}
+        onClick={() => onRun(`${entry.command} ${numeric}`)}
+      >
+        Apply
+      </Button>
+    </div>
+  );
+}
 
 export function ConsolePage() {
   const toast = useToast();
@@ -217,18 +267,27 @@ export function ConsolePage() {
                     {group.name}
                   </p>
                   <div className="flex flex-col gap-1">
-                    {group.commands.map((entry) => (
-                      <button
-                        key={entry.command}
-                        type="button"
-                        disabled={busy || rconUnavailable}
-                        onClick={() => void run(entry.command)}
-                        className="group flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-[13px] text-body transition-colors hover:border-line hover:bg-raised disabled:cursor-not-allowed disabled:opacity-45"
-                      >
-                        <span className="truncate">{entry.label}</span>
-                        {entry.danger && <Badge tone="warn">disruptive</Badge>}
-                      </button>
-                    ))}
+                    {group.commands.map((entry) =>
+                      entry.input ? (
+                        <NumberCommand
+                          key={entry.command}
+                          entry={entry}
+                          disabled={busy || rconUnavailable}
+                          onRun={(command) => void run(command)}
+                        />
+                      ) : (
+                        <button
+                          key={entry.command}
+                          type="button"
+                          disabled={busy || rconUnavailable}
+                          onClick={() => void run(entry.command)}
+                          className="group flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-[13px] text-body transition-colors hover:border-line hover:bg-raised disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          <span className="truncate">{entry.label}</span>
+                          {entry.danger && <Badge tone="warn">disruptive</Badge>}
+                        </button>
+                      ),
+                    )}
                   </div>
                 </div>
               ))}

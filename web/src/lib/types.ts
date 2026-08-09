@@ -226,7 +226,18 @@ export interface RconResult {
   at: string;
 }
 
+export interface CommandEntry {
+  label: string;
+  command: string;
+  danger: boolean;
+  /**
+   * Present when the command needs a value: the number is appended, so
+   * "bot minbots" plus 6 is sent as "bot minbots 6".
+   */
+  input?: { kind: 'number'; defaultValue: number; min: number; max: number };
+}
+
 export interface CommandGroup {
   name: string;
-  commands: { label: string; command: string; danger: boolean }[];
+  commands: CommandEntry[];
 }

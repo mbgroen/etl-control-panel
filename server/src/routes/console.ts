@@ -93,10 +93,32 @@ consoleRouter.get('/commands', asyncHandler(async (_req, res) => {
   const credential = await resolveRconPassword();
   res.json({
     available: credential.source !== 'none',
+    /**
+     * Grouped by subject, not by whether a command reads or writes.
+     *
+     * A read/write split sounds tidier and duplicates every subject: bots would
+     * need an entry under information and another under actions, and an
+     * operator with a bot problem would have to look in both. What a command
+     * does is already visible per item — the destructive ones carry a badge —
+     * so the grouping is free to answer the question people actually arrive
+     * with, which is "what is this about".
+     *
+     * Within a group: read-only first, then changes, destructive last.
+     */
     groups: [
       {
-        name: 'Match',
+        name: 'Server',
         commands: [
+          { label: 'Player status', command: 'status', danger: false },
+          { label: 'Server info', command: 'serverinfo', danger: false },
+          { label: 'Cvar dump', command: 'cvarlist', danger: false },
+          { label: 'Reload config', command: `exec ${env.SERVER_CONFIG_NAME}`, danger: false },
+        ],
+      },
+      {
+        name: 'Match & maps',
+        commands: [
+          { label: 'Loaded maps', command: 'dir maps bsp', danger: false },
           { label: 'Restart map', command: 'map_restart', danger: false },
           { label: 'Next map', command: 'vstr nextmap', danger: false },
           { label: 'Reset match', command: 'ref resetmatch', danger: true },
@@ -104,36 +126,27 @@ consoleRouter.get('/commands', asyncHandler(async (_req, res) => {
         ],
       },
       {
-        name: 'Information',
-        commands: [
-          { label: 'Player status', command: 'status', danger: false },
-          { label: 'Server info', command: 'serverinfo', danger: false },
-          { label: 'Cvar dump', command: 'cvarlist', danger: false },
-          { label: 'Loaded maps', command: 'dir maps bsp', danger: false },
-        ],
-      },
-      {
         // Omni-bot ships inside the game image, so these work on any install
-        // once omnibot_enable is on — and they are the commands an operator
-        // reaches for repeatedly: a server with four bots in it looks alive to
-        // the next person browsing the list.
+        // once omnibot_enable is on. The counts take a number rather than
+        // offering three guesses at what an operator wanted.
         name: 'Bots',
         commands: [
           { label: 'Bot status', command: 'bot', danger: false },
-          { label: 'Keep 4 bots', command: 'bot minbots 4', danger: false },
-          { label: 'Keep 8 bots', command: 'bot minbots 8', danger: false },
-          { label: 'Stop filling with bots', command: 'bot minbots 0', danger: false },
-          { label: 'Cap at 10 bots', command: 'bot maxbots 10', danger: false },
+          { label: 'Are bots enabled?', command: 'omnibot_enable', danger: false },
+          {
+            label: 'Minimum bots',
+            command: 'bot minbots',
+            danger: false,
+            input: { kind: 'number' as const, defaultValue: 4, min: 0, max: 32 },
+          },
+          {
+            label: 'Maximum bots',
+            command: 'bot maxbots',
+            danger: false,
+            input: { kind: 'number' as const, defaultValue: 10, min: 0, max: 32 },
+          },
           { label: 'Balance bot teams', command: 'bot balanceteams 1', danger: false },
           { label: 'Remove all bots', command: 'bot kickall', danger: true },
-        ],
-      },
-      {
-        name: 'Configuration',
-        commands: [
-          { label: 'Reload config', command: `exec ${env.SERVER_CONFIG_NAME}`, danger: false },
-          { label: 'Show FastDL settings', command: 'sv_wwwBaseURL', danger: false },
-          { label: 'Are bots enabled?', command: 'omnibot_enable', danger: false },
         ],
       },
     ],
