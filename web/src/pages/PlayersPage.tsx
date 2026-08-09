@@ -1,13 +1,14 @@
 import { Bot, Globe, House, RefreshCw, Server, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Badge, Button, EmptyState, Panel, Spinner, StatusDot, Toggle } from '../components/ui';
+import { LivePlayers } from '../components/LivePlayers';
+import { Button, EmptyState, Panel, Spinner, Toggle } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { countryLabel, flagFor, formatDuration } from '../lib/country';
 import { formatDateTime, formatRelative } from '../lib/format';
 import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
-import type { PlayerSession, PlayerSessionsPayload } from '../lib/types';
+import type { Player, PlayerSession, PlayerSessionsPayload } from '../lib/types';
 
 /**
  * Who plays here.
@@ -37,11 +38,33 @@ export function PlayersPage() {
    */
   const [hideBots, setHideBots] = useState(true);
   const [busy, setBusy] = useState(false);
+  /**
+   * Kick and ban live here rather than on the Overview.
+   *
+   * This is the page about players, it is where someone goes when a player is
+   * the problem, and it already has the visit history that says whether this is
+   * a first offence. The Overview keeps a read-only glance.
+   */
+  const [live, setLive] = useState<{ players: Player[]; detailed: boolean }>({
+    players: [],
+    detailed: false,
+  });
+  const [pendingPlayer, setPendingPlayer] = useState<{
+    player: Player;
+    action: 'kick' | 'ban';
+  } | null>(null);
   const toast = useToast();
 
   const load = useCallback(async () => {
     try {
-      setData(await api.server.sessions());
+      const [sessions, status] = await Promise.all([
+        api.server.sessions(),
+        // Separate call because only this one carries slots, and slots are what
+        // make kick and ban possible.
+        api.server.players().catch(() => ({ players: [], detailed: false })),
+      ]);
+      setData(sessions);
+      setLive({ players: status.players, detailed: status.detailed });
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load player activity');
@@ -65,6 +88,27 @@ export function PlayersPage() {
       setBusy(false);
       setConfirmClear(false);
       setConfirmBots(false);
+    }
+  };
+
+  const runPlayerAction = async () => {
+    if (!pendingPlayer) return;
+    const { player, action } = pendingPlayer;
+    if (player.slot === null) return;
+
+    setBusy(true);
+    try {
+      await api.server.playerAction(player.slot, action);
+      toast.success(`${player.nameClean} was ${action === 'kick' ? 'kicked' : 'banned'}`);
+      await load();
+    } catch (err) {
+      toast.error(
+        `Could not ${action} player`,
+        err instanceof ApiError ? err.message : 'Unexpected error',
+      );
+    } finally {
+      setBusy(false);
+      setPendingPlayer(null);
     }
   };
 
@@ -101,8 +145,12 @@ export function PlayersPage() {
       {data && <SummaryRow summary={data.summary} online={data.current.length} />}
 
       <Panel
-        title={`Playing now (${data?.current.length ?? 0})`}
-        description="Updates with each status poll."
+        title={`Playing now (${live.players.length})`}
+        description={
+          live.detailed
+            ? 'Live from rcon — slot numbers are what make kick and ban possible.'
+            : 'From the public status query. Set rconpassword to enable kick and ban.'
+        }
         actions={
           <Button size="sm" icon={<RefreshCw size={13} aria-hidden />} onClick={() => void load()}>
             Refresh
@@ -110,17 +158,11 @@ export function PlayersPage() {
         }
         bodyClassName="p-0"
       >
-        {data && data.current.length > 0 ? (
-          <SessionTable sessions={data.current} live />
-        ) : (
-          <div className="p-4">
-            <EmptyState
-              icon={<Users size={24} aria-hidden />}
-              title="Nobody is playing"
-              description="Anyone who connects appears here, with how long they have been on and where they are connecting from."
-            />
-          </div>
-        )}
+        <LivePlayers
+          players={live.players}
+          detailed={live.detailed}
+          onAction={(player, action) => setPendingPlayer({ player, action })}
+        />
       </Panel>
 
       <Panel
@@ -197,6 +239,25 @@ export function PlayersPage() {
           </div>
         )}
       </Panel>
+
+      <ConfirmDialog
+        open={pendingPlayer !== null}
+        title={pendingPlayer?.action === 'ban' ? 'Ban this player?' : 'Kick this player?'}
+        description={
+          pendingPlayer && (
+            <>
+              <strong className="text-body">{pendingPlayer.player.nameClean}</strong>{' '}
+              {pendingPlayer.action === 'ban'
+                ? 'will be disconnected and blocked from reconnecting. Removing a ban requires an rcon command.'
+                : 'will be disconnected but can rejoin straight away.'}
+            </>
+          )
+        }
+        confirmLabel={pendingPlayer?.action === 'ban' ? 'Ban player' : 'Kick player'}
+        loading={busy}
+        onConfirm={() => void runPlayerAction()}
+        onCancel={() => setPendingPlayer(null)}
+      />
 
       <ConfirmDialog
         open={confirmBots}
@@ -295,14 +356,13 @@ function OriginCell({ session }: { session: PlayerSession }) {
   );
 }
 
+/** The visit history. Live players are LivePlayers, which knows about slots. */
 function SessionTable({
   sessions,
-  live = false,
   selected,
   onToggle,
 }: {
   sessions: PlayerSession[];
-  live?: boolean;
   selected?: Set<string>;
   onToggle?: (id: string) => void;
 }) {
@@ -315,7 +375,7 @@ function SessionTable({
             <th scope="col" className="px-4 py-2 font-medium">Player</th>
             <th scope="col" className="px-4 py-2 font-medium">From</th>
             <th scope="col" className="px-4 py-2 font-medium">Address</th>
-            <th scope="col" className="px-4 py-2 font-medium">{live ? 'Connected' : 'Joined'}</th>
+            <th scope="col" className="px-4 py-2 font-medium">Joined</th>
             <th scope="col" className="px-4 py-2 font-medium">Duration</th>
           </tr>
         </thead>
@@ -335,7 +395,6 @@ function SessionTable({
               )}
               <td className="px-4 py-2.5">
                 <span className="flex items-center gap-2">
-                  {live && <StatusDot tone="success" pulse />}
                   <span className="font-medium text-body">{session.nameClean || '(no name)'}</span>
                 </span>
               </td>
@@ -349,11 +408,7 @@ function SessionTable({
                 {formatRelative(session.joinedAt)}
               </td>
               <td className="px-4 py-2.5">
-                {live ? (
-                  <Badge tone="success">{formatDuration(session.seconds)}</Badge>
-                ) : (
-                  <span className="text-muted">{formatDuration(session.seconds)}</span>
-                )}
+                <span className="text-muted">{formatDuration(session.seconds)}</span>
               </td>
             </tr>
           ))}

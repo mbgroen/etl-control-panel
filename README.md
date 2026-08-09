@@ -45,13 +45,13 @@ The game server itself comes from the official
 | Area | Capabilities |
 |---|---|
 | **Monitoring** | Live player list with scores, ping and colour-coded names; current map; CPU, memory and uptime; 8-hour activity history |
-| **Control** | Start / stop / restart the game server container; kick, ban and mute players |
+| **Control** | Start / stop / restart the game server container; kick and ban from the Players page |
 | **Console** | Full RCON console with command history, plus one-click commands for the match, the bots and the config |
 | **Logs** | Live-streamed container logs with filtering, pause-and-buffer, and follow-tail |
 | **Configuration** | Around 190 settings in guided forms — every server-side cvar ET: Legacy 2.84 reads that is worth setting — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
 | **Maps** | Upload `.pk3` packages, see the maps inside each one, and switch any of them into the rotation — all on one page |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
-| **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts. Bot visits are hidden by default and can be deleted in one action |
+| **Players** | Who is playing — with slot, score, ping and one-click kick and ban — and who has played — duration, address and country with a flag, kept across restarts. Bot visits are hidden by default and can be deleted in one action |
 | **Settings** | Upload limit, and how many config backups and player visits to keep |
 | **Accounts** | Several administrators, each with their own login — add, remove, and set a password for someone who has lost theirs |
 | **Diagnostics** | Every dependency checked, each failure paired with the fix |

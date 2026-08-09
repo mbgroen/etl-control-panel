@@ -1,5 +1,5 @@
 import {
-  Ban,
+  ArrowRight,
   Cpu,
   Gauge,
   MapPin,
@@ -9,16 +9,17 @@ import {
   RotateCcw,
   Square,
   Timer,
-  UserX,
   Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ActivityChart } from '../components/ActivityChart';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Badge, Button, EmptyState, Panel, Spinner, Stat, StatusDot } from '../components/ui';
+import { LivePlayers } from '../components/LivePlayers';
+import { Badge, Button, Panel, Spinner, Stat, StatusDot } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { ColorText } from '../lib/etColors';
-import { formatBytes, formatDuration, formatRelative, pingTone, prettifyMapName } from '../lib/format';
+import { formatBytes, formatDuration, formatRelative, prettifyMapName } from '../lib/format';
 import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
 import type { HistoryPayload, Player } from '../lib/types';
@@ -47,9 +48,6 @@ export function Overview() {
   const [detailed, setDetailed] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [pendingStop, setPendingStop] = useState(false);
-  const [pendingPlayer, setPendingPlayer] = useState<{ player: Player; action: 'kick' | 'ban' } | null>(
-    null,
-  );
 
   const container = snapshot?.game.container;
   const status = snapshot?.game.status;
@@ -105,23 +103,6 @@ export function Overview() {
     } finally {
       setBusyAction(null);
       setPendingStop(false);
-    }
-  };
-
-  const runPlayerAction = async () => {
-    if (!pendingPlayer?.player.slot && pendingPlayer?.player.slot !== 0) return;
-    const { player, action } = pendingPlayer;
-
-    setBusyAction(action);
-    try {
-      await api.server.playerAction(player.slot as number, action);
-      toast.success(`${player.nameClean} was ${action === 'kick' ? 'kicked' : 'banned'}`);
-      await loadPlayers();
-    } catch (err) {
-      toast.error(`Could not ${action} player`, err instanceof ApiError ? err.message : 'Unexpected error');
-    } finally {
-      setBusyAction(null);
-      setPendingPlayer(null);
     }
   };
 
@@ -299,102 +280,24 @@ export function Overview() {
         </Panel>
       </div>
 
-      {/* --- Player detail ----------------------------------------------- */}
+      {/* --- Who is playing ---------------------------------------------- */}
+      {/* A glance, not a console: the same list with the admin actions lives on
+          the Players page, and destructive buttons belong in one place. */}
       <Panel
-        title={`Connected players (${players.length})`}
-        description={
-          detailed
-            ? 'Live from rcon — slot numbers allow kick and ban'
-            : 'From the public status query. Configure RCON_PASSWORD to enable player admin.'
-        }
+        title={`Playing now (${players.length})`}
+        description="Live from the server. Kick, ban and the full detail are on the Players page."
         actions={
-          <Button size="sm" icon={<RefreshCw size={13} aria-hidden />} onClick={() => void loadPlayers()}>
-            Refresh
-          </Button>
+          <Link
+            to="/players"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-line-strong hover:text-body"
+          >
+            Manage players
+            <ArrowRight size={13} aria-hidden />
+          </Link>
         }
         bodyClassName="p-0"
       >
-        {players.length === 0 ? (
-          <EmptyState
-            icon={<Users size={26} aria-hidden />}
-            title={running ? 'Nobody is playing right now' : 'The server is not running'}
-            description={
-              running
-                ? 'Players appear here as soon as they connect.'
-                : 'Start the server to accept connections.'
-            }
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[34rem] text-[13px]">
-              <thead>
-                <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-faint">
-                  {detailed && <th className="px-4 py-2 font-medium">Slot</th>}
-                  <th className="px-4 py-2 font-medium">Player</th>
-                  <th className="px-4 py-2 text-right font-medium">Score</th>
-                  <th className="px-4 py-2 text-right font-medium">Ping</th>
-                  {detailed && <th className="px-4 py-2 text-right font-medium">Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((player, index) => (
-                  <tr
-                    key={`${player.slot ?? 'x'}-${player.nameClean}-${index}`}
-                    className="border-b border-line last:border-0 hover:bg-raised"
-                  >
-                    {detailed && <td className="tabular px-4 py-2 text-faint">{player.slot}</td>}
-                    <td className="px-4 py-2">
-                      <ColorText value={player.name} className="font-medium" />
-                      {player.address && player.address !== 'bot' && (
-                        <span className="ml-2 text-[11px] text-faint">{player.address}</span>
-                      )}
-                      {player.address === 'bot' && (
-                        <Badge tone="neutral" className="ml-2">
-                          bot
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="tabular px-4 py-2 text-right">{player.score}</td>
-                    <td className="tabular px-4 py-2 text-right">
-                      <span
-                        className={
-                          pingTone(player.ping) === 'danger'
-                            ? 'text-danger'
-                            : pingTone(player.ping) === 'warn'
-                              ? 'text-warn'
-                              : 'text-success'
-                        }
-                      >
-                        {player.ping === 0 ? '—' : `${player.ping}ms`}
-                      </span>
-                    </td>
-                    {detailed && (
-                      <td className="px-4 py-2">
-                        <div className="flex justify-end gap-1.5">
-                          <Button
-                            size="sm"
-                            icon={<UserX size={13} aria-hidden />}
-                            onClick={() => setPendingPlayer({ player, action: 'kick' })}
-                          >
-                            Kick
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            icon={<Ban size={13} aria-hidden />}
-                            onClick={() => setPendingPlayer({ player, action: 'ban' })}
-                          >
-                            Ban
-                          </Button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <LivePlayers players={players} detailed={detailed} variant="compact" running={running} />
       </Panel>
 
       {/* --- FastDL summary ---------------------------------------------- */}
@@ -434,24 +337,6 @@ export function Overview() {
         onCancel={() => setPendingStop(false)}
       />
 
-      <ConfirmDialog
-        open={pendingPlayer !== null}
-        title={pendingPlayer?.action === 'ban' ? 'Ban this player?' : 'Kick this player?'}
-        description={
-          pendingPlayer && (
-            <>
-              <strong className="text-body">{pendingPlayer.player.nameClean}</strong>{' '}
-              {pendingPlayer.action === 'ban'
-                ? 'will be disconnected and blocked from reconnecting. Removing a ban requires an rcon command.'
-                : 'will be disconnected but can rejoin straight away.'}
-            </>
-          )
-        }
-        confirmLabel={pendingPlayer?.action === 'ban' ? 'Ban player' : 'Kick player'}
-        loading={busyAction === pendingPlayer?.action}
-        onConfirm={() => void runPlayerAction()}
-        onCancel={() => setPendingPlayer(null)}
-      />
     </div>
   );
 }
