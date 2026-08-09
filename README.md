@@ -546,7 +546,9 @@ to read something, and pausing buffers rather than drops lines.
   truth; the other views only patch it.
 - *Backups* — every save is snapshotted first, selectable, deletable and
   downloadable; the running config downloads from the raw editor. A backup you
-  cannot take off the machine is only half a backup. How
+  cannot take off the machine is only half a backup — so one you have taken off
+  it can be put back: **Restore from file** validates the .cfg, shows you its
+  name and any problems, and takes a snapshot of what it replaces. How
   many are kept is set under **Settings**; they are plain files you can also
   recover with `cp`.
 

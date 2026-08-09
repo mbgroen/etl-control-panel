@@ -1,5 +1,6 @@
 import {
   Download,
+  Upload,
   AlertCircle,
   FileCode2,
   History,
@@ -10,7 +11,7 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   Badge,
@@ -898,6 +899,13 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** A .cfg the operator picked off their own machine, waiting for a yes. */
+  const [upload, setUpload] = useState<{
+    name: string;
+    content: string;
+    problems: ConfigProblem[];
+  } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -930,6 +938,50 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
     } finally {
       setBusy(false);
       setPending(null);
+    }
+  };
+
+  /**
+   * Restore from a file the operator downloaded earlier.
+   *
+   * Validated before it is offered, and shown by name with its problems, so
+   * "restore" is never a blind overwrite — the wrong file looks exactly like
+   * the right one in a Downloads folder. The save takes its own backup first,
+   * which makes even a mistaken restore reversible.
+   */
+  const pickFile = async (file: File) => {
+    if (file.size > 1_000_000) {
+      toast.error('That file is too large', 'A server config is a few kilobytes; this is not one.');
+      return;
+    }
+    const content = await file.text();
+    try {
+      const { problems } = await api.config.validate(content);
+      setUpload({ name: file.name, content, problems });
+    } catch (err) {
+      toast.error('Could not read it', err instanceof ApiError ? err.message : 'Unexpected error');
+    }
+  };
+
+  const applyUpload = async () => {
+    if (!upload) return;
+    setBusy(true);
+    try {
+      const result = await api.config.save({
+        content: upload.content,
+        note: `Restored from uploaded file ${upload.name}`,
+        force: true,
+        reload: true,
+      });
+      reportRconHandover(result.rconPassword, toast);
+      toast.success('Configuration restored', 'The version you replaced was backed up first.');
+      await onRestored();
+      await load();
+    } catch (err) {
+      toast.error('Could not restore', err instanceof ApiError ? err.message : 'Unexpected error');
+    } finally {
+      setBusy(false);
+      setUpload(null);
     }
   };
 
@@ -981,7 +1033,29 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
                 Delete
               </Button>
             </>
-          ) : undefined
+          ) : (
+            <>
+              <input
+                ref={fileInput}
+                type="file"
+                accept=".cfg,text/plain"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  // Cleared so picking the same file twice still fires a change.
+                  event.target.value = '';
+                  if (file) void pickFile(file);
+                }}
+              />
+              <Button
+                size="sm"
+                icon={<Upload size={13} aria-hidden />}
+                onClick={() => fileInput.current?.click()}
+              >
+                Restore from file
+              </Button>
+            </>
+          )
         }
         bodyClassName="p-0"
       >
@@ -1045,6 +1119,31 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
         loading={busy}
         onConfirm={() => void restore()}
         onCancel={() => setPending(null)}
+      />
+
+      <ConfirmDialog
+        open={upload !== null}
+        tone="danger"
+        title={`Restore from ${upload?.name ?? 'file'}?`}
+        description={
+          <div className="flex flex-col gap-3">
+            <span>
+              This replaces the running configuration with the contents of that file. The version
+              you replace is backed up first, so this is reversible.
+            </span>
+            {upload && upload.problems.length > 0 ? (
+              <ProblemList problems={upload.problems} />
+            ) : (
+              <span className="text-xs text-muted">
+                {upload ? `${upload.content.split('\n').length} lines · no problems found.` : ''}
+              </span>
+            )}
+          </div>
+        }
+        confirmLabel="Restore"
+        loading={busy}
+        onConfirm={() => void applyUpload()}
+        onCancel={() => setUpload(null)}
       />
 
       <ConfirmDialog
