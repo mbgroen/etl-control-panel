@@ -204,7 +204,7 @@ export function ConsolePage() {
             <EmptyState
               icon={<Terminal size={24} aria-hidden />}
               title="No commands yet"
-              description="Type a command below, or pick one from the panel on the right. Use ↑ and ↓ to recall history."
+              description="Type a command, or pick one from Quick commands. Use ↑ and ↓ to recall history."
             />
           ) : (
             entries.map((entry) => (

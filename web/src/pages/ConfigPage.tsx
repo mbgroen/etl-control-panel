@@ -241,7 +241,7 @@ function MissingConfig({ message, onRetry }: { message: string; onRetry: () => P
     setBusy(true);
     try {
       await api.config.initialize();
-      toast.success('Configuration created', 'Set your server name and passwords below.');
+      toast.success('Configuration created', 'Set your server name and passwords on this page.');
       await onRetry();
     } catch (err) {
       toast.error(
@@ -801,7 +801,7 @@ function RawTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Pro
       await onSaved();
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
-        toast.error('Save blocked by validation errors', 'Fix the errors listed above, or force-save.');
+        toast.error('Save blocked by validation errors', 'Fix the listed problems, or force-save.');
       } else if (err instanceof ApiError && err.status === 409) {
         toast.error('The file changed on disk', 'Reload the page before saving again.');
       } else {

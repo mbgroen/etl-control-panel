@@ -501,7 +501,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
           {
             bit: 4,
             label: 'Never reset saved XP',
-            hint: 'Makes the map count and the maximum age below irrelevant. !resetxp still works.',
+            hint: 'Makes \u201cKeep saved XP for\u201d and \u201cReset XP every N maps\u201d irrelevant. !resetxp still works.',
           },
           {
             bit: 8,
@@ -614,7 +614,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         min: 0,
         // The units trip everyone up, and setting it is usually pointless: the
         // map script rewrites it at load from wm_axis_respawntime.
-        hint: 'Milliseconds — 30000 is thirty seconds. Prefer the seconds field above: map scripts overwrite this one at map load, and they honour that field instead.',
+        hint: 'Milliseconds — 30000 is thirty seconds. Prefer \u201cAxis respawn wave\u201d, which is in seconds: map scripts overwrite this cvar at map load and honour that one instead.',
         appliesOn: 'map-change',
         advanced: true,
       },
@@ -624,7 +624,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         label: 'Allied respawn interval (raw)',
         kind: 'number',
         min: 0,
-        hint: 'Milliseconds. Same caveat as the Axis field above.',
+        hint: 'Milliseconds. Same caveat as \u201cAxis respawn interval\u201d — prefer \u201cAllied respawn wave\u201d, in seconds.',
         appliesOn: 'map-change',
         advanced: true,
       },
@@ -886,7 +886,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         label: 'Physics emulated at',
         kind: 'number',
         min: 1,
-        hint: 'FPS the physics above pretends everyone runs at. Default 125.',
+        hint: 'The frame rate \u201cFrame-rate independent physics\u201d pretends everyone runs at. Default 125.',
         appliesOn: 'map-change',
         advanced: true,
       },
@@ -1293,7 +1293,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         // guide repeats it — but nothing in 2.83 or 2.84 reads it. Saying so
         // here is the difference between "voting is off" and an evening spent
         // wondering why players can still call votes.
-        hint: 'Older builds used this as the master switch. ET: Legacy 2.83 and later ignore it — switch the individual votes below off instead.',
+        hint: 'Older builds used this as the master switch. ET: Legacy 2.83 and later ignore it — switch the individual vote_allow_ settings in this section off instead.',
         appliesOn: 'immediately',
       },
       {
@@ -1530,7 +1530,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         label: 'Messages allowed',
         kind: 'number',
         min: 1,
-        hint: 'Within the window below. Default 5.',
+        hint: 'Within the \u201cFlood window\u201d. Default 5.',
         appliesOn: 'immediately',
         advanced: true,
       },
@@ -1572,7 +1572,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         defaultValue: '1',
         label: 'Enforce the ban list',
         kind: 'boolean',
-        hint: 'Off leaves the addresses above listed but lets them connect.',
+        hint: 'Off leaves \u201cBanned addresses\u201d listed but lets them connect.',
         appliesOn: 'immediately',
         advanced: true,
       },
@@ -1726,7 +1726,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         defaultValue: '',
         label: 'Modules to load',
         kind: 'text',
-        hint: 'Space-separated paths, e.g. "luascripts/wolfadmin/main.lua". Ignored when a module list file is set below.',
+        hint: 'Space-separated paths, e.g. "luascripts/wolfadmin/main.lua". Ignored when \u201cModule list file\u201d is set.',
         appliesOn: 'map-change',
         advanced: true,
         expert: true,
@@ -1746,7 +1746,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         defaultValue: '',
         label: 'Module list file',
         kind: 'text',
-        hint: 'A file listing modules to load. When set, it replaces the list above entirely.',
+        hint: 'A file listing modules to load. When set, it replaces \u201cModules to load\u201d entirely.',
         appliesOn: 'map-change',
         advanced: true,
         expert: true,

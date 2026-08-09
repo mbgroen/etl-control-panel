@@ -77,7 +77,7 @@ export function FastdlPage() {
         <Panel title="HTTP downloads (FastDL)">
           <p className="text-xs text-muted">
             Unavailable — the control panel cannot reach the Docker daemon, which it needs to inspect
-            and control the FastDL container. See Diagnostics for the fix. The settings below are
+            and control the FastDL container. See Diagnostics for the fix. Transfer settings are
             read from the server config and still work.
           </p>
         </Panel>
@@ -217,7 +217,7 @@ function TransferPanel({
         <Field
           label="Fallback URL"
           htmlFor="fastdl-fallback"
-          hint="A second HTTP mirror, tried when the base URL above fails for a client. Usually empty."
+          hint="A second HTTP mirror, tried when the public base URL fails for a client. Usually empty."
         >
           <Input
             id="fastdl-fallback"
