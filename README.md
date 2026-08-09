@@ -218,6 +218,26 @@ from the interface.
 
 ---
 
+## Releases
+
+Every version tag gets a [GitHub release](https://github.com/mbgroen/etl-control-panel/releases)
+whose notes are the commit message for that tag — written once, published by CI
+after the images are on Docker Hub, so a release never points at a version you
+cannot pull.
+
+Version numbers mean what they say:
+
+| | Bumped when |
+|---|---|
+| **Major** | You have to change something before upgrading — image or container names, paths, the compose contract |
+| **Minor** | A new capability |
+| **Patch** | Fixes, wording and documentation. Nothing new to learn |
+
+A patch or minor upgrade is always safe to take with `docker compose pull`; a
+major one is worth reading the release note first.
+
+---
+
 ## Publishing your own images
 
 You do not need to — the images above are public and ready to use. Publish your
