@@ -592,6 +592,12 @@ passing, not to withhold them from an administrator.
 and where they connected from. The game server itself keeps no history, so this
 is the only place that can answer "has anyone been using my server?".
 
+A visit is identified as a bot by the address the server reports for it — the
+literal string `bot`. Addresses come from rcon, so a visit recorded before rcon
+could be reached carries none, and nothing can say afterwards whether it was a
+bot; the page says how many such visits it holds rather than quietly offering no
+filter.
+
 Country comes from the player's address. Private addresses on your own network
 are labelled as such rather than looked up — nothing about your LAN is sent
 anywhere. Public addresses are resolved through **ipwho.is**; only the address

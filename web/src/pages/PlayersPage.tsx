@@ -116,6 +116,10 @@ export function PlayersPage() {
   // the server's own answer rather than a guess from the name — which players
   // can and do copy.
   const botCount = data?.recent.filter((session) => session.addressKind === 'bot').length ?? 0;
+  // Visits from before rcon could be reached carry no address, so nothing can
+  // say whether they were bots. Saying so beats a filter that silently is not
+  // there.
+  const unknownCount = data?.recent.filter((session) => session.address === null).length ?? 0;
   const visible = data
     ? hideBots
       ? data.recent.filter((session) => session.addressKind !== 'bot')
@@ -195,6 +199,14 @@ export function PlayersPage() {
                     label="Hide bots"
                     description={`${botCount} bot visit${botCount === 1 ? '' : 's'}`}
                   />
+                )}
+                {botCount === 0 && unknownCount > 0 && (
+                  <span
+                    className="text-xs text-faint"
+                    title="A visit is identified as a bot by the address the server reports for it. Visits recorded without one — before rcon answered — cannot be told apart."
+                  >
+                    {unknownCount} visit{unknownCount === 1 ? '' : 's'} without an address
+                  </span>
                 )}
                 {botCount > 0 && (
                   <Button

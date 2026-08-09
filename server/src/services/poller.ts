@@ -79,7 +79,20 @@ class Poller extends EventEmitter {
     }
 
     const now = Date.now();
-    if (status.players.length > 0 && now - this.lastAddressFetch > ADDRESS_REFRESH_MS) {
+    // Anyone here whose address is still unknown? Ask rcon now rather than
+    // waiting out the refresh interval.
+    //
+    // A minute is fine for a player who stays for twenty, and useless for a
+    // bot: minbots adds and removes them constantly, so a bot could arrive and
+    // leave inside one window and be recorded with no address at all. An
+    // address is the only thing that identifies a bot — the engine reports
+    // theirs as "bot" — so those visits were indistinguishable from humans,
+    // and the Players page could not offer to hide or delete them.
+    const unknown = status.players.some(
+      (player) => !player.address && !this.addresses.has(player.nameClean),
+    );
+    const due = now - this.lastAddressFetch;
+    if (status.players.length > 0 && (due > ADDRESS_REFRESH_MS || (unknown && due > UNKNOWN_RETRY_MS))) {
       this.lastAddressFetch = now;
       try {
         const credential = await resolveRconPassword();
@@ -94,6 +107,15 @@ class Poller extends EventEmitter {
       } catch {
         // Leave the previous addresses in place; a momentary rcon failure
         // should not blank the country of everyone currently playing.
+      }
+    }
+
+    // Names that have left stop being cached, so a later player who picks the
+    // same name does not inherit the address of the one before them.
+    if (this.addresses.size > 0) {
+      const present = new Set(status.players.map((player) => player.nameClean));
+      for (const name of [...this.addresses.keys()]) {
+        if (!present.has(name)) this.addresses.delete(name);
       }
     }
 
@@ -192,6 +214,15 @@ class Poller extends EventEmitter {
  * enough to attribute a player who has just joined.
  */
 const ADDRESS_REFRESH_MS = 60_000;
+
+/**
+ * Floor between rcon queries prompted by an unknown player.
+ *
+ * Without it, a player whose address never resolves — an odd name, a mod that
+ * reports it differently — would have the control panel querying rcon on every
+ * single poll, forever.
+ */
+const UNKNOWN_RETRY_MS = 5_000;
 
 function absent(name: string): docker.ContainerState {
   return {

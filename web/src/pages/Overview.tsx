@@ -1,5 +1,4 @@
 import {
-  ArrowRight,
   Cpu,
   Gauge,
   MapPin,
@@ -12,17 +11,15 @@ import {
   Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { ActivityChart } from '../components/ActivityChart';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { LivePlayers } from '../components/LivePlayers';
 import { Badge, Button, Panel, Spinner, Stat, StatusDot } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { ColorText } from '../lib/etColors';
 import { formatBytes, formatDuration, formatRelative, prettifyMapName } from '../lib/format';
 import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
-import type { HistoryPayload, Player } from '../lib/types';
+import type { HistoryPayload } from '../lib/types';
 
 /**
  * Overview — the screen that answers "is everything fine?" without scrolling.
@@ -44,8 +41,6 @@ export function Overview() {
 
   const [history, setHistory] = useState<HistoryPayload | null>(null);
   const [windowMinutes, setWindowMinutes] = useState<number>(60);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [detailed, setDetailed] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [pendingStop, setPendingStop] = useState(false);
 
@@ -62,23 +57,9 @@ export function Overview() {
     }
   }, []);
 
-  const loadPlayers = useCallback(async () => {
-    try {
-      const result = await api.server.players();
-      setPlayers(result.players);
-      setDetailed(result.detailed);
-    } catch {
-      setPlayers([]);
-    }
-  }, []);
-
   useEffect(() => {
     void loadHistory(windowMinutes);
   }, [windowMinutes, loadHistory]);
-
-  useEffect(() => {
-    void loadPlayers();
-  }, [loadPlayers, snapshot?.game.status.players.length]);
 
   // Keep the trend fresh without re-fetching on every status push.
   useEffect(() => {
@@ -279,26 +260,6 @@ export function Overview() {
           />
         </Panel>
       </div>
-
-      {/* --- Who is playing ---------------------------------------------- */}
-      {/* A glance, not a console: the same list with the admin actions lives on
-          the Players page, and destructive buttons belong in one place. */}
-      <Panel
-        title={`Playing now (${players.length})`}
-        description="Live from the server. Kick, ban and the full detail are on the Players page."
-        actions={
-          <Link
-            to="/players"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-line-strong hover:text-body"
-          >
-            Manage players
-            <ArrowRight size={13} aria-hidden />
-          </Link>
-        }
-        bodyClassName="p-0"
-      >
-        <LivePlayers players={players} detailed={detailed} variant="compact" running={running} />
-      </Panel>
 
       {/* --- FastDL summary ---------------------------------------------- */}
       <Panel title="Map downloads (FastDL)" bodyClassName="p-4">
