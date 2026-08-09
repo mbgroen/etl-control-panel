@@ -628,7 +628,23 @@ function CvarField({
    * default to the string "none", which the mod treats as "disabled" and a
    * browser treats as a password worth offering to save.
    */
-  const usingDefault = !defined && value === '' && spec.defaultValue !== undefined;
+  /**
+   * Nothing in the file, and the operator has not touched the control either.
+   *
+   * Touching it has to end the "default" styling straight away — a switch that
+   * stays dashed after you flip it is telling you your click did not count.
+   */
+  const untouched = !defined && value === '';
+  const usingDefault = untouched && spec.defaultValue !== undefined;
+
+  /** The default, said in words — "empty" and "on" beat "" and "1". */
+  const defaultLabel = (() => {
+    const raw = spec.defaultValue;
+    if (raw === undefined) return 'none';
+    if (raw === '') return 'empty';
+    if (spec.kind === 'boolean') return raw === '1' ? 'on' : 'off';
+    return spec.options?.find((option) => option.value === raw)?.label ?? raw;
+  })();
   const placeholder = usingDefault && spec.kind !== 'password' ? spec.defaultValue : undefined;
 
   const hint = (
@@ -637,14 +653,22 @@ function CvarField({
       <Badge tone={spec.appliesOn === 'immediately' ? 'success' : 'neutral'}>
         {APPLIES_LABEL[spec.appliesOn]}
       </Badge>
-      {/* A grey placeholder in an empty box already says "not entered" to
-          anyone who has filled in a form, so text and number fields need no
-          badge. Switches, selects and password boxes have no such idiom — a
-          switch has no third position — so those get one word. Badging all 190
-          fields, as this used to, made the marking into wallpaper. */}
-      {!defined && spec.kind !== 'text' && spec.kind !== 'number' && (
-        <span title="Not in the config file. The server uses this value; changing it saves it.">
-          <Badge tone="neutral">{spec.kind === 'password' ? 'not set' : 'default'}</Badge>
+      {/* One marker, on every unset field, quiet enough that 166 of them do not
+          shout — and carrying the value, so "unset with a default of empty" and
+          "unset with nothing behind it" cannot be mistaken for each other. The
+          control's own styling (placeholder, dashed switch, option text) says
+          the same thing a second time, because a single cue is one theme change
+          away from invisible. */}
+      {untouched && (
+        <span
+          className="text-faint"
+          title="Not in the config file. The server uses this value; changing it saves it."
+        >
+          {spec.kind === 'password'
+            ? 'not set'
+            : spec.defaultValue === undefined
+              ? 'not in the config'
+              : `default: ${defaultLabel}`}
         </span>
       )}
     </span>
@@ -661,9 +685,10 @@ function CvarField({
   if (spec.kind === 'boolean') {
     return (
       <div className="flex flex-col gap-1.5">
-        <div className={usingDefault ? 'opacity-70 transition-opacity focus-within:opacity-100' : ''}>
+        <div>
           <Toggle
             checked={effective === '1'}
+            unset={untouched}
             onChange={(next) => onChange(next ? '1' : '0')}
             label={spec.label}
           />

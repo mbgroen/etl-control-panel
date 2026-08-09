@@ -287,12 +287,23 @@ export function Toggle({
   description,
   disabled = false,
   hideLabel = false,
+  unset = false,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
   label: string;
   description?: string;
   disabled?: boolean;
+  /**
+   * The switch shows a value nobody chose — a default, not a setting.
+   *
+   * A switch has two positions and no null, and dimming it was far too quiet to
+   * carry that on its own, especially in the light theme. So the track goes
+   * hollow and dashed and the knob loses its white: "outlined, not filled in"
+   * is the same language as a placeholder, and it survives both themes and a
+   * colour-blind reader because the shape changes, not just the shade.
+   */
+  unset?: boolean;
   /**
    * Keeps the label for assistive tech but not on screen. For dense rows where
    * the surrounding content already names the thing — never a reason to ship a
@@ -312,18 +323,26 @@ export function Toggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`mt-0.5 h-5 w-9 shrink-0 rounded-full border transition-colors ${
-          checked ? 'border-accent bg-accent-solid' : 'border-line-strong bg-sunken'
+          unset
+            ? `border-dashed bg-transparent ${checked ? 'border-accent' : 'border-line-strong'}`
+            : checked
+              ? 'border-accent bg-accent-solid'
+              : 'border-line-strong bg-sunken'
         } disabled:cursor-not-allowed`}
       >
         <span
-          className={`block size-3.5 rounded-full bg-white shadow transition-transform ${
-            checked ? 'translate-x-[18px]' : 'translate-x-[3px]'
-          }`}
+          className={`block size-3.5 rounded-full transition-transform ${
+            // Hollow knob in a dashed track: a difference in shape, which no
+            // theme and no colour-blindness can flatten. A shade alone could.
+            unset ? 'border border-current bg-transparent text-faint' : 'bg-white shadow'
+          } ${checked ? 'translate-x-[18px]' : 'translate-x-[3px]'}`}
         />
       </button>
       {!hideLabel && (
         <span className="min-w-0">
-          <span className="block text-[13px] font-medium text-body">{label}</span>
+          <span className={`block text-[13px] font-medium ${unset ? 'text-muted' : 'text-body'}`}>
+            {label}
+          </span>
           {description && <span className="block text-xs text-muted">{description}</span>}
         </span>
       )}
