@@ -525,8 +525,11 @@ to read something, and pausing buffers rather than drops lines.
   looks: the engine reads it as 0, and 0 in the respawn interval is a division
   by zero.
 
-  A setting the config does not mention shows the value the **server** is using,
-  marked *server default*, not a blank or an off switch. That distinction
+  A setting the config does not mention shows the value the **server** is using
+  — as a greyed placeholder in a text or number field, dimmed with a *default*
+  chip on a switch — never as something that looks saved. **Only my settings**
+  filters the form down to what your config actually contains, which at around
+  190 fields is the only practical answer to "what have I changed?". That distinction
   matters more than it sounds: every `vote_allow_*` except referee and time
   limit defaults to on, so a form that drew them as off told you the opposite of
   the truth. Defaults come from `g_cvars.c` and the engine's own `Cvar_Get`
@@ -541,7 +544,9 @@ to read something, and pausing buffers rather than drops lines.
   the round timer. Search ignores all three levels and finds everything.
 - *Raw file* — the whole config, validated as you type. Always the source of
   truth; the other views only patch it.
-- *Backups* — every save is snapshotted first, selectable and deletable. How
+- *Backups* — every save is snapshotted first, selectable, deletable and
+  downloadable; the running config downloads from the raw editor. A backup you
+  cannot take off the machine is only half a backup. How
   many are kept is set under **Settings**; they are plain files you can also
   recover with `cp`.
 

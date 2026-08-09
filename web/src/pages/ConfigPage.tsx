@@ -1,4 +1,5 @@
 import {
+  Download,
   AlertCircle,
   FileCode2,
   History,
@@ -357,6 +358,7 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
   const [query, setQuery] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showExpert, setShowExpert] = useState(false);
+  const [onlyMine, setOnlyMine] = useState(false);
 
   useEffect(() => setValues(initial), [initial]);
 
@@ -433,6 +435,9 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
     return CVAR_SECTIONS.map((section) => ({
       ...section,
       cvars: section.cvars.filter((spec) => {
+        // "What have I actually changed?" is the question a 190-field form
+        // cannot answer by decoration alone, however good the decoration.
+        if (onlyMine && initial[spec.key.toLowerCase()] === undefined) return false;
         // Search reaches everything. Someone typing "omnibot" knows what they
         // are looking for, and hiding the match would only send them to the raw
         // editor to do the same edit with less help.
@@ -446,11 +451,14 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
         );
       }),
     })).filter((section) => section.cvars.length > 0);
-  }, [query, showAdvanced, showExpert]);
+  }, [query, showAdvanced, showExpert, onlyMine, initial]);
 
   const matchCount = visibleSections.reduce((total, section) => total + section.cvars.length, 0);
   const advancedCount = ALL_CVARS.filter((spec) => spec.advanced && !spec.expert).length;
   const expertCount = ALL_CVARS.filter((spec) => spec.expert).length;
+  const storedCount = ALL_CVARS.filter(
+    (spec) => initial[spec.key.toLowerCase()] !== undefined,
+  ).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -493,6 +501,12 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
               description={`${expertCount} settings that can stop the server booting`}
             />
           )}
+          <Toggle
+            checked={onlyMine}
+            onChange={setOnlyMine}
+            label="Only my settings"
+            description={`${storedCount} of ${ALL_CVARS.length} are in your config`}
+          />
         </div>
 
         {query.trim() ? (
@@ -604,32 +618,56 @@ function CvarField({
    */
   const effective = defined || value !== '' ? value : (spec.defaultValue ?? '');
 
+  /**
+   * True when nothing in the file mentions this cvar, so what the field shows
+   * is the engine's own value.
+   *
+   * Text and number inputs render it as a placeholder rather than a value:
+   * greyed by the browser, cleared the moment you type, and unmistakably not
+   * something that has been saved. Passwords are excluded entirely — several
+   * default to the string "none", which the mod treats as "disabled" and a
+   * browser treats as a password worth offering to save.
+   */
+  const usingDefault = !defined && value === '' && spec.defaultValue !== undefined;
+  const placeholder = usingDefault && spec.kind !== 'password' ? spec.defaultValue : undefined;
+
   const hint = (
     <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
       {spec.hint}
       <Badge tone={spec.appliesOn === 'immediately' ? 'success' : 'neutral'}>
         {APPLIES_LABEL[spec.appliesOn]}
       </Badge>
-      {!defined && (
-        <span title="The server is using this value; changing it writes the setting into the config">
-          <Badge tone="info">server default</Badge>
+      {/* A grey placeholder in an empty box already says "not entered" to
+          anyone who has filled in a form, so text and number fields need no
+          badge. Switches, selects and password boxes have no such idiom — a
+          switch has no third position — so those get one word. Badging all 190
+          fields, as this used to, made the marking into wallpaper. */}
+      {!defined && spec.kind !== 'text' && spec.kind !== 'number' && (
+        <span title="Not in the config file. The server uses this value; changing it saves it.">
+          <Badge tone="neutral">{spec.kind === 'password' ? 'not set' : 'default'}</Badge>
         </span>
       )}
     </span>
   );
 
   if (spec.kind === 'flags') {
-    return <FlagField spec={spec} value={effective} hint={hint} onChange={onChange} />;
+    return (
+      <div className={usingDefault ? 'opacity-70 transition-opacity focus-within:opacity-100' : ''}>
+        <FlagField spec={spec} value={effective} hint={hint} onChange={onChange} />
+      </div>
+    );
   }
 
   if (spec.kind === 'boolean') {
     return (
       <div className="flex flex-col gap-1.5">
-        <Toggle
-          checked={effective === '1'}
-          onChange={(next) => onChange(next ? '1' : '0')}
-          label={spec.label}
-        />
+        <div className={usingDefault ? 'opacity-70 transition-opacity focus-within:opacity-100' : ''}>
+          <Toggle
+            checked={effective === '1'}
+            onChange={(next) => onChange(next ? '1' : '0')}
+            label={spec.label}
+          />
+        </div>
         <p className="text-xs text-muted">{hint}</p>
       </div>
     );
@@ -651,7 +689,12 @@ function CvarField({
       htmlFor={`cvar-${spec.key}`}
     >
       {spec.kind === 'select' ? (
-        <Select id={`cvar-${spec.key}`} value={effective} onChange={(e) => onChange(e.target.value)}>
+        <Select
+          id={`cvar-${spec.key}`}
+          value={effective}
+          className={usingDefault ? 'text-muted' : ''}
+          onChange={(e) => onChange(e.target.value)}
+        >
           {/* Preserve an unrecognised existing value rather than silently
               rewriting it to the first option. */}
           {!spec.options?.some((option) => option.value === effective) && (
@@ -659,14 +702,16 @@ function CvarField({
           )}
           {spec.options?.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {usingDefault && option.value === effective
+                ? `Server default — ${option.label}`
+                : option.label}
             </option>
           ))}
         </Select>
       ) : spec.kind === 'password' ? (
         <PasswordInput
           id={`cvar-${spec.key}`}
-          value={effective}
+          value={value}
           autoComplete="off"
           onChange={(event) => onChange(event.target.value)}
         />
@@ -677,7 +722,8 @@ function CvarField({
           inputMode={spec.kind === 'number' ? 'numeric' : undefined}
           min={spec.min}
           max={spec.max}
-          value={effective}
+          placeholder={placeholder}
+          value={usingDefault ? '' : effective}
           autoComplete="off"
           onChange={(event) => onChange(event.target.value)}
         />
@@ -750,6 +796,9 @@ function RawTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Pro
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <Toggle checked={reload} onChange={setReload} label="Reload after save" />
+          <DownloadLink href="/api/config/download" title="Save the running config to your computer">
+            Download
+          </DownloadLink>
           <Button onClick={() => setContent(config.content)} disabled={!dirty || saving} size="sm">
             Revert
           </Button>
@@ -795,6 +844,26 @@ function RawTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Pro
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Download link styled as a button.
+ *
+ * An anchor rather than a fetch: the browser saves the file itself, the session
+ * cookie authenticates the request, and nothing has to be held in memory.
+ */
+function DownloadLink({ href, title, children }: { href: string; title: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      title={title}
+      download
+      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-line-strong hover:text-body"
+    >
+      <Download size={13} aria-hidden />
+      {children}
+    </a>
+  );
+}
 
 function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
   const toast = useToast();
@@ -914,6 +983,12 @@ function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
                     {backup.note || 'No description'} · {backup.sizeBytes} bytes
                   </p>
                 </div>
+                <DownloadLink
+                  href={`/api/config/backups/${backup.id}/download`}
+                  title="Save this backup to your computer"
+                >
+                  Download
+                </DownloadLink>
                 <Button
                   size="sm"
                   icon={<RotateCcw size={13} aria-hidden />}

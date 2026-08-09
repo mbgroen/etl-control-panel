@@ -231,6 +231,37 @@ configRouter.post(
   }),
 );
 
+/**
+ * The live config and any backup, as a file.
+ *
+ * A backup you cannot take off the box is only half a backup: the whole point
+ * is to survive the box. Served as an attachment with the date in the name so a
+ * folder of them stays readable, and deliberately not masked — this is the file
+ * itself, passwords included, downloaded by someone already signed in as an
+ * administrator who can read the same values on the Configuration page.
+ */
+configRouter.get(
+  '/download',
+  asyncHandler(async (_req, res) => {
+    const current = await readConfig();
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${env.SERVER_CONFIG_NAME}"`);
+    res.send(current.content);
+  }),
+);
+
+configRouter.get(
+  '/backups/:id/download',
+  asyncHandler(async (req, res) => {
+    const id = z.string().regex(/^[A-Za-z0-9\-]+$/).parse(req.params.id);
+    const content = await readBackup(id);
+    const base = env.SERVER_CONFIG_NAME.replace(/\.cfg$/i, '');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${base}-${id}.cfg"`);
+    res.send(content);
+  }),
+);
+
 configRouter.get(
   '/backups',
   asyncHandler(async (_req, res) => {

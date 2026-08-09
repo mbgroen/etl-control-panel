@@ -258,10 +258,13 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'refereePassword',
+        // The engine ships the literal string "none", which it treats exactly
+        // like empty. Never shown in the field: it is a sentinel, not a
+        // password, and a browser offered to remember it.
         defaultValue: 'none',
         label: 'Referee password',
         kind: 'password',
-        hint: 'Lets a player promote themselves to referee to run match commands.',
+        hint: 'Lets a player promote themselves to referee to run match commands. Empty disables it — as does the engine\u2019s own default of "none", which is a sentinel rather than a password.',
         appliesOn: 'immediately',
       },
       {
@@ -269,7 +272,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         defaultValue: 'none',
         label: 'Shoutcaster password',
         kind: 'password',
-        hint: 'Grants the spectator view used for casting, without full referee rights.',
+        hint: 'Grants the spectator view used for casting, without full referee rights. Empty disables it, as does the engine default of "none".',
         appliesOn: 'immediately',
       },
       {
