@@ -155,9 +155,12 @@ export const CVAR_SECTIONS: CvarSection[] = [
       {
         key: 'g_countryFlags',
         defaultValue: '1',
-        label: 'Show country flags',
-        kind: 'boolean',
-        hint: "Displays each player's country beside their name in-game.",
+        label: 'Country flags',
+        kind: 'flags',
+        flags: [
+          { bit: 1, label: 'Show a flag beside each player name' },
+          { bit: 2, label: 'Name the country in the connect announcement' },
+        ],
         appliesOn: 'map-change',
       },
     ],
@@ -317,6 +320,8 @@ export const CVAR_SECTIONS: CvarSection[] = [
         appliesOn: 'map-change',
       },
       {
+        // Read as a bitmask in exactly one place (the disguised covert ops
+        // case) and as a plain boolean everywhere else; only bit 1 is defined.
         key: 'g_friendlyFire',
         defaultValue: '1',
         label: 'Friendly fire',
@@ -447,8 +452,17 @@ export const CVAR_SECTIONS: CvarSection[] = [
       {
         key: 'g_autofireteams',
         defaultValue: '1',
-        label: 'Automatic fireteams',
-        kind: 'boolean',
+        label: 'Fireteams on joining a team',
+        kind: 'select',
+        // Modelled as a switch until someone turned it "off" to get the prompt
+        // back and got no prompt at all. On meant "ask", off meant "nothing",
+        // and the value that actually joins people silently was unreachable.
+        options: [
+          { value: '1', label: 'Ask the player (F1 / F2)' },
+          { value: '2', label: 'Join one automatically, no prompt' },
+          { value: '0', label: 'Do nothing' },
+        ],
+        hint: 'What happens when a player joins a team. Asking is the stock behaviour.',
         appliesOn: 'immediately',
         advanced: true,
       },
@@ -705,6 +719,9 @@ export const CVAR_SECTIONS: CvarSection[] = [
         appliesOn: 'map-change',
       },
       {
+        // A bitmask in the source (1 selfkill, 2 any death), but 2 subsumes 1,
+        // so three options cover every distinct behaviour and read better than
+        // two checkboxes where one silently overrides the other.
         key: 'g_stickyCharge',
         defaultValue: '0',
         label: 'Keep the charge bar on death',
@@ -876,9 +893,16 @@ export const CVAR_SECTIONS: CvarSection[] = [
       {
         key: 'g_realHead',
         defaultValue: '1',
-        label: 'Accurate head hitbox',
-        kind: 'boolean',
-        hint: 'Head shots follow the model\u2019s actual head rather than a fixed box.',
+        label: 'Head hitbox',
+        kind: 'flags',
+        flags: [
+          {
+            bit: 1,
+            label: 'Follow the model\u2019s actual head',
+            hint: 'Off falls back to a fixed box, which is kinder to high-ping players and less accurate for everyone.',
+          },
+          { bit: 128, label: 'Trace hits against the skeleton' },
+        ],
         appliesOn: 'map-change',
         advanced: true,
       },
@@ -1139,10 +1163,19 @@ export const CVAR_SECTIONS: CvarSection[] = [
       {
         key: 'g_disableComplaints',
         defaultValue: '0',
-        label: 'Ignore explosive team kills',
-        kind: 'boolean',
-        hint: 'Excludes airstrikes, artillery, mortars and landmines, which cause most accidental team kills.',
+        label: 'No complaints for',
+        kind: 'flags',
+        // The mod's own sample config calls 1 "disable complaints for
+        // airstrike, artillery, mortar and landmines", which is three weapons
+        // too many: 1 is landmines alone. All three is 7.
+        flags: [
+          { bit: 1, label: 'Landmines' },
+          { bit: 2, label: 'Airstrikes and artillery' },
+          { bit: 4, label: 'Mortar' },
+        ],
+        hint: 'Team kills by these weapons stop offering a complaint. They are usually accidents, and they generate most of the complaints on a busy server.',
         appliesOn: 'immediately',
+        advanced: true,
       },
     ],
   },
@@ -1298,6 +1331,9 @@ export const CVAR_SECTIONS: CvarSection[] = [
     description: 'Who may connect, and how much bandwidth each client gets.',
     cvars: [
       {
+        // Bits 16 and 32 exist but are developer telemetry — one of them is
+        // commented "eats bandwidth like popcorn". On/off is the whole setting
+        // for an operator.
         key: 'g_antiwarp',
         defaultValue: '1',
         label: 'Anti-warp',
@@ -1569,9 +1605,16 @@ export const CVAR_SECTIONS: CvarSection[] = [
         key: 'g_protect',
         defaultValue: '0',
         label: 'Mod-side protection',
-        kind: 'boolean',
+        kind: 'flags',
+        flags: [
+          {
+            bit: 1,
+            label: 'Refuse referee to a localhost connection',
+            hint: 'Matters when the game server shares a host with something a stranger can reach.',
+          },
+          { bit: 2, label: 'Ban the GUID of a player evading the life limit' },
+        ],
         appliesOn: 'restart',
-        advanced: true,
       },
       {
         key: 'g_guidCheck',
