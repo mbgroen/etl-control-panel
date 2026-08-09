@@ -51,7 +51,7 @@ The game server itself comes from the official
 | **Configuration** | Around 190 settings in guided forms — every server-side cvar ET: Legacy 2.84 reads that is worth setting — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
 | **Maps** | Upload `.pk3` packages, see the maps inside each one, and switch any of them into the rotation — all on one page |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
-| **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts |
+| **Players** | Who is playing and who has played — duration, address and country with a flag, kept across restarts. Bot visits are hidden by default and can be deleted in one action |
 | **Settings** | Upload limit, and how many config backups and player visits to keep |
 | **Accounts** | Several administrators, each with their own login — add, remove, and set a password for someone who has lost theirs |
 | **Diagnostics** | Every dependency checked, each failure paired with the fix |

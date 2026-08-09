@@ -243,6 +243,28 @@ export async function forget(ids: string[]): Promise<number> {
   return removed;
 }
 
+/**
+ * Removes finished visits belonging to bots.
+ *
+ * Bots are identified by the address the engine reports for them — the literal
+ * string "bot", which NetadrToString writes for NA_BOT — so this is what the
+ * server said, not a guess from the name. A server running minbots produces
+ * dozens of visits a day that answer nobody's question about who has been
+ * playing, and they crowd out the real ones under the retention limit.
+ */
+export async function forgetBots(): Promise<number> {
+  const stored = await loadHistory();
+  const remaining = stored.filter((session) => session.addressKind !== 'bot');
+  const removed = stored.length - remaining.length;
+
+  if (removed > 0) {
+    history = remaining;
+    await persistHistory();
+    logger.info({ removed }, 'bot visits deleted');
+  }
+  return removed;
+}
+
 /** Clears the whole history. Sessions in progress are untouched. */
 export async function forgetAll(): Promise<number> {
   const stored = await loadHistory();

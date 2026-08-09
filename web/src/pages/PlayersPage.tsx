@@ -1,7 +1,7 @@
 import { Bot, Globe, House, RefreshCw, Server, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Badge, Button, EmptyState, Panel, Spinner, StatusDot } from '../components/ui';
+import { Badge, Button, EmptyState, Panel, Spinner, StatusDot, Toggle } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { countryLabel, flagFor, formatDuration } from '../lib/country';
 import { formatDateTime, formatRelative } from '../lib/format';
@@ -26,6 +26,16 @@ export function PlayersPage() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmBots, setConfirmBots] = useState(false);
+  /**
+   * Bots are hidden by default.
+   *
+   * A server running minbots writes dozens of bot visits a day, and the
+   * question this page exists to answer — has anyone actually been playing
+   * here? — is drowned by them. They are still one click away, because a
+   * missing row is worse than a row you chose not to look at.
+   */
+  const [hideBots, setHideBots] = useState(true);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
@@ -40,11 +50,11 @@ export function PlayersPage() {
     }
   }, []);
 
-  const remove = async (options: { all?: boolean }) => {
+  const remove = async (options: { all?: boolean; bots?: boolean }) => {
     setBusy(true);
     try {
       const { removed } = await api.server.deleteSessions(
-        options.all ? { all: true } : { ids: [...selected] },
+        options.all ? { all: true } : options.bots ? { bots: true } : { ids: [...selected] },
       );
       setSelected(new Set());
       toast.success(`Deleted ${removed} visit${removed === 1 ? '' : 's'}`);
@@ -54,8 +64,19 @@ export function PlayersPage() {
     } finally {
       setBusy(false);
       setConfirmClear(false);
+      setConfirmBots(false);
     }
   };
+
+  // The engine reports a bot's address as the literal string "bot", so this is
+  // the server's own answer rather than a guess from the name — which players
+  // can and do copy.
+  const botCount = data?.recent.filter((session) => session.addressKind === 'bot').length ?? 0;
+  const visible = data
+    ? hideBots
+      ? data.recent.filter((session) => session.addressKind !== 'bot')
+      : data.recent
+    : [];
 
   useEffect(() => {
     void load();
@@ -124,16 +145,36 @@ export function PlayersPage() {
                 </Button>
               </>
             ) : (
-              <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
-                Clear history
-              </Button>
+              <>
+                {botCount > 0 && (
+                  <Toggle
+                    checked={hideBots}
+                    onChange={setHideBots}
+                    label="Hide bots"
+                    description={`${botCount} bot visit${botCount === 1 ? '' : 's'}`}
+                  />
+                )}
+                {botCount > 0 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<Bot size={13} aria-hidden />}
+                    onClick={() => setConfirmBots(true)}
+                  >
+                    Delete bots
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
+                  Clear history
+                </Button>
+              </>
             )
           ) : undefined
         }
         bodyClassName="p-0"
       >
-        {data && data.recent.length > 0 ? (
-          <SessionTable sessions={data.recent} selected={selected} onToggle={(id) =>
+        {visible.length > 0 ? (
+          <SessionTable sessions={visible} selected={selected} onToggle={(id) =>
             setSelected((current) => {
               const next = new Set(current);
               if (!next.delete(id)) next.add(id);
@@ -144,12 +185,29 @@ export function PlayersPage() {
           <div className="p-4">
             <EmptyState
               icon={<Users size={24} aria-hidden />}
-              title="No visits recorded yet"
-              description="A session is recorded once a player has been seen and then leaves."
+              title={
+                hideBots && botCount > 0 ? 'Only bots have played here' : 'No visits recorded yet'
+              }
+              description={
+                hideBots && botCount > 0
+                  ? `${botCount} bot visit${botCount === 1 ? ' is' : 's are'} hidden. Switch "Hide bots" off to see them.`
+                  : 'A session is recorded once a player has been seen and then leaves.'
+              }
             />
           </div>
         )}
       </Panel>
+
+      <ConfirmDialog
+        open={confirmBots}
+        tone="danger"
+        title={`Delete ${botCount} bot visit${botCount === 1 ? '' : 's'}?`}
+        description="Only visits the server reported as bots. Human visits are untouched, and bots that are playing right now are not affected."
+        confirmLabel="Delete bots"
+        loading={busy}
+        onConfirm={() => void remove({ bots: true })}
+        onCancel={() => setConfirmBots(false)}
+      />
 
       <ConfirmDialog
         open={confirmClear}

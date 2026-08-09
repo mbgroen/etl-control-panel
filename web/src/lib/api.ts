@@ -165,7 +165,7 @@ export const api = {
       }),
     sessions: (limit = 100) =>
       request<PlayerSessionsPayload>(`/server/sessions?limit=${limit}`),
-    deleteSessions: (body: { ids?: string[]; all?: boolean }) =>
+    deleteSessions: (body: { ids?: string[]; all?: boolean; bots?: boolean }) =>
       request<{ removed: number }>('/server/sessions/delete', { method: 'POST', ...json(body) }),
     history: (minutes: number, points = 180) =>
       request<HistoryPayload>(`/server/history?minutes=${minutes}&points=${points}`),

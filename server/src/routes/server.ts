@@ -101,11 +101,20 @@ serverRouter.get(
 serverRouter.post(
   '/sessions/delete',
   asyncHandler(async (req, res) => {
-    const { ids, all } = z
-      .object({ ids: z.array(z.string().max(200)).max(1000).optional(), all: z.boolean().optional() })
+    const { ids, all, bots } = z
+      .object({
+        ids: z.array(z.string().max(200)).max(1000).optional(),
+        all: z.boolean().optional(),
+        /** Every finished visit the engine reported as a bot. */
+        bots: z.boolean().optional(),
+      })
       .parse(req.body ?? {});
 
-    const removed = all ? await playerSessions.forgetAll() : await playerSessions.forget(ids ?? []);
+    const removed = all
+      ? await playerSessions.forgetAll()
+      : bots
+        ? await playerSessions.forgetBots()
+        : await playerSessions.forget(ids ?? []);
     res.json({ removed });
   }),
 );

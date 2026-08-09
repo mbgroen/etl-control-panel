@@ -1,7 +1,22 @@
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it } from 'node:test';
-import { current, observe, resetPlayerSessions } from '../src/services/playerSessions.js';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { after, beforeEach, describe, it } from 'node:test';
 import type { PlayerStatus } from '../src/services/q3protocol.js';
+
+// Finished visits are read back from STATE_PATH, so point that at a temp
+// directory before the module is evaluated — hence the dynamic import.
+const stateDir = path.join(os.tmpdir(), `etl-sessions-test-${process.pid}`);
+process.env.STATE_PATH = stateDir;
+
+const { current, forgetBots, observe, recent, resetPlayerSessions } = await import(
+  '../src/services/playerSessions.js'
+);
+
+after(async () => {
+  await fs.rm(stateDir, { recursive: true, force: true });
+});
 
 const player = (nameClean: string, address: string | null = null): PlayerStatus => ({
   slot: null,
@@ -58,5 +73,31 @@ describe('player sessions', () => {
     await observe([player('Michiel', '192.168.0.12:27960')], at(0));
     assert.equal(current()[0]?.addressKind, 'private');
     assert.equal(current()[0]?.countryCode, null);
+  });
+});
+
+describe('forgetting bot visits', () => {
+  beforeEach(() => resetPlayerSessions());
+
+  // The engine reports a bot's address as the literal string "bot" — NA_BOT in
+  // NetadrToString — so this keys off the address the server gave, not the
+  // name, which a player can set to anything they like.
+  it('removes bot visits and leaves the humans alone', async () => {
+    await observe([player('Human', '203.0.113.5:27960'), player('Bot One', 'bot'), player('Bot Two', 'bot')], at(0));
+    await observe([], at(10));
+    await observe([], at(120));   // past ABSENCE_GRACE_MS, so the visits close
+
+    assert.equal((await recent()).length, 3);
+    assert.equal(await forgetBots(), 2);
+
+    const left = await recent();
+    assert.deepEqual(left.map((session) => session.nameClean), ['Human']);
+  });
+
+  it('reports nothing removed when there are no bots', async () => {
+    await observe([player('Human', '203.0.113.5:27960')], at(0));
+    await observe([], at(120));
+    assert.equal(await forgetBots(), 0);
+    assert.equal((await recent()).length, 1);
   });
 });
