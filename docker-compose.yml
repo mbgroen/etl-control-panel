@@ -38,7 +38,11 @@ services:
       # volume and legacy as not — the mod is image-managed and upgrades with
       # the image.
     ports:
-      - "${GAME_PORT:-27960}:27960/udp"
+      # Same number both sides on purpose. The engine reports the port it
+      # believes it is on when it heartbeats the master servers, so an
+      # asymmetric mapping leaves the server unlisted. Moving it means changing
+      # net_port in the server config to match.
+      - "${GAME_PORT:-27960}:${GAME_PORT:-27960}/udp"
     networks:
       - etl
     restart: unless-stopped
