@@ -21,6 +21,17 @@ export interface CvarSpec {
   label: string;
   kind: CvarKind;
   hint?: string;
+  /**
+   * What the engine uses when the config does not mention this cvar.
+   *
+   * Shown in the field when the setting is absent, because "not in the file"
+   * is not "off": vote_allow_kick defaults to 1, and a form that renders an
+   * unset toggle as off tells the operator the opposite of the truth. Taken
+   * from g_cvars.c and the engine's own Cvar_Get calls at v2.84.0 — where both
+   * register a cvar, the engine wins, since it registers first and Cvar_Get
+   * keeps the value an existing cvar already has.
+   */
+  defaultValue?: string;
   min?: number;
   max?: number;
   options?: { value: string; label: string }[];
@@ -58,47 +69,47 @@ const onOff = (onLabel = 'Enabled', offLabel = 'Disabled') => [
 ];
 
 /** Every vote the engine can be asked to allow, as the game's menu lists them. */
-const VOTES: { key: string; label: string }[] = [
-  { key: 'vote_allow_config', label: 'Game config' },
-  { key: 'vote_allow_gametype', label: 'Game type' },
-  { key: 'vote_allow_kick', label: 'Kick a player' },
-  { key: 'vote_allow_map', label: 'Change map' },
-  { key: 'vote_allow_maprestart', label: 'Restart map' },
-  { key: 'vote_allow_matchreset', label: 'Reset match' },
-  { key: 'vote_allow_mutespecs', label: 'Mute spectators' },
-  { key: 'vote_allow_muting', label: 'Mute a player' },
-  { key: 'vote_allow_nextmap', label: 'Next map' },
-  { key: 'vote_allow_referee', label: 'Grant referee' },
-  { key: 'vote_allow_shuffleteams', label: 'Shuffle teams' },
-  { key: 'vote_allow_shuffleteams_norestart', label: 'Shuffle without restart' },
-  { key: 'vote_allow_swapteams', label: 'Swap teams' },
-  { key: 'vote_allow_friendlyfire', label: 'Friendly fire' },
-  { key: 'vote_allow_timelimit', label: 'Time limit' },
-  { key: 'vote_allow_warmupdamage', label: 'Warm-up damage' },
-  { key: 'vote_allow_antilag', label: 'Anti-lag' },
-  { key: 'vote_allow_balancedteams', label: 'Balanced teams' },
-  { key: 'vote_allow_surrender', label: 'Surrender' },
-  { key: 'vote_allow_restartcampaign', label: 'Restart campaign' },
-  { key: 'vote_allow_nextcampaign', label: 'Next campaign' },
-  { key: 'vote_allow_poll', label: 'Open poll' },
-  { key: 'vote_allow_cointoss', label: 'Coin toss' },
+const VOTES: { key: string; defaultValue: string; label: string }[] = [
+  { key: 'vote_allow_config', defaultValue: '1', label: 'Game config' },
+  { key: 'vote_allow_gametype', defaultValue: '1', label: 'Game type' },
+  { key: 'vote_allow_kick', defaultValue: '1', label: 'Kick a player' },
+  { key: 'vote_allow_map', defaultValue: '1', label: 'Change map' },
+  { key: 'vote_allow_maprestart', defaultValue: '1', label: 'Restart map' },
+  { key: 'vote_allow_matchreset', defaultValue: '1', label: 'Reset match' },
+  { key: 'vote_allow_mutespecs', defaultValue: '1', label: 'Mute spectators' },
+  { key: 'vote_allow_muting', defaultValue: '1', label: 'Mute a player' },
+  { key: 'vote_allow_nextmap', defaultValue: '1', label: 'Next map' },
+  { key: 'vote_allow_referee', defaultValue: '0', label: 'Grant referee' },
+  { key: 'vote_allow_shuffleteams', defaultValue: '1', label: 'Shuffle teams' },
+  { key: 'vote_allow_shuffleteams_norestart', defaultValue: '1', label: 'Shuffle without restart' },
+  { key: 'vote_allow_swapteams', defaultValue: '1', label: 'Swap teams' },
+  { key: 'vote_allow_friendlyfire', defaultValue: '1', label: 'Friendly fire' },
+  { key: 'vote_allow_timelimit', defaultValue: '0', label: 'Time limit' },
+  { key: 'vote_allow_warmupdamage', defaultValue: '1', label: 'Warm-up damage' },
+  { key: 'vote_allow_antilag', defaultValue: '1', label: 'Anti-lag' },
+  { key: 'vote_allow_balancedteams', defaultValue: '1', label: 'Balanced teams' },
+  { key: 'vote_allow_surrender', defaultValue: '1', label: 'Surrender' },
+  { key: 'vote_allow_restartcampaign', defaultValue: '1', label: 'Restart campaign' },
+  { key: 'vote_allow_nextcampaign', defaultValue: '1', label: 'Next campaign' },
+  { key: 'vote_allow_poll', defaultValue: '1', label: 'Open poll' },
+  { key: 'vote_allow_cointoss', defaultValue: '1', label: 'Coin toss' },
 ];
 
 /** Class and weapon caps, which share a shape: 0 means no limit. */
-const LIMITS: { key: string; label: string }[] = [
-  { key: 'team_maxSoldiers', label: 'Soldiers' },
-  { key: 'team_maxMedics', label: 'Medics' },
-  { key: 'team_maxEngineers', label: 'Engineers' },
-  { key: 'team_maxFieldops', label: 'Field ops' },
-  { key: 'team_maxCovertops', label: 'Covert ops' },
-  { key: 'team_maxMortars', label: 'Mortars' },
-  { key: 'team_maxFlamers', label: 'Flamethrowers' },
-  { key: 'team_maxMachineguns', label: 'Machine guns' },
-  { key: 'team_maxRockets', label: 'Rocket launchers' },
-  { key: 'team_maxRiflegrenades', label: 'Rifle grenades' },
-  { key: 'team_maxLandmines', label: 'Landmines' },
-  { key: 'team_maxAirstrikes', label: 'Airstrikes' },
-  { key: 'team_maxArtillery', label: 'Artillery' },
+const LIMITS: { key: string; defaultValue: string; label: string }[] = [
+  { key: 'team_maxSoldiers', defaultValue: '-1', label: 'Soldiers' },
+  { key: 'team_maxMedics', defaultValue: '-1', label: 'Medics' },
+  { key: 'team_maxEngineers', defaultValue: '-1', label: 'Engineers' },
+  { key: 'team_maxFieldops', defaultValue: '-1', label: 'Field ops' },
+  { key: 'team_maxCovertops', defaultValue: '-1', label: 'Covert ops' },
+  { key: 'team_maxMortars', defaultValue: '-1', label: 'Mortars' },
+  { key: 'team_maxFlamers', defaultValue: '-1', label: 'Flamethrowers' },
+  { key: 'team_maxMachineguns', defaultValue: '-1', label: 'Machine guns' },
+  { key: 'team_maxRockets', defaultValue: '-1', label: 'Rocket launchers' },
+  { key: 'team_maxRiflegrenades', defaultValue: '-1', label: 'Rifle grenades' },
+  { key: 'team_maxLandmines', defaultValue: '10', label: 'Landmines' },
+  { key: 'team_maxAirstrikes', defaultValue: '0.0', label: 'Airstrikes' },
+  { key: 'team_maxArtillery', defaultValue: '0.0', label: 'Artillery' },
 ];
 
 export const CVAR_SECTIONS: CvarSection[] = [
@@ -109,6 +120,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'sv_hostname',
+        defaultValue: 'ETLHost',
         label: 'Server name',
         kind: 'text',
         hint: 'Colour codes work: ^1 red, ^2 green, ^3 yellow, ^4 blue, ^7 white. Around 26 visible characters fit.',
@@ -116,6 +128,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'dedicated',
+        defaultValue: '2',
         label: 'Server visibility',
         kind: 'select',
         options: [
@@ -128,6 +141,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_advert',
+        defaultValue: '1',
         label: 'Master server reporting',
         kind: 'select',
         options: [
@@ -140,6 +154,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_countryFlags',
+        defaultValue: '1',
         label: 'Show country flags',
         kind: 'boolean',
         hint: "Displays each player's country beside their name in-game.",
@@ -155,6 +170,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: ([0, 1, 2, 3, 4, 5] as const).map((line) => ({
       key: `server_motd${line}`,
       label: `Line ${line + 1}`,
+      defaultValue: line === 0 ? ' ^NEnemy Territory ^7MOTD ' : '',
       kind: 'text' as const,
       appliesOn: 'map-change' as const,
       ...(line === 0
@@ -170,6 +186,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_extendedNames',
+        defaultValue: '1',
         label: 'Allow extended characters in names',
         kind: 'boolean',
         hint: 'Off strips anything outside the classic character set, which keeps names readable in the console and the logs.',
@@ -178,6 +195,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_maxclients',
+        defaultValue: '20',
         label: 'Maximum players',
         kind: 'number',
         min: 1,
@@ -187,6 +205,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_privateClients',
+        defaultValue: '0',
         label: 'Reserved slots',
         kind: 'number',
         min: 0,
@@ -196,6 +215,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_privatepassword',
+        defaultValue: '',
         label: 'Private slot password',
         kind: 'password',
         hint: 'Required to claim a reserved slot.',
@@ -203,6 +223,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_password',
+        defaultValue: 'none',
         label: 'Server password',
         kind: 'password',
         hint: 'Leave empty for a public server. Setting it makes the server private.',
@@ -210,6 +231,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_ipMaxClients',
+        defaultValue: '0',
         label: 'Connections per IP address',
         kind: 'number',
         min: 0,
@@ -228,6 +250,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'rconpassword',
+        defaultValue: '',
         label: 'RCON password',
         kind: 'password',
         hint: 'Unlocks the console and player kick/ban. The control panel picks this up immediately — nothing to copy elsewhere, no restart.',
@@ -235,6 +258,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'refereePassword',
+        defaultValue: 'none',
         label: 'Referee password',
         kind: 'password',
         hint: 'Lets a player promote themselves to referee to run match commands.',
@@ -242,6 +266,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'shoutcastPassword',
+        defaultValue: 'none',
         label: 'Shoutcaster password',
         kind: 'password',
         hint: 'Grants the spectator view used for casting, without full referee rights.',
@@ -249,6 +274,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_pure',
+        defaultValue: '1',
         label: 'Pure server',
         kind: 'boolean',
         hint: 'Requires clients to use the same pk3 files as the server. Leave on unless you know why not.',
@@ -264,6 +290,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_gametype',
+        defaultValue: '4',
         label: 'Game type',
         kind: 'select',
         options: [
@@ -278,6 +305,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'timelimit',
+        defaultValue: '0',
         label: 'Time limit (minutes)',
         kind: 'number',
         min: 0,
@@ -287,12 +315,14 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_friendlyFire',
+        defaultValue: '1',
         label: 'Friendly fire',
         kind: 'boolean',
         appliesOn: 'immediately',
       },
       {
         key: 'g_antilag',
+        defaultValue: '1',
         label: 'Anti-lag',
         kind: 'boolean',
         hint: 'Compensates for latency when registering hits. Expected on by most players.',
@@ -300,6 +330,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_teamforcebalance',
+        defaultValue: '0',
         label: 'Force balanced teams',
         kind: 'boolean',
         hint: 'Stops players joining the team that already has more players.',
@@ -307,6 +338,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_noTeamSwitching',
+        defaultValue: '0',
         label: 'Lock team switching',
         kind: 'boolean',
         hint: 'Prevents changing sides once play has started.',
@@ -315,6 +347,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_maxlives',
+        defaultValue: '0',
         label: 'Lives per player',
         kind: 'number',
         min: 0,
@@ -325,6 +358,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_alliedmaxlives',
+        defaultValue: '0',
         label: 'Allied lives',
         kind: 'number',
         min: 0,
@@ -335,6 +369,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_axismaxlives',
+        defaultValue: '0',
         label: 'Axis lives',
         kind: 'number',
         min: 0,
@@ -345,6 +380,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_altStopwatchMode',
+        defaultValue: '0',
         label: 'Stopwatch round order',
         kind: 'select',
         options: [
@@ -356,6 +392,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_heavyWeaponRestriction',
+        defaultValue: '100',
         label: 'Heavy weapons (% of team)',
         kind: 'number',
         min: 0,
@@ -366,6 +403,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_shove',
+        defaultValue: '60',
         label: 'Shove strength',
         kind: 'number',
         min: 0,
@@ -376,6 +414,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_dropAmmo',
+        defaultValue: '0',
         label: 'Ammo packs dropped on death',
         kind: 'number',
         min: 0,
@@ -385,6 +424,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_dropHealth',
+        defaultValue: '0',
         label: 'Health packs dropped on death',
         kind: 'number',
         min: 0,
@@ -394,6 +434,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_fastres',
+        defaultValue: '0',
         label: 'Instant revive',
         kind: 'boolean',
         hint: 'Revived players are active immediately instead of getting up.',
@@ -402,6 +443,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_autofireteams',
+        defaultValue: '1',
         label: 'Automatic fireteams',
         kind: 'boolean',
         appliesOn: 'immediately',
@@ -409,6 +451,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_voiceChatsAllowed',
+        defaultValue: '5',
         label: 'Voice chats per 30 seconds',
         kind: 'number',
         min: 0,
@@ -428,6 +471,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_xpSaver',
+        defaultValue: '0',
         label: 'XP saving',
         kind: 'flags',
         flags: [
@@ -459,6 +503,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_xpSaverMaxAge',
+        defaultValue: '86400',
         label: 'Keep saved XP for',
         kind: 'number',
         min: 0,
@@ -479,6 +524,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       ).map(([key, label]) => ({
         key,
         label: `${label} levels`,
+        defaultValue: '20 50 90 140',
         kind: 'text' as const,
         hint: 'Four XP thresholds, lowest first — the default is "20 50 90 140".',
         appliesOn: 'map-change' as const,
@@ -486,6 +532,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       })),
       {
         key: 'g_skillRating',
+        defaultValue: '2',
         label: 'Skill rating',
         kind: 'select',
         options: [
@@ -499,6 +546,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_prestige',
+        defaultValue: '1',
         label: 'Prestige',
         kind: 'boolean',
         hint: 'Lets players who have maxed out a skill trade it for a prestige level. Objective, Stopwatch and LMS ignore it.',
@@ -507,6 +555,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_resetXPMapCount',
+        defaultValue: '0',
         label: 'Reset XP every N maps',
         kind: 'number',
         min: 0,
@@ -524,6 +573,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_userAxisRespawnTime',
+        defaultValue: '0',
         label: 'Axis respawn wave',
         kind: 'number',
         min: 0,
@@ -532,6 +582,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_userAlliedRespawnTime',
+        defaultValue: '0',
         label: 'Allied respawn wave',
         kind: 'number',
         min: 0,
@@ -540,6 +591,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_redlimbotime',
+        defaultValue: '30000',
         label: 'Axis respawn interval (raw)',
         kind: 'number',
         min: 0,
@@ -551,6 +603,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_bluelimbotime',
+        defaultValue: '30000',
         label: 'Allied respawn interval (raw)',
         kind: 'number',
         min: 0,
@@ -560,6 +613,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_forcerespawn',
+        defaultValue: '0',
         label: 'Force respawn after',
         kind: 'number',
         hint: 'Seconds a body may stay in limbo before it is sent back automatically. 0 lets players lie there; -1 respawns instantly.',
@@ -567,6 +621,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_inactivity',
+        defaultValue: '0',
         label: 'Move idle players to spectator after',
         kind: 'number',
         min: 0,
@@ -575,6 +630,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_enforcemaxlives',
+        defaultValue: '1',
         label: 'Enforce the life limit',
         kind: 'boolean',
         hint: 'Stops a player who is out of lives from rejoining to get more. Only matters with a limit set under Gameplay.',
@@ -583,6 +639,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_maxlivesRespawnPenalty',
+        defaultValue: '0',
         label: 'Extra wait after losing a life',
         kind: 'number',
         min: 0,
@@ -601,6 +658,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_soldierChargeTime',
+        defaultValue: '20000',
         label: 'Soldier',
         kind: 'number',
         min: 0,
@@ -609,6 +667,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_medicChargeTime',
+        defaultValue: '45000',
         label: 'Medic',
         kind: 'number',
         min: 0,
@@ -617,6 +676,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_engineerChargeTime',
+        defaultValue: '30000',
         label: 'Engineer',
         kind: 'number',
         min: 0,
@@ -625,6 +685,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_fieldopsChargeTime',
+        defaultValue: '40000',
         label: 'Field ops',
         kind: 'number',
         min: 0,
@@ -633,6 +694,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_covertopsChargeTime',
+        defaultValue: '30000',
         label: 'Covert ops',
         kind: 'number',
         min: 0,
@@ -641,6 +703,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_stickyCharge',
+        defaultValue: '0',
         label: 'Keep the charge bar on death',
         kind: 'select',
         options: [
@@ -662,6 +725,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_syringeHealing',
+        defaultValue: '0',
         label: 'Syringe heals living players',
         kind: 'boolean',
         hint: 'A medic can top up a teammate who is still standing, not only revive the dead.',
@@ -669,6 +733,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_legacyRevives',
+        defaultValue: '1',
         label: 'Revive rules',
         kind: 'select',
         options: [
@@ -680,6 +745,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_corpses',
+        defaultValue: '0',
         label: 'Leave bodies lying',
         kind: 'boolean',
         hint: 'Off removes a body as soon as its player respawns. On is prettier and costs entities.',
@@ -688,6 +754,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_landminetimeout',
+        defaultValue: '1',
         label: 'Blow up mines when their engineer leaves',
         kind: 'boolean',
         hint: 'Off leaves mines armed after the player who planted them disconnects or switches team.',
@@ -696,6 +763,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_dropObjDelay',
+        defaultValue: '3000',
         label: 'Delay before the objective can be dropped',
         kind: 'number',
         min: 0,
@@ -705,6 +773,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_shoveNoZ',
+        defaultValue: '0',
         label: 'No boost when shoving upward',
         kind: 'boolean',
         hint: 'Only applies while the shove-boost flag under Movement is off.',
@@ -722,6 +791,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_speed',
+        defaultValue: '320',
         label: 'Player speed',
         kind: 'number',
         min: 1,
@@ -730,6 +800,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_gravity',
+        defaultValue: '800',
         label: 'Gravity',
         kind: 'number',
         min: 0,
@@ -738,6 +809,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_knockback',
+        defaultValue: '1000',
         label: 'Knockback',
         kind: 'number',
         min: 0,
@@ -746,6 +818,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_movespeed',
+        defaultValue: '76',
         label: 'Movement speed scale',
         kind: 'number',
         min: 1,
@@ -755,6 +828,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_pronedelay',
+        defaultValue: '0',
         label: 'Delay before firing after going prone',
         kind: 'number',
         min: 0,
@@ -764,6 +838,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_misc',
+        defaultValue: '0',
         label: 'Movement options',
         kind: 'flags',
         flags: [
@@ -778,6 +853,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_fixedphysics',
+        defaultValue: '1',
         label: 'Frame-rate independent physics',
         kind: 'boolean',
         hint: 'Makes jumps behave the same regardless of a player\u2019s FPS.',
@@ -786,6 +862,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_fixedphysicsfps',
+        defaultValue: '125',
         label: 'Physics emulated at',
         kind: 'number',
         min: 1,
@@ -795,6 +872,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_realHead',
+        defaultValue: '1',
         label: 'Accurate head hitbox',
         kind: 'boolean',
         hint: 'Head shots follow the model\u2019s actual head rather than a fixed box.',
@@ -803,6 +881,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_moverScale',
+        defaultValue: '1.0',
         label: 'Mover speed scale',
         kind: 'text',
         hint: 'How fast tanks and doors travel. Default 1.0.',
@@ -811,6 +890,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_filtercams',
+        defaultValue: '0',
         label: 'Filter camera movement',
         kind: 'boolean',
         hint: 'Smooths scripted camera paths in cutscenes.',
@@ -828,6 +908,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_maxMapsVotedFor',
+        defaultValue: '6',
         label: 'Maps on the ballot',
         kind: 'number',
         min: 1,
@@ -836,6 +917,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_minMapAge',
+        defaultValue: '3',
         label: 'Maps to wait before a repeat',
         kind: 'number',
         min: 0,
@@ -844,6 +926,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_excludedMaps',
+        defaultValue: '',
         label: 'Never offer these maps',
         kind: 'text',
         hint: 'Space-separated map names, e.g. "railgun". They stay installed and playable by other means.',
@@ -851,6 +934,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_mapVoteFlags',
+        defaultValue: '0',
         label: 'Voting options',
         kind: 'flags',
         flags: [
@@ -871,6 +955,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_maxGameClients',
+        defaultValue: '0',
         label: 'Maximum playing clients',
         kind: 'number',
         min: 0,
@@ -880,6 +965,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'match_timeoutlength',
+        defaultValue: '180',
         label: 'Time-out length',
         kind: 'number',
         min: 0,
@@ -889,6 +975,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_multiview',
+        defaultValue: '0',
         label: 'Multiview for spectators',
         kind: 'boolean',
         hint: 'Lets a spectator watch several players at once. Needs a restart, and clients must support it.',
@@ -897,6 +984,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_etltv_flags',
+        defaultValue: '3',
         label: 'ETLTV connections',
         kind: 'flags',
         flags: [
@@ -913,6 +1001,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_doWarmup',
+        defaultValue: '0',
         label: 'Warm-up period',
         kind: 'boolean',
         hint: 'Players warm up before the match counts.',
@@ -920,6 +1009,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_warmup',
+        defaultValue: '60',
         label: 'Warm-up duration (seconds)',
         kind: 'number',
         min: 0,
@@ -928,6 +1018,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'match_warmupDamage',
+        defaultValue: '1',
         label: 'Warm-up damage',
         kind: 'select',
         options: [
@@ -939,6 +1030,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'match_minplayers',
+        defaultValue: '4',
         label: 'Minimum players to start',
         kind: 'number',
         min: 1,
@@ -947,6 +1039,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'match_readypercent',
+        defaultValue: '100',
         label: 'Ready percentage',
         kind: 'number',
         min: 1,
@@ -956,6 +1049,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'match_latejoin',
+        defaultValue: '1',
         label: 'Allow late joins',
         kind: 'boolean',
         hint: 'Lets players join a match already in progress.',
@@ -963,6 +1057,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'match_mutespecs',
+        defaultValue: '0',
         label: 'Mute spectators',
         kind: 'boolean',
         hint: 'Stops spectators talking to players in a match.',
@@ -970,6 +1065,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'match_timeoutcount',
+        defaultValue: '3',
         label: 'Timeouts per team',
         kind: 'number',
         min: 0,
@@ -980,6 +1076,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_intermissionTime',
+        defaultValue: '60',
         label: 'Intermission length (seconds)',
         kind: 'number',
         min: 0,
@@ -990,6 +1087,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_intermissionReadyPercent',
+        defaultValue: '100',
         label: 'Intermission ready percentage',
         kind: 'number',
         min: 1,
@@ -1008,6 +1106,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_teambleedComplaint',
+        defaultValue: '50',
         label: 'Team-damage complaint threshold',
         kind: 'number',
         hint: 'Percentage of a player\u2019s health that team damage must reach before a complaint is offered. Negative disables it.',
@@ -1016,6 +1115,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_complaintlimit',
+        defaultValue: '6',
         label: 'Complaints before a kick',
         kind: 'number',
         min: 0,
@@ -1025,6 +1125,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_ipcomplaintlimit',
+        defaultValue: '3',
         label: 'Distinct complainants needed',
         kind: 'number',
         min: 0,
@@ -1034,6 +1135,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_disableComplaints',
+        defaultValue: '0',
         label: 'Ignore explosive team kills',
         kind: 'boolean',
         hint: 'Excludes airstrikes, artillery, mortars and landmines, which cause most accidental team kills.',
@@ -1049,6 +1151,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_lms_roundlimit',
+        defaultValue: '3',
         label: 'Rounds per match',
         kind: 'number',
         min: 1,
@@ -1057,6 +1160,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_lms_matchlimit',
+        defaultValue: '2',
         label: 'Matches per map',
         kind: 'number',
         min: 1,
@@ -1065,18 +1169,21 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_lms_followTeamOnly',
+        defaultValue: '1',
         label: 'Spectate own team only',
         kind: 'boolean',
         appliesOn: 'immediately',
       },
       {
         key: 'g_lms_lockTeams',
+        defaultValue: '0',
         label: 'Lock teams during a round',
         kind: 'boolean',
         appliesOn: 'immediately',
       },
       {
         key: 'g_lms_teamForceBalance',
+        defaultValue: '1',
         label: 'Force balanced teams',
         kind: 'boolean',
         appliesOn: 'immediately',
@@ -1091,6 +1198,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'team_maxplayers',
+        defaultValue: '0',
         label: 'Players per team',
         kind: 'number',
         min: 0,
@@ -1099,6 +1207,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'team_nocontrols',
+        defaultValue: '1',
         label: 'Disable team controls',
         kind: 'boolean',
         hint: 'Stops players using team commands such as ready and lock.',
@@ -1108,6 +1217,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       ...LIMITS.map((limit) => ({
         key: limit.key,
         label: limit.label,
+        defaultValue: limit.defaultValue,
         kind: 'number' as const,
         min: 0,
         max: 32,
@@ -1124,6 +1234,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_voting',
+        defaultValue: '0',
         label: 'Vote counting',
         kind: 'flags',
         flags: [
@@ -1151,6 +1262,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'vote_limit',
+        defaultValue: '5',
         label: 'Votes per player each map',
         kind: 'number',
         min: 0,
@@ -1159,6 +1271,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'vote_percent',
+        defaultValue: '50',
         label: 'Percentage needed to pass',
         kind: 'number',
         min: 1,
@@ -1168,6 +1281,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       ...VOTES.map((vote) => ({
         key: vote.key,
         label: vote.label,
+        defaultValue: vote.defaultValue,
         kind: 'boolean' as const,
         appliesOn: 'immediately' as const,
         advanced: true,
@@ -1182,6 +1296,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_antiwarp',
+        defaultValue: '1',
         label: 'Anti-warp',
         kind: 'boolean',
         hint: 'Smooths players whose connection stutters instead of letting them teleport around.',
@@ -1189,6 +1304,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_maxWarp',
+        defaultValue: '4',
         label: 'Warp tolerance',
         kind: 'number',
         min: 1,
@@ -1198,6 +1314,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_skipCorrection',
+        defaultValue: '1',
         label: 'Correct skipped movement',
         kind: 'boolean',
         hint: 'Replays movement a lagging client missed rather than dropping it.',
@@ -1206,6 +1323,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_teamInfoUpdateRate',
+        defaultValue: '1000',
         label: 'Team overlay update interval',
         kind: 'number',
         min: 0,
@@ -1215,6 +1333,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_minPing',
+        defaultValue: '0',
         label: 'Minimum ping',
         kind: 'number',
         min: 0,
@@ -1225,6 +1344,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_maxPing',
+        defaultValue: '0',
         label: 'Maximum ping',
         kind: 'number',
         min: 0,
@@ -1234,6 +1354,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_maxRate',
+        defaultValue: '0',
         label: 'Maximum rate (bytes/s)',
         kind: 'number',
         min: 0,
@@ -1243,6 +1364,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_spectatorInactivity',
+        defaultValue: '0',
         label: 'Spectator inactivity (seconds)',
         kind: 'number',
         min: 0,
@@ -1252,6 +1374,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_floodProtect',
+        defaultValue: '1',
         label: 'Flood protection',
         kind: 'boolean',
         hint: 'Rate-limits chat and command spam from one client.',
@@ -1259,6 +1382,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_userInfofloodProtect',
+        defaultValue: '1',
         label: 'User-info flood protection',
         kind: 'boolean',
         appliesOn: 'immediately',
@@ -1266,6 +1390,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_timeout',
+        defaultValue: '60',
         label: 'Client timeout (seconds)',
         kind: 'number',
         min: 10,
@@ -1275,6 +1400,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'pmove_fixed',
+        defaultValue: '0',
         label: 'Frame-rate independent physics',
         kind: 'boolean',
         hint: 'Makes movement identical regardless of a client’s frame rate. Competitive servers usually enable it.',
@@ -1283,6 +1409,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'pmove_msec',
+        defaultValue: '8',
         label: 'Physics interval (ms)',
         kind: 'number',
         min: 3,
@@ -1301,6 +1428,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'sv_wh_active',
+        defaultValue: '0',
         label: 'Block wallhacks',
         kind: 'boolean',
         // The only measure here that a modified client cannot defeat: the
@@ -1310,6 +1438,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_wh_bbox_horz',
+        defaultValue: '60',
         label: 'Visibility box — width',
         kind: 'number',
         min: 20,
@@ -1320,6 +1449,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_wh_bbox_vert',
+        defaultValue: '100',
         label: 'Visibility box — height',
         kind: 'number',
         min: 40,
@@ -1330,6 +1460,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_protectLog',
+        defaultValue: '',
         label: 'Attack log file',
         kind: 'text',
         hint: 'Where blocked flood and rcon attempts are recorded. Empty writes nothing.',
@@ -1338,6 +1469,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_protectLogInterval',
+        defaultValue: '1000',
         label: 'Attack log interval',
         kind: 'number',
         min: 0,
@@ -1347,6 +1479,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_floodProtection',
+        defaultValue: '1',
         label: 'Chat flood protection',
         kind: 'boolean',
         hint: 'Game-side, for chat and commands. The engine has its own limit under Connection quality.',
@@ -1354,6 +1487,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_floodLimit',
+        defaultValue: '5',
         label: 'Messages allowed',
         kind: 'number',
         min: 1,
@@ -1363,6 +1497,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_floodWait',
+        defaultValue: '1000',
         label: 'Flood window',
         kind: 'number',
         min: 0,
@@ -1372,6 +1507,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_logTimestamp',
+        defaultValue: '1',
         label: 'Log timestamps',
         kind: 'select',
         options: [
@@ -1385,6 +1521,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_banIPs',
+        defaultValue: '',
         label: 'Banned addresses',
         kind: 'text',
         hint: 'Space-separated. A trailing 0 wildcards an octet, e.g. "192.168.1.0".',
@@ -1393,6 +1530,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_filterBan',
+        defaultValue: '1',
         label: 'Enforce the ban list',
         kind: 'boolean',
         hint: 'Off leaves the addresses above listed but lets them connect.',
@@ -1401,6 +1539,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'sv_protect',
+        defaultValue: '0',
         label: 'Server protection',
         kind: 'flags',
         // A bitmask, not a choice of three. Offering it as a select made these
@@ -1425,6 +1564,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_protect',
+        defaultValue: '0',
         label: 'Mod-side protection',
         kind: 'boolean',
         appliesOn: 'restart',
@@ -1432,6 +1572,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_guidCheck',
+        defaultValue: '1',
         label: 'Require a valid GUID',
         kind: 'boolean',
         hint: 'Refuses clients without a valid identifier, which blocks some very old builds.',
@@ -1440,6 +1581,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_log',
+        defaultValue: '',
         label: 'Game log file',
         kind: 'text',
         hint: 'Records kills, connects and weapon changes. Leave empty to disable.',
@@ -1448,6 +1590,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_logSync',
+        defaultValue: '0',
         label: 'Write the game log immediately',
         kind: 'boolean',
         hint: 'Slower, but nothing is lost if the server stops abruptly.',
@@ -1456,6 +1599,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'logfile',
+        defaultValue: '0',
         label: 'Console log',
         kind: 'select',
         options: [
@@ -1477,6 +1621,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'omnibot_enable',
+        defaultValue: '0',
         label: 'Enable bots',
         kind: 'boolean',
         appliesOn: 'restart',
@@ -1485,6 +1630,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'omnibot_path',
+        defaultValue: 'legacy/omni-bot',
         label: 'Omni-bot directory',
         kind: 'text',
         hint: 'Inside the container, e.g. "legacy/omni-bot". Must be the path the game server sees, not the host path.',
@@ -1494,6 +1640,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'omnibot_flags',
+        defaultValue: '0',
         label: 'Bot behaviour',
         kind: 'flags',
         flags: [
@@ -1511,6 +1658,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_allowBotSwap',
+        defaultValue: '0',
         label: 'Let a joining player take a bot\u2019s place',
         kind: 'boolean',
         hint: 'Keeps the teams the same size when a human arrives on a full server.',
@@ -1529,6 +1677,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'lua_modules',
+        defaultValue: '',
         label: 'Modules to load',
         kind: 'text',
         hint: 'Space-separated paths, e.g. "luascripts/wolfadmin/main.lua". Ignored when a module list file is set below.',
@@ -1538,6 +1687,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'lua_allowedModules',
+        defaultValue: '',
         label: 'Allowed module signatures',
         kind: 'text',
         hint: 'Empty allows any module. Otherwise only modules whose signature is listed here may load.',
@@ -1547,6 +1697,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_luaModuleList',
+        defaultValue: '',
         label: 'Module list file',
         kind: 'text',
         hint: 'A file listing modules to load. When set, it replaces the list above entirely.',
@@ -1565,6 +1716,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
     cvars: [
       {
         key: 'g_customConfig',
+        defaultValue: 'defaultpublic',
         label: 'Extra config to apply',
         kind: 'text',
         hint: 'Executed after the main config, so it wins. Public servers often use "defaultpublic".',
@@ -1574,6 +1726,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_mapConfigs',
+        defaultValue: '',
         label: 'Per-map config directory',
         kind: 'text',
         hint: 'A config in here named after the map is applied when that map loads. Empty disables it.',
@@ -1583,6 +1736,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_campaignFile',
+        defaultValue: '',
         label: 'Campaign file',
         kind: 'text',
         hint: 'Only used by the Campaign game type. Empty uses the campaigns found in the installed pk3 files.',
@@ -1592,6 +1746,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_mapScriptDirectory',
+        defaultValue: 'mapscripts',
         label: 'Map script directory',
         kind: 'text',
         hint: 'Default "mapscripts". Scripts here override the ones inside a map\u2019s pk3.',

@@ -80,7 +80,7 @@ Docker socket for container control and log streaming.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `1.0.0` | An exact version. Never moves — use this to pin |
+| `1.1.0` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 

@@ -519,6 +519,14 @@ to read something, and pausing buffers rather than drops lines.
   sections from Identity to Protection. Each says whether it applies
   immediately, at the next map, or needs a restart.
 
+  A setting the config does not mention shows the value the **server** is using,
+  marked *server default*, not a blank or an off switch. That distinction
+  matters more than it sounds: every `vote_allow_*` except referee and time
+  limit defaults to on, so a form that drew them as off told you the opposite of
+  the truth. Defaults come from `g_cvars.c` and the engine's own `Cvar_Get`
+  calls at v2.84.0 — and where both register a cvar the engine wins, because it
+  registers first and `Cvar_Get` keeps the value an existing cvar already has.
+
   Three levels of detail, because "everything at once" is not a form anyone can
   read: the plain view holds what most servers touch, **Show advanced** adds the
   rest, and **Expert** — inside advanced — adds bots, Lua modules and the

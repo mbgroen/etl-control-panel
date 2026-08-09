@@ -582,25 +582,40 @@ function CvarField({
   emptied?: boolean;
   onChange: (next: string) => void;
 }) {
+  /**
+   * What the server is actually using.
+   *
+   * A cvar missing from the config is not off — it is whatever the engine
+   * defaults to, and for most of the vote_allow_* list that is on. Rendering an
+   * absent setting as blank made the form state the opposite of the truth, and
+   * the only way to find out was to switch everything on, save, and switch back
+   * the ones you did not want.
+   */
+  const effective = defined || value !== '' ? value : (spec.defaultValue ?? '');
+
   const hint = (
     <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
       {spec.hint}
       <Badge tone={spec.appliesOn === 'immediately' ? 'success' : 'neutral'}>
         {APPLIES_LABEL[spec.appliesOn]}
       </Badge>
-      {!defined && <Badge tone="info">not set — will be added</Badge>}
+      {!defined && (
+        <span title="The server is using this value; changing it writes the setting into the config">
+          <Badge tone="info">server default</Badge>
+        </span>
+      )}
     </span>
   );
 
   if (spec.kind === 'flags') {
-    return <FlagField spec={spec} value={value} hint={hint} onChange={onChange} />;
+    return <FlagField spec={spec} value={effective} hint={hint} onChange={onChange} />;
   }
 
   if (spec.kind === 'boolean') {
     return (
       <div className="flex flex-col gap-1.5">
         <Toggle
-          checked={value === '1'}
+          checked={effective === '1'}
           onChange={(next) => onChange(next ? '1' : '0')}
           label={spec.label}
         />
@@ -621,11 +636,11 @@ function CvarField({
       htmlFor={`cvar-${spec.key}`}
     >
       {spec.kind === 'select' ? (
-        <Select id={`cvar-${spec.key}`} value={value} onChange={(e) => onChange(e.target.value)}>
+        <Select id={`cvar-${spec.key}`} value={effective} onChange={(e) => onChange(e.target.value)}>
           {/* Preserve an unrecognised existing value rather than silently
               rewriting it to the first option. */}
-          {!spec.options?.some((option) => option.value === value) && (
-            <option value={value}>{value ? `Current: ${value}` : 'Not set'}</option>
+          {!spec.options?.some((option) => option.value === effective) && (
+            <option value={effective}>{effective ? `Current: ${effective}` : 'Not set'}</option>
           )}
           {spec.options?.map((option) => (
             <option key={option.value} value={option.value}>
@@ -636,7 +651,7 @@ function CvarField({
       ) : spec.kind === 'password' ? (
         <PasswordInput
           id={`cvar-${spec.key}`}
-          value={value}
+          value={effective}
           autoComplete="off"
           onChange={(event) => onChange(event.target.value)}
         />
@@ -647,7 +662,7 @@ function CvarField({
           inputMode={spec.kind === 'number' ? 'numeric' : undefined}
           min={spec.min}
           max={spec.max}
-          value={value}
+          value={effective}
           autoComplete="off"
           onChange={(event) => onChange(event.target.value)}
         />
