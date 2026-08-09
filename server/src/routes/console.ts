@@ -113,10 +113,27 @@ consoleRouter.get('/commands', asyncHandler(async (_req, res) => {
         ],
       },
       {
+        // Omni-bot ships inside the game image, so these work on any install
+        // once omnibot_enable is on — and they are the commands an operator
+        // reaches for repeatedly: a server with four bots in it looks alive to
+        // the next person browsing the list.
+        name: 'Bots',
+        commands: [
+          { label: 'Bot status', command: 'bot', danger: false },
+          { label: 'Keep 4 bots', command: 'bot minbots 4', danger: false },
+          { label: 'Keep 8 bots', command: 'bot minbots 8', danger: false },
+          { label: 'Stop filling with bots', command: 'bot minbots 0', danger: false },
+          { label: 'Cap at 10 bots', command: 'bot maxbots 10', danger: false },
+          { label: 'Balance bot teams', command: 'bot balanceteams 1', danger: false },
+          { label: 'Remove all bots', command: 'bot kickall', danger: true },
+        ],
+      },
+      {
         name: 'Configuration',
         commands: [
           { label: 'Reload config', command: `exec ${env.SERVER_CONFIG_NAME}`, danger: false },
           { label: 'Show FastDL settings', command: 'sv_wwwBaseURL', danger: false },
+          { label: 'Are bots enabled?', command: 'omnibot_enable', danger: false },
         ],
       },
     ],

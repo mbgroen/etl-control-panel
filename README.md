@@ -46,7 +46,7 @@ The game server itself comes from the official
 |---|---|
 | **Monitoring** | Live player list with scores, ping and colour-coded names; current map; CPU, memory and uptime; 8-hour activity history |
 | **Control** | Start / stop / restart the game server container; kick, ban and mute players |
-| **Console** | Full RCON console with command history, plus one-click common commands |
+| **Console** | Full RCON console with command history, plus one-click commands for the match, the bots and the config |
 | **Logs** | Live-streamed container logs with filtering, pause-and-buffer, and follow-tail |
 | **Configuration** | Around 190 settings in guided forms — every server-side cvar ET: Legacy 2.84 reads that is worth setting — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
 | **Maps** | Upload `.pk3` packages, see the maps inside each one, and switch any of them into the rotation — all on one page |
