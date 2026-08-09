@@ -132,11 +132,14 @@ export const CVAR_SECTIONS: CvarSection[] = [
         label: 'Server visibility',
         kind: 'select',
         options: [
-          { value: '0', label: 'Listen server (not dedicated)' },
-          { value: '1', label: 'Dedicated — LAN only' },
-          { value: '2', label: 'Dedicated — advertised on the internet' },
+          { value: '2', label: 'Internet — listed on the master servers' },
+          { value: '1', label: 'LAN — not listed anywhere' },
         ],
-        hint: 'Use "internet" so the master servers list you publicly.',
+        // The engine has a third value, 0, for a listen server: one process
+        // that renders the game for the host and serves everyone else. It is
+        // not offered here because it cannot apply — this project runs etlded,
+        // which has no renderer, and a listen server needs one.
+        hint: 'LAN does not firewall anything: the server still accepts a direct connect, it just stops announcing itself. Note that Trackbase reporting is not affected — that is sv_advert. Read at start-up only, so it takes a container restart.',
         appliesOn: 'restart',
       },
       {
@@ -515,7 +518,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
             hint: 'Only useful when migrating a server that predates the database. Turn it off afterwards.',
           },
         ],
-        hint: 'Saved XP lives in the server database (db_mode 2 by default, in etl.db).',
+        hint: 'Saved XP lives in the server\u2019s own SQLite database, etl.db in its home directory — which needs the etl-server-home volume, or a new image wipes everyone\u2019s XP.',
         appliesOn: 'restart',
       },
       {
@@ -1502,7 +1505,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         defaultValue: '',
         label: 'Attack log file',
         kind: 'text',
-        hint: 'Where blocked flood and rcon attempts are recorded. Empty writes nothing.',
+        hint: 'Where blocked flood and rcon attempts are recorded. Empty writes nothing. Written to the game server\u2019s home directory, like the game log.',
         appliesOn: 'immediately',
         advanced: true,
       },
@@ -1630,7 +1633,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         defaultValue: '',
         label: 'Game log file',
         kind: 'text',
-        hint: 'Records kills, connects and weapon changes. Leave empty to disable.',
+        hint: 'Records kills, connects and weapon changes. Leave empty to disable. Written to the game server\u2019s home directory, which needs the etl-server-home volume to survive an image update.',
         appliesOn: 'restart',
         advanced: true,
       },

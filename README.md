@@ -638,6 +638,13 @@ It serves the same directory the map library manages, but that is a fact about
 the implementation: installing maps happens often, setting up downloads happens
 roughly once.
 
+The game server writes more than its config: the XP database (`etl.db`), the
+game and attack logs, and the cvars it archives itself all go to its home
+directory. The compose files keep that in a named volume, `etl-server-home`,
+so an image update does not wipe a week of saved XP. If you wrote your own
+compose file before this was added, add the volume — XP saving that survives a
+week of play but not a `docker compose pull` is worse than none.
+
 **Settings** — the control panel's own preferences, kept apart from the game
 server's config: the upload limit, and how many config backups and player visits
 to retain. Nothing here is a cvar, none of it is touched by restoring a config

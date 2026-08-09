@@ -37,6 +37,17 @@ services:
       # templates, so the mount is what gives the server its map library.
       - ${COMPOSE_DATA_PATH:-./data}/etl-server/etmain:/legacy/server/etmain
       #
+      # Everything the server writes that is not the config: the XP database
+      # (etl.db), the game and attack logs, and the cvars it archives itself.
+      # Without this they sit in the container's writable layer and vanish on
+      # the next "docker compose pull" — XP saving that survives a week of play
+      # but not an image update is worse than no XP saving at all.
+      #
+      # A named volume rather than a bind mount on purpose: Docker seeds one
+      # from the image, so the directory keeps the ownership the server needs
+      # and there is no chown step on the host.
+      - etl-server-home:/legacy/homepath
+      #
       # Do NOT mount /legacy/server/legacy. The image bakes the whole Legacy
       # mod in there — qagame.mp.x86_64.so (the game module the engine dlopens),
       # legacy_v<version>.pk3, and the Lua and omni-bot trees — and a bind mount
@@ -160,6 +171,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  etl-server-home:
 
 networks:
   etl:
