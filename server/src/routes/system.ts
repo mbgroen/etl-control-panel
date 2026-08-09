@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { readFileSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from '../env.js';
@@ -97,6 +98,50 @@ async function checkRcon(): Promise<RconCheck> {
   }
 }
 
+/**
+ * Can the game server write to its own home directory?
+ *
+ * It keeps the XP database, the game and attack logs and its archived cvars
+ * there. The directory is bind-mounted from the host, so Docker creates it
+ * owned by root while the game server runs as uid 1000 — it then cannot write,
+ * says nothing about it, and the first anyone knows is that a week of saved XP
+ * was never saved. Cheap to check, miserable to discover.
+ */
+async function checkServerHome(): Promise<{ ok: boolean; detail: string; remedy: string | null }> {
+  const dir = env.SERVER_HOME_PATH;
+  const advice = `Create it and give it to the server's user: mkdir -p <data>/etl-server/homepath && chown -R ${SERVER_UID}:${SERVER_UID} <data>/etl-server/homepath`;
+
+  try {
+    const info = await stat(dir);
+    if (!info.isDirectory()) {
+      return { ok: false, detail: `${dir} exists but is not a directory`, remedy: advice };
+    }
+
+    // The control panel runs as root, so it can always write there itself —
+    // the question is whether uid 1000 can, which is what the mode and owner
+    // say. Anything world-writable is fine too.
+    const mode = info.mode & 0o777;
+    const writable = info.uid === SERVER_UID || (mode & 0o002) !== 0;
+
+    return writable
+      ? { ok: true, detail: `${dir} — writable by the game server`, remedy: null }
+      : {
+          ok: false,
+          detail: `${dir} is owned by uid ${info.uid}, and the game server runs as uid ${SERVER_UID}`,
+          remedy: advice,
+        };
+  } catch {
+    return {
+      ok: false,
+      detail: `${dir} does not exist, so the XP database and logs are not being kept`,
+      remedy: advice,
+    };
+  }
+}
+
+/** The uid the official etlegacy/server image runs as. */
+const SERVER_UID = 1000;
+
 export const systemRouter = Router();
 
 /**
@@ -110,13 +155,15 @@ export const systemRouter = Router();
 systemRouter.get(
   '/health',
   asyncHandler(async (_req, res) => {
-    const [dockerPing, gameContainer, fastdlContainer, hasConfig, rconCheck] = await Promise.all([
-      docker.ping(),
-      docker.inspect('game').catch(() => null),
-      docker.inspect('fastdl').catch(() => null),
-      configExists(),
-      checkRcon(),
-    ]);
+    const [dockerPing, gameContainer, fastdlContainer, hasConfig, rconCheck, home] =
+      await Promise.all([
+        docker.ping(),
+        docker.inspect('game').catch(() => null),
+        docker.inspect('fastdl').catch(() => null),
+        configExists(),
+        checkRcon(),
+        checkServerHome(),
+      ]);
 
     const checks = [
       {
@@ -149,6 +196,14 @@ systemRouter.get(
         remedy: hasConfig
           ? null
           : 'Ensure ETMAIN_PATH points at the same host directory the game server mounts as /legacy/server/etmain.',
+      },
+      {
+        id: 'server_home',
+        label: 'Game server home directory',
+        ok: home.ok,
+        detail: home.detail,
+        remedy: home.remedy,
+        optional: true,
       },
       {
         id: 'rcon',

@@ -1,6 +1,6 @@
 {
   "name": "etl-control-panel-server",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "private": true,
   "type": "module",
   "description": "API and control plane for the ET: Legacy server control panel",

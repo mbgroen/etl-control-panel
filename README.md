@@ -640,10 +640,20 @@ roughly once.
 
 The game server writes more than its config: the XP database (`etl.db`), the
 game and attack logs, and the cvars it archives itself all go to its home
-directory. The compose files keep that in a named volume, `etl-server-home`,
-so an image update does not wipe a week of saved XP. If you wrote your own
-compose file before this was added, add the volume — XP saving that survives a
-week of play but not a `docker compose pull` is worse than none.
+directory, kept at `<data>/etl-server/homepath`. Without that mount they live
+in the container and vanish on the next `docker compose pull` — XP saving that
+survives a week of play but not an image update is worse than none.
+
+The game server runs as **uid 1000**, and a bind-mounted directory keeps the
+host's ownership, so create it before the first start:
+
+```bash
+mkdir -p "$COMPOSE_DATA_PATH/etl-server/homepath"
+chown -R 1000:1000 "$COMPOSE_DATA_PATH/etl-server/homepath"
+```
+
+Diagnostics checks exactly this and names the fix if it is wrong, because a
+server that cannot write there says nothing about it.
 
 **Settings** — the control panel's own preferences, kept apart from the game
 server's config: the upload limit, and how many config backups and player visits

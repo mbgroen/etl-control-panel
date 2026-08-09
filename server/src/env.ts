@@ -64,6 +64,15 @@ const schema = z.object({
    */
   ETMAIN_PATH: z.string().min(1).default('/data/etl-server/etmain'),
   LEGACY_PATH: z.string().min(1).default('/data/etl-server/legacy'),
+  /**
+   * The game server's home directory, as the control panel sees it.
+   *
+   * Only used to check it: the server writes its XP database and logs there,
+   * and a bind mount created by Docker belongs to root while the server runs
+   * as uid 1000 — so it silently cannot write, and nobody finds out until the
+   * XP everyone earned turns out not to have been saved.
+   */
+  SERVER_HOME_PATH: z.string().min(1).default('/data/etl-server/homepath'),
   /** Control-panel-owned state: config backups and the metrics ring buffer. */
   STATE_PATH: z.string().min(1).default('/data/control-panel'),
   /** Filename of the server config, relative to ETMAIN_PATH. */

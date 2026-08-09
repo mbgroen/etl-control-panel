@@ -32,12 +32,14 @@ services:
       # (etl.db), the game and attack logs, and the cvars it archives itself.
       # Without this they sit in the container's writable layer and vanish on
       # the next "docker compose pull" — XP saving that survives a week of play
-      # but not an image update is worse than no XP saving at all.
+      # but not an image update is worse than none.
       #
-      # A named volume rather than a bind mount on purpose: Docker seeds one
-      # from the image, so the directory keeps the ownership the server needs
-      # and there is no chown step on the host.
-      - etl-server-home:/legacy/homepath
+      # The game server runs as uid 1000, and a bind-mounted directory keeps
+      # the host's ownership, so create it before first start:
+      #   mkdir -p "$COMPOSE_DATA_PATH/etl-server/homepath"
+      #   chown -R 1000:1000 "$COMPOSE_DATA_PATH/etl-server/homepath"
+      # Diagnostics checks this and says so if it is wrong.
+      - ${COMPOSE_DATA_PATH:-./data}/etl-server/homepath:/legacy/homepath
       #
       # Do NOT mount /legacy/server/legacy. The image bakes the whole Legacy
       # mod in there — qagame.mp.x86_64.so (the game module the engine dlopens),
@@ -113,6 +115,7 @@ services:
       # control panel will edit a config the server never reads.
       ETMAIN_PATH: /data/etl-server/etmain
       LEGACY_PATH: /data/etl-server/legacy
+      SERVER_HOME_PATH: /data/etl-server/homepath
       STATE_PATH: /data/control-panel
       SERVER_CONFIG_NAME: ${SERVER_CONFIG_NAME:-etl_server.cfg}
 
@@ -171,8 +174,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-volumes:
-  etl-server-home:
 
 networks:
   etl:
