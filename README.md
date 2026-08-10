@@ -64,23 +64,30 @@ width, and ships light and dark themes.
 ## Architecture
 
 ```
-                        ┌──────────────────────────────┐
-   browser  ──HTTP/WS──▶│  etl-control-panel  :8085   │
-                        │  Node 22 · Express · React   │
-                        └──┬──────────┬────────────┬───┘
-                           │          │            │
-              docker.sock  │          │ UDP 27960  │ bind mount
-                           ▼          ▼            ▼
-                  ┌────────────┐ ┌──────────┐ ┌──────────────┐
-                  │  Docker    │ │ etl-srv  │ │ etmain/      │
-                  │  daemon    │ │  -server │ │  *.pk3, .cfg │
-                  └────────────┘ └──────────┘ └──────┬───────┘
-                                                     │ read-only
-                                              ┌──────▼────────┐
-                                              │ etl-fastdl    │
-                                              │ fastdl  :8081 │
-                                              │ nginx         │
-                                              └───────────────┘
+                        ┌───────────────────────────────┐
+   browser ──HTTP/WS───▶│  etl-control-panel      :8085 │
+                        │  Node 22 · Express · React    │
+                        └──┬──────────┬─────────────┬───┘
+                           │          │             │
+              docker.sock  │          │ UDP 27960   │ read / write
+                           ▼          ▼             │
+                  ┌────────────┐ ┌──────────┐       │
+                  │   Docker   │ │etl-server│       │
+                  │   daemon   │ │ the game │       │
+                  └────────────┘ └────┬─────┘       │
+                                      │ writes      │
+              ┌───────────────────────▼─────────────▼─────────────────────┐
+              │  <data>/                                                  │
+              │    etl-server/etmain/    maps and the server config       │──┐
+              │    etl-server/legacy/    mod data                         │──┤
+              │    etl-server/homepath/  etl.db, logs, archived cvars     │  │
+              │    etl-control-panel/    accounts, backups, visit history │  │
+              └───────────────────────────────────────────────────────────┘  │
+                                                                             │
+                              ┌──────────────────┐   etmain and legacy only, │
+                              │ etl-fastdl :8081 │◀──────── read-only ───────┘
+                              │ nginx            │
+                              └──────────────────┘
 ```
 
 Three containers on one bridge network:
@@ -88,13 +95,22 @@ Three containers on one bridge network:
 - **`etl-server`** — the game server, unchanged from the official image.
 - **`etl-control-panel`** — this project. Talks to the Docker daemon for
   container lifecycle and logs, to the game server over UDP for status and
-  RCON, and to the bind-mounted `etmain` directory for config and map files.
-- **`etl-fastdl`** — nginx serving `etmain` read-only over HTTP. Optional;
-  the control panel starts and stops it on demand.
+  RCON, and to the bind-mounted data directories for config, maps and its own
+  state.
+- **`etl-fastdl`** — nginx serving `etmain/` and `legacy/` read-only over HTTP.
+  Optional; the control panel starts and stops it on demand.
 
-The control panel and FastDL both mount **the same host directory** the game server
-uses. There is no copying or syncing: what the server has installed is exactly
-what the control panel lists and what clients can download.
+The control panel and FastDL both mount **the same host directories** the game
+server uses. There is no copying or syncing: what the server has installed is
+exactly what the control panel lists and what clients can download.
+
+Two of those four directories are worth knowing individually. `homepath/` is
+where the game server keeps its XP database, its logs and the cvars it archives
+itself — it must be mounted or an image update wipes them, and it must be owned
+by uid 1000 or the server cannot write to it. And FastDL mounts **only**
+`etmain/` and `legacy/`: neither `homepath/` nor the control panel's own
+directory is inside the container that faces the internet, so the credential
+store and the database are not merely unserved, they are absent.
 
 ---
 
