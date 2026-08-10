@@ -29,6 +29,9 @@ download (FastDL) server — all from a browser.
 - **FastDL** — enable HTTP map downloads in one action; it starts the web
   server *and* writes the matching cvars, then tests reachability. Every
   download setting lives here, including the in-game transfer limits.
+- **Players** — who is playing now, with kick and ban, and who has played
+  before: duration, address and country, kept across restarts. Bot visits are
+  hidden by default and can be deleted in one action.
 - **Accounts** — several administrators, each with their own login. Add and
   remove them, or set a password for someone who has lost theirs; removing an
   account ends its session at once.
@@ -80,7 +83,7 @@ Docker socket for container control and log streaming.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `1.1.0` | An exact version. Never moves — use this to pin |
+| `1.12.1` | An exact version. Never moves — use this to pin |
 
 Every image records the commit it was built from:
 

@@ -440,6 +440,16 @@ list. The ones that matter most:
 | `DOCKER_GID` | `999` | Host `docker` group GID |
 | `POLL_INTERVAL_SEC` | `10` | Status poll frequency |
 | `GEO_LOOKUP` | `true` | Resolve player addresses to a country. The only outbound request the control panel makes; private addresses are never sent |
+| `SESSION_TTL_HOURS` | `12` | How long a sign-in lasts |
+| `PORT` | `8080` | Port inside the container. The compose files publish 8085 in front of it |
+| `LOG_LEVEL` | `info` | `debug` when you want to see every request |
+| `SERVER_HOME_PATH` | `/data/etl-server/homepath` | The game server's home directory as the panel sees it. Only read to check that the server can write there |
+| `LEGACY_PATH` | `/data/etl-server/legacy` | Mod directory, used to report what FastDL can serve |
+| `ETL_HOST` / `ETL_PORT` | `etl-server` / `27960` | How to reach the game server for status and RCON |
+| `FASTDL_CONTAINER` | `etl-fastdl` | Container the FastDL page starts and stops |
+| `DOCKER_SOCKET` | `/var/run/docker.sock` | Where the Docker API is mounted |
+| `RCON_TIMEOUT_MS` | `2000` | How long to wait for an RCON reply before giving up |
+| `HISTORY_POINTS` | `2880` | Samples kept for the activity graph — eight hours at the default poll interval |
 | `MAX_UPLOAD_MB` | `256` | *Initial* per-file `.pk3` upload limit. Change it under **Settings**; once set there, the stored value wins |
 
 ### Adding the base game files
@@ -522,9 +532,10 @@ password is set somewhere.
 > to copy anywhere and no restart. Without it the control panel still shows status
 > and manages files; only the live-control features are unavailable.
 
-**Overview** — status, players, trends, and the start/stop/restart controls.
-Kick and ban appear once RCON is configured, since they need slot numbers that
-only RCON exposes.
+**Overview** — status, trends, and the start/stop/restart controls. It shows
+how many people are playing, not who: the list, the detail and the admin
+actions all live on Players, so there is one place to look and one place where
+a kick can be issued.
 
 **Console** — a real RCON console. Arrow keys recall history. Note that
 commands typed here change the *running* server only; they are lost on restart.
@@ -769,6 +780,8 @@ envelope:
 ### Authentication
 | Method | Path | Purpose |
 |---|---|---|
+| `GET` | `/api/auth/status` | Whether setup has been done — the only unauthenticated endpoint besides `/healthz` |
+| `POST` | `/api/auth/setup` | First-run: create the first administrator |
 | `POST` | `/api/auth/login` | `{username, password}` → sets session cookie |
 | `POST` | `/api/auth/logout` | Clears the session |
 | `GET` | `/api/auth/session` | Current user, or 401 |
@@ -801,14 +814,22 @@ envelope:
 | `PATCH` | `/api/config/cvars` | Patch specific cvars in place |
 | `PUT` | `/api/config/rotation` | `{maps: [...]}` → rewrites the rotation block |
 | `POST` | `/api/config/validate` | Lint without saving |
+| `POST` | `/api/config/initialize` | Write a starter config when none exists |
+| `GET` | `/api/config/download` | The running config, as a file |
+| `POST` | `/api/config/rotation/add` | Append maps to the rotation |
 | `GET` | `/api/config/backups` | List backups |
+| `GET` | `/api/config/backups/:id` | One backup's contents |
+| `GET` | `/api/config/backups/:id/download` | One backup, as a file |
 | `POST` | `/api/config/backups/:id/restore` | Restore (takes a backup first) |
+| `DELETE` | `/api/config/backups/:id` | Delete one backup |
+| `POST` | `/api/config/backups/delete` | Delete several in one action |
 
 ### Maps and FastDL
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/maps` | Installed packages and storage usage |
 | `POST` | `/api/maps/upload` | multipart `files` — up to 8 `.pk3` per request |
+| `GET` | `/api/maps/:filename/checksum` | SHA-256 of one package |
 | `DELETE` | `/api/maps/:filename` | Delete a custom pak (stock paks return 403) |
 | `GET` | `/api/fastdl` | FastDL state |
 | `POST` | `/api/fastdl/enable` | `{baseUrl, allowDisconnectedDownload}` |
@@ -818,7 +839,12 @@ envelope:
 ### System
 | Method | Path | Purpose |
 |---|---|---|
+| `GET` | `/api/server/history` | Player-count samples for the activity graph |
+| `GET` | `/api/server/sessions` | Who is playing, who has played, and the totals |
+| `POST` | `/api/server/sessions/delete` | `{ids}`, `{bots: true}` or `{all: true}` |
 | `GET` | `/api/system/health` | Dependency checks with remedies; 503 when degraded |
+| `GET` | `/api/system/settings` | Control panel preferences |
+| `PATCH` | `/api/system/settings` | Change them |
 | `GET` | `/api/system/info` | Non-secret runtime configuration |
 | `GET` | `/api/system/logs/:service?tail=` | Log tail snapshot |
 | `GET` | `/healthz` | Unauthenticated liveness probe |

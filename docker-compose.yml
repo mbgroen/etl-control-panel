@@ -121,6 +121,7 @@ services:
 
       FASTDL_BASE_URL: ${FASTDL_BASE_URL:-}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-256}
+      GEO_LOOKUP: "${GEO_LOOKUP:-true}"
       POLL_INTERVAL_SEC: ${POLL_INTERVAL_SEC:-10}
     # Runs unprivileged. PUID/PGID must be able to write the etmain bind mount.
     user: "${PUID:-1000}:${PGID:-1000}"

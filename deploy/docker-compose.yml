@@ -107,11 +107,28 @@ services:
     environment:
       # Set this to the same value as "rconpassword" in your server config to
       # unlock the console and player kick/ban. Everything else works without it.
-      RCON_PASSWORD: ""
+      # Every value below can be set in a .env file beside this one — see
+      # .env.example, which documents them. They are interpolated rather than
+      # hard-coded so that file is telling the truth: a variable it describes
+      # and this file ignores is worse than no documentation at all.
+      RCON_PASSWORD: "${RCON_PASSWORD:-}"
 
       # Optional: pre-fills the FastDL address. You can also just type it in the
       # control panel later. Use the NAS's LAN IP — not localhost.
-      FASTDL_BASE_URL: ""
+      FASTDL_BASE_URL: "${FASTDL_BASE_URL:-}"
+
+      # Leave empty and the control panel runs its first-run setup wizard.
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_PASSWORD_HASH: "${ADMIN_PASSWORD_HASH:-}"
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+      SESSION_TTL_HOURS: "${SESSION_TTL_HOURS:-12}"
+      # Set to true only when the panel is served over HTTPS.
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+
+      POLL_INTERVAL_SEC: "${POLL_INTERVAL_SEC:-10}"
+      MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-256}"
+      GEO_LOOKUP: "${GEO_LOOKUP:-true}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
 
       ETL_HOST: etl-server
       ETL_PORT: 27960
@@ -121,7 +138,7 @@ services:
       LEGACY_PATH: /data/etl-server/legacy
       SERVER_HOME_PATH: /data/etl-server/homepath
       STATE_PATH: /data/control-panel
-      SERVER_CONFIG_NAME: etl_server.cfg
+      SERVER_CONFIG_NAME: "${SERVER_CONFIG_NAME:-etl_server.cfg}"
 
     # Runs as root so it can use the Docker socket and write to the game data
     # directory whatever their ownership — which is what removes the PUID/PGID
