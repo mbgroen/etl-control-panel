@@ -323,3 +323,28 @@ systemRouter.get(
     res.json({ service, lines: (await docker.logsSnapshot(service, tail)).split('\n') });
   }),
 );
+
+/**
+ * The same tail as a file.
+ *
+ * A log you can only read in a browser pane is a log you cannot attach to a bug
+ * report, diff against yesterday's, or grep. The tail is deeper than the live
+ * pane keeps in memory, because the reason to save a log is usually something
+ * that happened before you thought to look.
+ */
+systemRouter.get(
+  '/logs/:service/download',
+  asyncHandler(async (req, res) => {
+    const service = req.params.service === 'fastdl' ? 'fastdl' : 'game';
+    const tail = Math.min(Math.max(Number(req.query.tail ?? 5_000), 10), 20_000);
+    const text = await docker.logsSnapshot(service, tail);
+
+    // Colons are legal in a filename on Linux and a nuisance everywhere else.
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const name = `${docker.containerNameFor(service)}-${stamp}.log`;
+
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.send(text.endsWith('\n') ? text : `${text}\n`);
+  }),
+);

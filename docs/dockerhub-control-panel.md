@@ -33,6 +33,10 @@ download (FastDL) server — all from a browser.
 - **FastDL** — enable HTTP map downloads in one action; it starts the web
   server *and* writes the matching cvars, then tests reachability. Every
   download setting lives here, including the in-game transfer limits.
+- **Logs** — the game server's and FastDL's container output, streamed live,
+  with filtering, pause-and-buffer and a download that saves a deeper tail than
+  the pane holds. The engine's terminal colour codes are stripped, so what you
+  read is the text and not the escapes.
 - **Players** — who is playing now, with kick and ban, and who has played
   before: duration, address and country, kept across restarts. Bot visits are
   hidden by default and can be deleted in one action.

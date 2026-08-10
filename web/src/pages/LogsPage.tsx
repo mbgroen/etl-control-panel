@@ -1,6 +1,6 @@
 import { ArrowDownToLine, Eraser, Filter, Pause, Play } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Button, Input, Panel } from '../components/ui';
+import { Badge, Button, DownloadLink, Input, Panel } from '../components/ui';
 import { useLive } from '../lib/live';
 
 /**
@@ -13,6 +13,17 @@ import { useLive } from '../lib/live';
  */
 
 const MAX_LINES = 3_000;
+
+/**
+ * How much a download asks the daemon for.
+ *
+ * Deliberately more than the pane holds: the point of saving a log is usually
+ * something that happened before you opened the page, and the filter is a
+ * reading aid rather than a definition of what is worth keeping — a file with
+ * the lines around the interesting one is the one you can actually diagnose
+ * from.
+ */
+const DOWNLOAD_LINES = 10_000;
 
 export function LogsPage() {
   const { subscribeLogs } = useLive();
@@ -104,6 +115,12 @@ export function LogsPage() {
           <Button size="sm" icon={<Eraser size={13} aria-hidden />} onClick={() => setLines([])}>
             Clear
           </Button>
+          <DownloadLink
+            href={`/api/system/logs/${service}/download?tail=${DOWNLOAD_LINES}`}
+            title={`Save the last ${DOWNLOAD_LINES.toLocaleString()} lines to your computer`}
+          >
+            Download
+          </DownloadLink>
         </div>
       }
     >

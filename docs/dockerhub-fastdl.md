@@ -78,6 +78,22 @@ chmod o+r /srv/appdata/etl-server/etmain/*.pk3
 A missing file returns 404 and an unreadable one returns 403 — that difference
 is the quickest way to tell the two apart.
 
+## Logging
+
+Every request goes to the container's stdout, so `docker logs etl-fastdl` — and
+the control panel's Logs page — shows what clients actually fetched:
+
+```
+203.0.113.24 "GET /etmain/radar.pk3 HTTP/1.1" 200 24117248/24117584 bytes in 3.412s "ET"
+```
+
+The bytes sent are worth reading: a status of 200 with a fraction of the file
+transferred is a client that gave up part-way, which looks identical to a
+successful download in the game server's own log.
+
+Images before 1.14.0 wrote this to a file inside the container instead, where
+nothing could read it.
+
 ## Tags
 
 | Tag | Meaning |

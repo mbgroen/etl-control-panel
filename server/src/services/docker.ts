@@ -214,7 +214,7 @@ export async function logsSnapshot(service: ManagedService, tail = 200): Promise
       tail,
       timestamps: false,
     })) as unknown as Buffer;
-    return demultiplex(buffer);
+    return stripTerminalCodes(demultiplex(buffer));
   } catch (err) {
     if (isNotFound(err)) throw new ContainerNotFoundError(CONTAINER_NAMES[service]);
     throw err;
@@ -241,6 +241,36 @@ export async function logsStream(service: ManagedService, tail = 100): Promise<D
     if (isNotFound(err)) throw new ContainerNotFoundError(CONTAINER_NAMES[service]);
     throw err;
   }
+}
+
+/**
+ * Removes terminal escape sequences from log output.
+ *
+ * The game engine colours its console with ANSI escapes — every player name and
+ * every chat line arrives wrapped in them. A browser is not a terminal, so what
+ * reaches the log pane is the escape *text*: `<ESC>[0m` renders as a replacement
+ * box followed by `[0m`, several times per line, and a readable line like
+ * `Harde Henk entered the game` becomes something nobody wants to read.
+ *
+ * Stripping rather than rendering the colours is deliberate. The pane is a
+ * diagnostic tool, and colour here carries no information the words do not: the
+ * engine paints names, not severity.
+ *
+ * Also drops the other C0 control characters (keeping tab), which the engine
+ * emits occasionally and which render as more boxes.
+ */
+export function stripTerminalCodes(text: string): string {
+  return (
+    text
+      // CSI sequences: ESC [ ... final byte. Colours, cursor moves, erases.
+      .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
+      // OSC sequences (window titles), terminated by BEL or ST.
+      .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '')
+      // Whatever escapes are left, then the rest of the C0 set bar tab and the
+      // line endings, which the caller still needs to split on.
+      .replace(/\x1B[@-_]?/g, '')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+  );
 }
 
 /**

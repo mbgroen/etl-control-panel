@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Download, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { forwardRef, useId, useState } from 'react';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
 
@@ -347,6 +347,37 @@ export function Toggle({
         </span>
       )}
     </label>
+  );
+}
+
+/**
+ * A download, styled as a button but built as a link.
+ *
+ * A real anchor rather than a fetch-and-blob: the browser streams the response
+ * straight to disk, the session cookie rides along with the navigation, and a
+ * large file never has to exist in the tab's memory first.
+ */
+export function DownloadLink({
+  href,
+  title,
+  children,
+  className = '',
+}: {
+  href: string;
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <a
+      href={href}
+      title={title}
+      download
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-line-strong hover:text-body ${className}`}
+    >
+      <Download size={13} aria-hidden />
+      {children}
+    </a>
   );
 }
 

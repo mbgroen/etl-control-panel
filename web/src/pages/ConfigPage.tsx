@@ -1,5 +1,4 @@
 import {
-  Download,
   Upload,
   AlertCircle,
   FileCode2,
@@ -16,6 +15,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   Badge,
   Button,
+  DownloadLink,
   EmptyState,
   Field,
   Input,
@@ -870,26 +870,6 @@ function RawTab({ config, onSaved }: { config: ConfigPayload; onSaved: () => Pro
 }
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * Download link styled as a button.
- *
- * An anchor rather than a fetch: the browser saves the file itself, the session
- * cookie authenticates the request, and nothing has to be held in memory.
- */
-function DownloadLink({ href, title, children }: { href: string; title: string; children: ReactNode }) {
-  return (
-    <a
-      href={href}
-      title={title}
-      download
-      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-line-strong hover:text-body"
-    >
-      <Download size={13} aria-hidden />
-      {children}
-    </a>
-  );
-}
 
 function BackupsTab({ onRestored }: { onRestored: () => Promise<void> }) {
   const toast = useToast();

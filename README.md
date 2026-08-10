@@ -53,7 +53,7 @@ The game server itself comes from the official
 | **Monitoring** | Live player list with scores, ping and colour-coded names; current map; CPU, memory and uptime; 8-hour activity history |
 | **Control** | Start / stop / restart the game server container; kick and ban from the Players page |
 | **Console** | Full RCON console with command history, plus one-click commands for the match, the bots and the config |
-| **Logs** | Live-streamed container logs with filtering, pause-and-buffer, and follow-tail |
+| **Logs** | Live-streamed container logs — game server or FastDL — with filtering, pause-and-buffer, follow-tail, and a download that saves a deeper tail than the pane holds |
 | **Configuration** | Around 190 settings in guided forms — every server-side cvar ET: Legacy 2.84 reads that is worth setting — with search, a map-rotation builder, a raw editor with validation, and timestamped backups you can delete |
 | **Maps** | Upload `.pk3` packages, see the maps inside each one, and switch any of them into the rotation — all on one page |
 | **FastDL** | Enable/disable HTTP downloads in one action — starts the web server *and* writes the matching cvars — with a reachability test |
@@ -564,8 +564,28 @@ Use Configuration to make a change permanent.
 
 ![The Console page: the output of a status and a serverinfo command in a monospace transcript, beside a Quick commands list grouped into Server, Match & maps and Bots, with the disruptive ones badged.](docs/screenshots/console.png)
 
-**Logs** — live container output. Auto-scroll releases the moment you scroll up
-to read something, and pausing buffers rather than drops lines.
+**Logs** — live container output, from the game server or from FastDL.
+Auto-scroll releases the moment you scroll up to read something, and pausing
+buffers rather than drops lines. **Download** saves the last 10,000 lines as a
+`.log` file — more than the pane keeps, because the reason to save a log is
+usually something that happened before you thought to look.
+
+The game server colours its console with terminal escape codes, one pair around
+every player name. A browser is not a terminal, so those are stripped on the way
+through; without that, `Harde Henk entered the game` arrives as a line of
+replacement boxes and `[0m` fragments.
+
+The FastDL log has one line per request — who asked, for which file, the status,
+the bytes that actually went out and how long it took:
+
+```
+203.0.113.24 "GET /etmain/radar.pk3 HTTP/1.1" 200 24117248/24117584 bytes in 3.412s "ET"
+```
+
+That is the only place that confirms a client really fetched a map over HTTP.
+The game server's own log says it *redirected* the client — `Redirecting client
+'…' to http://…/etmain/….pk3` — which is a statement about what it told the
+client to do, not about what happened next.
 
 **Configuration** — four views over one file:
 
@@ -750,6 +770,16 @@ directory are not reachable.
 Restart the game server (or run `exec etl_server.cfg` in the console) so it
 picks up the new download settings.
 
+**Did a client actually download?** *Logs → FastDL* answers that: nginx records
+every request there, with the status and the bytes it sent. The game server's
+log only shows that it *redirected* the client to the FastDL URL, which is not
+the same claim.
+
+If that log shows nothing but `start worker process` lines, the FastDL image
+predates 1.14.0, where nginx wrote its access log to a file inside the container
+that nothing ever read. `docker compose pull fastdl && docker compose up -d
+fastdl` fixes it.
+
 ---
 
 ## Security
@@ -876,6 +906,7 @@ envelope:
 | `PATCH` | `/api/system/settings` | Change them |
 | `GET` | `/api/system/info` | Non-secret runtime configuration |
 | `GET` | `/api/system/logs/:service?tail=` | Log tail snapshot |
+| `GET` | `/api/system/logs/:service/download?tail=` | The same tail as a `.log` attachment |
 | `GET` | `/healthz` | Unauthenticated liveness probe |
 
 ### WebSocket

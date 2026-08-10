@@ -68,7 +68,7 @@ class LogBroadcaster {
   private ingest(chunk: Buffer): void {
     // Docker frames may split mid-line; hold the remainder until the next chunk
     // so the UI never renders half a log line.
-    const text = this.partial + docker.demultiplex(chunk);
+    const text = this.partial + docker.stripTerminalCodes(docker.demultiplex(chunk));
     const lines = text.split('\n');
     this.partial = lines.pop() ?? '';
 
