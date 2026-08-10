@@ -26,7 +26,9 @@ download (FastDL) server — all from a browser.
 - **Configuration** — guided forms for around 190 server cvars in eighteen
   sections, behind three levels of detail so the everyday ones stay findable; a
   map-rotation builder, a raw editor with validation, and automatic timestamped
-  backups.
+  backups. Settings the mod only reads in certain game types are badged with
+  their scope and marked when your game type is not one of them, so a setting
+  that cannot do anything says so instead of failing silently.
 - **Maps** — browse and upload `.pk3` packages, see which maps each one
   contains, and add any of them to the rotation in a click. Stock game files
   are protected from deletion.

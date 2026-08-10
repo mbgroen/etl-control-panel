@@ -43,6 +43,16 @@ export interface CvarSpec {
    */
   flags?: { bit: number; label: string; hint?: string }[];
   appliesOn: 'immediately' | 'map-change' | 'restart';
+  /**
+   * The game types this setting does anything in, as `g_gametype` values.
+   *
+   * Absent means every game type, which is nearly all of them. The listed ones
+   * are read by the mod inside a gametype test, so setting them in any other
+   * mode changes a cvar and nothing else — the quietest kind of failure a
+   * server config has. Verified against v2.84.0 rather than assumed: the file
+   * that names each check is cited on the setting.
+   */
+  gametypes?: string[];
   /** Hidden behind "Show advanced" — correct defaults, rarely worth touching. */
   advanced?: boolean;
   /**
@@ -60,7 +70,43 @@ export interface CvarSection {
   id: string;
   title: string;
   description: string;
+  /** As on a spec, but for a whole section that exists for one game type. */
+  gametypes?: string[];
   cvars: CvarSpec[];
+}
+
+/** `g_gametype` values, as the Game type field names them. */
+export const GAMETYPE_LABELS: Record<string, string> = {
+  '2': 'Objective',
+  '3': 'Stopwatch',
+  '4': 'Campaign',
+  '5': 'Last Man Standing',
+  '6': 'Map voting',
+};
+
+/**
+ * "Last Man Standing only", "Objective and Map voting only".
+ *
+ * Said as a scope rather than a warning, because the same phrase has to work on
+ * a setting that is currently doing something and one that is not.
+ */
+export function gametypeScope(gametypes: string[]): string {
+  const all = Object.keys(GAMETYPE_LABELS);
+  const name = (value: string) => GAMETYPE_LABELS[value] ?? `type ${value}`;
+  const join = (values: string[]) => {
+    const names = values.map(name);
+    const last = names.pop() as string;
+    return names.length === 0 ? last : `${names.join(', ')} or ${last}`;
+  };
+
+  // Said whichever way is shorter. "Objective, Campaign and Map voting only" is
+  // a list to parse; "Not in Stopwatch or Last Man Standing" is the same fact in
+  // half the words, and badges are read at a glance or not at all.
+  const excluded = all.filter((value) => !gametypes.includes(value));
+  if (excluded.length > 0 && excluded.length < gametypes.length) {
+    return `Not in ${join(excluded)}`;
+  }
+  return `${join(gametypes)} only`;
 }
 
 const onOff = (onLabel = 'Enabled', offLabel = 'Disabled') => [
@@ -69,7 +115,7 @@ const onOff = (onLabel = 'Enabled', offLabel = 'Disabled') => [
 ];
 
 /** Every vote the engine can be asked to allow, as the game's menu lists them. */
-const VOTES: { key: string; defaultValue: string; label: string }[] = [
+const VOTES: { key: string; defaultValue: string; label: string; gametypes?: string[] }[] = [
   { key: 'vote_allow_config', defaultValue: '1', label: 'Game config' },
   { key: 'vote_allow_gametype', defaultValue: '1', label: 'Game type' },
   { key: 'vote_allow_kick', defaultValue: '1', label: 'Kick a player' },
@@ -89,8 +135,10 @@ const VOTES: { key: string; defaultValue: string; label: string }[] = [
   { key: 'vote_allow_antilag', defaultValue: '1', label: 'Anti-lag' },
   { key: 'vote_allow_balancedteams', defaultValue: '1', label: 'Balanced teams' },
   { key: 'vote_allow_surrender', defaultValue: '1', label: 'Surrender' },
-  { key: 'vote_allow_restartcampaign', defaultValue: '1', label: 'Restart campaign' },
-  { key: 'vote_allow_nextcampaign', defaultValue: '1', label: 'Next campaign' },
+  // Both vote handlers in g_vote.c refuse outright unless the game type is
+  // Campaign, whatever these are set to.
+  { key: 'vote_allow_restartcampaign', defaultValue: '1', label: 'Restart campaign', gametypes: ['4'] },
+  { key: 'vote_allow_nextcampaign', defaultValue: '1', label: 'Next campaign', gametypes: ['4'] },
   { key: 'vote_allow_poll', defaultValue: '1', label: 'Open poll' },
   { key: 'vote_allow_cointoss', defaultValue: '1', label: 'Coin toss' },
 ];
@@ -391,6 +439,8 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_altStopwatchMode',
+        // g_session.c only consults it when the game type is Stopwatch.
+        gametypes: ['3'],
         defaultValue: '0',
         label: 'Stopwatch round order',
         kind: 'select',
@@ -552,6 +602,8 @@ export const CVAR_SECTIONS: CvarSection[] = [
       })),
       {
         key: 'g_skillRating',
+        // g_main.c and g_match.c skip rating in Stopwatch and Last Man Standing.
+        gametypes: ['2', '4', '6'],
         defaultValue: '2',
         label: 'Skill rating',
         kind: 'select',
@@ -566,6 +618,9 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_prestige',
+        // Awarded only outside Campaign, Stopwatch and Last Man Standing —
+        // g_client.c, g_main.c, g_match.c all guard it the same way.
+        gametypes: ['2', '6'],
         defaultValue: '1',
         label: 'Prestige',
         kind: 'boolean',
@@ -575,6 +630,8 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_resetXPMapCount',
+        // Read inside the Map voting branch of g_main.c.
+        gametypes: ['6'],
         defaultValue: '0',
         label: 'Reset XP every N maps',
         kind: 'number',
@@ -935,6 +992,9 @@ export const CVAR_SECTIONS: CvarSection[] = [
     title: 'Map voting',
     description:
       'Only used by the Map voting game type. Players pick the next map from the ones installed.',
+    // Every cvar here is read inside a `g_gametype == GT_WOLF_MAPVOTE` test —
+    // g_vote.c G_IntermissionMapList, g_main.c ExitLevel.
+    gametypes: ['6'],
     cvars: [
       {
         key: 'g_maxMapsVotedFor',
@@ -1187,6 +1247,9 @@ export const CVAR_SECTIONS: CvarSection[] = [
     id: 'lms',
     title: 'Last Man Standing',
     description: 'Only used when the game type is Last Man Standing.',
+    // g_team.c, g_cmds.c and g_main.c each read these behind
+    // `g_gametype == GT_WOLF_LMS`.
+    gametypes: ['5'],
     cvars: [
       {
         key: 'g_lms_roundlimit',
@@ -1321,6 +1384,7 @@ export const CVAR_SECTIONS: CvarSection[] = [
         key: vote.key,
         label: vote.label,
         defaultValue: vote.defaultValue,
+        gametypes: vote.gametypes,
         kind: 'boolean' as const,
         appliesOn: 'immediately' as const,
         advanced: true,
@@ -1785,6 +1849,8 @@ export const CVAR_SECTIONS: CvarSection[] = [
       },
       {
         key: 'g_campaignFile',
+        // G_ParseCampaigns returns immediately unless the game type is Campaign.
+        gametypes: ['4'],
         defaultValue: '',
         label: 'Campaign file',
         kind: 'text',

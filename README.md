@@ -612,6 +612,22 @@ client to do, not about what happened next.
   calls at v2.84.0 — and where both register a cvar the engine wins, because it
   registers first and `Cvar_Get` keeps the value an existing cvar already has.
 
+  Some settings only do anything in one game type, and the mod reads them
+  behind a `g_gametype` test — set them in another mode and you have changed a
+  cvar and nothing else. Those carry a scope badge (*Last Man Standing only*,
+  *Not in Stopwatch or Last Man Standing*), which turns amber when your
+  configured game type is not one of them, and the two sections that exist for a
+  single mode — Last Man Standing and Map voting — say so across the whole
+  panel. Nothing is hidden: they are still your settings, still saved, and they
+  start working the moment you switch. The badges follow the **Game type** field
+  as you change it, so you can see what a mode costs before you commit to it.
+
+  `g_gametype` is latched. Saving it does not change the running server — the
+  browser, the Overview page and the game itself all keep reporting the old mode
+  until the next map loads. When the two disagree the Game type field says which
+  one is running and what will make it take effect, because "I set Campaign and
+  it still says Objective" otherwise looks like the control panel ignoring you.
+
   Three levels of detail, because "everything at once" is not a form anyone can
   read: the plain view holds what most servers touch, **Show advanced** adds the
   rest, and **Expert** — inside advanced — adds bots, Lua modules and the
@@ -681,6 +697,13 @@ A map in the rotation whose pk3 is no longer installed is marked *file missing*
 rather than quietly dropped — the rotation is yours to change, not ours.
 
 The rotation is edited here and nowhere else.
+
+**Two game types do not use it.** In **Campaign** the engine takes the next map
+from the campaign file and never runs `vstr nextmap` at all, so the rotation
+sits unused until you switch back. Under **Map voting** the players choose at
+intermission and the rotation is only the fallback for a round nobody voted in.
+The rotation panel says so when the server is playing either of them, rather
+than letting you order a list the server has no intention of reading.
 
 **FastDL** — its own page, and the only place download settings live. Enabling
 writes `sv_allowDownload`, `sv_wwwDownload`, `sv_wwwBaseURL` and
@@ -958,7 +981,9 @@ curl -b jar -X POST http://localhost:8085/api/console/rcon \
 | FastDL test fails | The base URL is not reachable from outside the host. Use the LAN/public IP, not `localhost`, and check the port is published and forwarded |
 | FastDL returns 403 for maps that exist | The pk3 files are not world-readable, so nginx cannot open them. See [FastDL file permissions](#fastdl-file-permissions) |
 | Clients still download slowly | The game server has not re-read the config. Restart it, or run `exec etl_server.cfg` in the console |
-| Map rotation is ignored | Campaign cvars set with `g_gametype 2`. Campaign settings only apply in gametype 4 — see the example config |
+| Map rotation is ignored | The server is playing **Campaign**, which takes its map order from the campaign file, or **Map voting**, where the players choose. The rotation panel says so when either is running |
+| Game type does not change | `g_gametype` is latched: saving it parks the value until the next map loads, so the browser and the Overview page keep showing the old mode. Restart the game server from Overview to apply it now |
+| A setting does nothing at all | Check its scope badge on the Configuration page. A handful of settings — the Last Man Standing and Map voting sections, prestige, skill rating, the campaign votes — are read only in certain game types |
 
 ### FastDL file permissions
 

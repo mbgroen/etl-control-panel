@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, ListOrdered, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { prettifyMapName } from '../lib/format';
+import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
 import { Badge, Button, EmptyState, Panel, Toggle } from './ui';
 
@@ -33,6 +34,21 @@ export function RotationEditor({
 }) {
   const toast = useToast();
   const [order, setOrder] = useState<string[]>(rotation);
+
+  /**
+   * Whether the running server is in a game type that ignores this list.
+   *
+   * Read from the live status rather than the config, because the question is
+   * what the server is doing now — and g_gametype is latched, so a config that
+   * already says Campaign may still be playing Objective.
+   */
+  const gametype = useLive().snapshot?.game.status.raw.g_gametype ?? '';
+  const bypassNote =
+    gametype === '4'
+      ? 'The server is playing Campaign, which takes its map order from the campaign file. This rotation is not used until the game type changes.'
+      : gametype === '6'
+        ? 'The server is playing Map voting, so players pick the next map at intermission. This rotation is only the fallback when nobody votes.'
+        : '';
   const [saving, setSaving] = useState(false);
 
   useEffect(() => setOrder(rotation), [rotation]);
@@ -112,6 +128,20 @@ export function RotationEditor({
       }
       bodyClassName="p-0"
     >
+      {/*
+        The rotation is only what the server plays in some game types. In
+        Campaign the engine loads the next map from the campaign file and never
+        runs "vstr nextmap" at all (ExitLevel, g_main.c); under Map voting the
+        players choose, and this order is the fallback for a round nobody voted
+        in. Saying so here beats an operator editing a list for an hour and
+        wondering why the server ignores it.
+      */}
+      {bypassNote && (
+        <p className="border-b border-warn/30 bg-warn-soft px-4 py-2.5 text-xs text-warn">
+          {bypassNote}
+        </p>
+      )}
+
       {order.length === 0 && available.length === 0 ? (
         <div className="p-4">
           <EmptyState

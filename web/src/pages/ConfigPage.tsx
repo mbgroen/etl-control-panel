@@ -26,8 +26,16 @@ import {
   Toggle,
 } from '../components/ui';
 import { api, ApiError } from '../lib/api';
-import { ALL_CVARS, APPLIES_LABEL, CVAR_SECTIONS, type CvarSpec } from '../lib/cvarSchema';
+import {
+  ALL_CVARS,
+  APPLIES_LABEL,
+  CVAR_SECTIONS,
+  GAMETYPE_LABELS,
+  gametypeScope,
+  type CvarSpec,
+} from '../lib/cvarSchema';
 import { formatDateTime, formatRelative } from '../lib/format';
+import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
 import type {
   BackupEntry,
@@ -46,6 +54,14 @@ import type {
  */
 
 const MASK = '••••••••';
+
+/**
+ * What the engine plays when the config never says.
+ *
+ * Campaign, not Objective — both g_cvars.c and the engine's own Cvar_Get in
+ * sv_init.c register g_gametype with "4".
+ */
+const GAMETYPE_DEFAULT = '4';
 
 /**
  * Real values of the secret cvars, read out of the raw config text.
@@ -428,6 +444,31 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
     }
   };
 
+  /**
+   * The game type this config asks for — not necessarily the one being played.
+   *
+   * Taken from the form rather than the saved file so switching the Game type
+   * field re-labels the affected settings immediately: the operator can see
+   * what a mode change costs them before deciding to save it.
+   */
+  const gametype =
+    values['g_gametype']?.trim() || initial['g_gametype'] || GAMETYPE_DEFAULT;
+
+  /**
+   * What the running server says it is, which lags the config on purpose.
+   *
+   * g_gametype is CVAR_LATCH: setting it — in the file or over rcon — parks the
+   * value until the next map load. Until then the server browser, the Overview
+   * page and everything else still report the old mode, which reads exactly
+   * like the control panel having ignored the change.
+   */
+  const running = useLive().snapshot?.game.status;
+  const runningGametype = running?.online ? (running.raw.g_gametype ?? '') : '';
+  const gametypePending = runningGametype !== '' && runningGametype !== gametype;
+
+  const isInactive = (spec: CvarSpec) =>
+    spec.gametypes !== undefined && !spec.gametypes.includes(gametype);
+
   // Filtering happens here rather than per section so an empty section can be
   // dropped entirely — a page of empty panels is a worse answer than a short
   // list of matches.
@@ -532,29 +573,67 @@ function SettingsTab({ config, onSaved }: { config: ConfigPayload; onSaved: () =
         )}
       </div>
 
-      {visibleSections.map((section) => (
-        <Panel
-          key={section.id}
-          id={`section-${section.id}`}
-          title={section.title}
-          description={section.description}
-        >
-          <div className="grid gap-4 md:grid-cols-2">
-            {section.cvars.map((spec) => (
-              <CvarField
-                key={spec.key}
-                spec={spec}
-                value={values[spec.key.toLowerCase()] ?? ''}
-                removing={removed.includes(spec.key.toLowerCase())}
-                defined={initial[spec.key.toLowerCase()] !== undefined}
-                onChange={(next) =>
-                  setValues((current) => ({ ...current, [spec.key.toLowerCase()]: next }))
-                }
-              />
-            ))}
-          </div>
-        </Panel>
-      ))}
+      {visibleSections.map((section) => {
+        const sectionInactive =
+          section.gametypes !== undefined && !section.gametypes.includes(gametype);
+
+        return (
+          <Panel
+            key={section.id}
+            id={`section-${section.id}`}
+            title={section.title}
+            description={section.description}
+            actions={
+              section.gametypes && (
+                <Badge tone={sectionInactive ? 'warn' : 'success'}>
+                  {gametypeScope(section.gametypes)}
+                </Badge>
+              )
+            }
+          >
+            {/* Marked, never hidden. A section that vanished when the game type
+                changed would be unfindable by the operator who is about to
+                switch to that mode — and the settings still live in the file
+                whatever the form draws. */}
+            {sectionInactive && (
+              <p className="mb-4 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">
+                Your game type is {GAMETYPE_LABELS[gametype] ?? gametype}, so nothing in this
+                section has any effect. The settings are still saved, and start working the
+                moment you switch.
+              </p>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {section.cvars.map((spec) => (
+                <CvarField
+                  key={spec.key}
+                  spec={spec}
+                  value={values[spec.key.toLowerCase()] ?? ''}
+                  removing={removed.includes(spec.key.toLowerCase())}
+                  defined={initial[spec.key.toLowerCase()] !== undefined}
+                  // The section already says it once; repeating it on every
+                  // field inside would be noise.
+                  inactive={!sectionInactive && isInactive(spec)}
+                  scope={sectionInactive ? undefined : spec.gametypes}
+                  note={
+                    spec.key === 'g_gametype' && gametypePending ? (
+                      <span className="text-info">
+                        The server is still playing{' '}
+                        {GAMETYPE_LABELS[runningGametype] ?? `type ${runningGametype}`}. Game type
+                        is latched, so it changes on the next map — or straight away if you
+                        restart the server from Overview.
+                      </span>
+                    ) : undefined
+                  }
+                  onChange={(next) =>
+                    setValues((current) => ({ ...current, [spec.key.toLowerCase()]: next }))
+                  }
+                />
+              ))}
+            </div>
+          </Panel>
+        );
+      })}
 
       {/* Sticky save bar: with four sections of fields, a save button at the
           bottom of the page would be off-screen most of the time. */}
@@ -599,6 +678,9 @@ function CvarField({
   value,
   defined,
   removing = false,
+  inactive = false,
+  scope,
+  note,
   onChange,
 }: {
   spec: CvarSpec;
@@ -606,6 +688,12 @@ function CvarField({
   defined: boolean;
   /** Cleared numeric field: saving deletes the line rather than writing 0. */
   removing?: boolean;
+  /** The configured game type does not read this setting. */
+  inactive?: boolean;
+  /** Game types this setting applies to, when that is worth stating. */
+  scope?: string[];
+  /** Something to say about this particular setting, right now. */
+  note?: ReactNode;
   onChange: (next: string) => void;
 }) {
   /**
@@ -654,6 +742,14 @@ function CvarField({
       <Badge tone={spec.appliesOn === 'immediately' ? 'success' : 'neutral'}>
         {APPLIES_LABEL[spec.appliesOn]}
       </Badge>
+      {/* A setting the mod reads behind a gametype test. Stated as a scope
+          either way — "Campaign only" is worth knowing before you rely on it,
+          not just once it has stopped working — and toned as a warning only
+          when the configured mode is not one of them. */}
+      {scope && (
+        <Badge tone={inactive ? 'warn' : 'neutral'}>{gametypeScope(scope)}</Badge>
+      )}
+      {note && <span className="basis-full">{note}</span>}
       {/* One marker, on every unset field, quiet enough that 166 of them do not
           shout — and carrying the value, so "unset with a default of empty" and
           "unset with nothing behind it" cannot be mistaken for each other. The
@@ -675,9 +771,20 @@ function CvarField({
     </span>
   );
 
+  /**
+   * Dimmed, not disabled.
+   *
+   * A setting the current game type ignores is still the setting you edit
+   * before switching to that game type, so it stays editable; the emphasis is
+   * what changes. Focus restores full contrast, because dimmed text under a
+   * cursor is a contrast failure, not a style.
+   */
+  const muting =
+    inactive || usingDefault ? 'opacity-70 transition-opacity focus-within:opacity-100' : '';
+
   if (spec.kind === 'flags') {
     return (
-      <div className={usingDefault ? 'opacity-70 transition-opacity focus-within:opacity-100' : ''}>
+      <div className={`md:col-span-2 ${muting}`}>
         <FlagField spec={spec} value={effective} hint={hint} onChange={onChange} />
       </div>
     );
@@ -685,7 +792,7 @@ function CvarField({
 
   if (spec.kind === 'boolean') {
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className={`flex flex-col gap-1.5 ${inactive ? muting : ''}`}>
         <div>
           <Toggle
             checked={effective === '1'}
@@ -713,6 +820,7 @@ function CvarField({
         )
       }
       htmlFor={`cvar-${spec.key}`}
+      className={inactive ? muting : ''}
     >
       {spec.kind === 'select' ? (
         <Select
