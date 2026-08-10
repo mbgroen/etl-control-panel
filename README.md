@@ -10,6 +10,12 @@ a VPS, or a spare machine. No prior experience of running an ET server is
 assumed: the control panel writes a working config for you, and everything after
 that is done in the browser.
 
+![The Overview page: server name and state, players online, current map, uptime, CPU and memory, six hours of player-count and CPU history, and Restart and Stop beside the server name.](docs/screenshots/overview.png)
+
+The screenshots on this page come from a demo server with invented players and
+addresses; the rest appear beside the features they belong to under
+[Using the control panel](#using-the-control-panel).
+
 Ready-built images, no account needed:
 
 | Image | Purpose |
@@ -31,7 +37,7 @@ The game server itself comes from the official
 - [Publishing your own images](#publishing-your-own-images)
 - [Installation](#installation)
 - [Configuration reference](#configuration-reference)
-- [Using the control panel](#using-the-control panel)
+- [Using the control panel](#using-the-control-panel)
 - [FastDL — HTTP map downloads](#fastdl--http-map-downloads)
 - [Security](#security)
 - [API reference](#api-reference)
@@ -556,10 +562,14 @@ a kick can be issued.
 commands typed here change the *running* server only; they are lost on restart.
 Use Configuration to make a change permanent.
 
+![The Console page: the output of a status and a serverinfo command in a monospace transcript, beside a Quick commands list grouped into Server, Match & maps and Bots, with the disruptive ones badged.](docs/screenshots/console.png)
+
 **Logs** — live container output. Auto-scroll releases the moment you scroll up
 to read something, and pausing buffers rather than drops lines.
 
 **Configuration** — four views over one file:
+
+![The Configuration page: Settings, Raw file and Backups tabs above a search box, the Show advanced and Only my settings toggles, eighteen section chips, and the Identity section with the server name, visibility and country-flag fields, each labelled with when it takes effect.](docs/screenshots/configuration.png)
 
 - *Settings* — guided fields for the cvars people actually change, in eighteen
   sections from Identity to Protection. Each says whether it applies
@@ -618,6 +628,8 @@ passing, not to withhold them from an administrator.
 and where they connected from. The game server itself keeps no history, so this
 is the only place that can answer "has anyone been using my server?".
 
+![The Players page: the live list with slot, score, ping and Kick and Ban on every row and bots badged as such, above Earlier visits, where each finished session shows the country with a flag, the address, when they joined and how long they stayed — with a Hide bots switch, a Delete bots button and a count of bot visits.](docs/screenshots/players.png)
+
 A visit is identified as a bot by the address the server reports for it — the
 literal string `bot`. Addresses come from rcon, so a visit recorded before rcon
 could be reached carries none, and nothing can say afterwards whether it was a
@@ -637,6 +649,8 @@ The rotation editor sits directly under the uploader, listing **every installed
 map** with a switch: on to include it, off to drop it, arrows to order it.
 Upload a pk3 and its maps appear there immediately — **switched off**, because
 adding a file should never silently change what the server plays next.
+
+![The Maps page, scrolled to Map rotation: six numbered maps with up and down arrows and a switch each, then an "installed, not in rotation" list of the remaining maps with their switches off.](docs/screenshots/maps.png)
 
 Map names are read from the `maps/*.bsp` entries inside each archive, which
 matters because a pk3 is often named nothing like the map inside it:

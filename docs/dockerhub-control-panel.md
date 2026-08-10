@@ -5,7 +5,11 @@ game server running in Docker. Monitor players live, start and stop the server,
 edit the server config safely, manage custom maps, and run an optional HTTP
 download (FastDL) server — all from a browser.
 
-📖 **Full documentation, compose file and setup guide:**
+![The Overview page: server name and state, players online, current map, uptime, CPU and memory, six hours of player-count and CPU history, and Restart and Stop beside the server name.](https://raw.githubusercontent.com/mbgroen/etl-control-panel/main/docs/screenshots/overview.png)
+
+*A demo server — the players, addresses and server name in the screenshots are invented.*
+
+📖 **Full documentation, more screenshots, compose file and setup guide:**
 <https://github.com/mbgroen/etl-control-panel>
 
 ---
