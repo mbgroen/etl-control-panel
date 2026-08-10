@@ -134,13 +134,13 @@ consoleRouter.get('/commands', asyncHandler(async (_req, res) => {
           { label: 'Bot status', command: 'bot', danger: false },
           { label: 'Are bots enabled?', command: 'omnibot_enable', danger: false },
           {
-            label: 'Minimum bots',
+            label: 'Min bots',
             command: 'bot minbots',
             danger: false,
             input: { kind: 'number' as const, defaultValue: 4, min: 0, max: 32 },
           },
           {
-            label: 'Maximum bots',
+            label: 'Max bots',
             command: 'bot maxbots',
             danger: false,
             input: { kind: 'number' as const, defaultValue: 10, min: 0, max: 32 },

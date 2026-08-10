@@ -55,16 +55,25 @@ function NumberCommand({
   return (
     <div className="flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1.5">
       <span className="min-w-0 flex-1 truncate text-[13px] text-body">{entry.label}</span>
-      <Input
-        type="number"
-        min={entry.input?.min}
-        max={entry.input?.max}
-        value={value}
-        aria-label={entry.label}
-        title={`Sends: ${entry.command} ${clean || '…'}`}
-        onChange={(event) => setValue(event.target.value)}
-        className="h-7 w-16 px-2 text-right text-xs"
-      />
+      {/*
+        The width lives on this wrapper, not on the field. Input carries w-full
+        in its own class list, and a w-16 passed in beside it does not reliably
+        win the cascade — when it lost, the field grew to fill the row, the
+        label's flex-1 collapsed to zero and "Min bots" vanished behind a
+        bare number box.
+      */}
+      <div className="w-16 shrink-0">
+        <Input
+          type="number"
+          min={entry.input?.min}
+          max={entry.input?.max}
+          value={value}
+          aria-label={entry.label}
+          title={`Sends: ${entry.command} ${clean || '…'}`}
+          onChange={(event) => setValue(event.target.value)}
+          className="h-7 px-2 text-right text-xs"
+        />
+      </div>
       <Button
         size="sm"
         disabled={disabled || !valid}
