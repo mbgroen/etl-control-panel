@@ -116,17 +116,6 @@ what the control panel lists and what clients can download.
 > directory your current server uses. Point `COMPOSE_DATA_PATH` at your existing
 > data location and your maps and config carry over untouched.
 
-> **Coming from a version before 1.2.0?** The control panel state directory is now
-> called `etl-control-panel/` instead of `control panel/`, so both directories this
-> stack owns are named after it. Rename it before starting the new version, or
-> the control panel finds no account and reopens the setup wizard:
->
-> ```bash
-> mv "$DATA"/control panel "$DATA"/etl-control-panel
-> ```
->
-> Nothing is lost if you start it first — the old directory is still there. Stop
-> the stack, rename it, and start again.
 
 ---
 
@@ -320,21 +309,26 @@ cd etl-control-panel
 # Substitute your own data path
 export DATA=/srv/appdata
 
-mkdir -p "$DATA"/etl-server/{etmain,legacy} "$DATA"/etl-control-panel
+mkdir -p "$DATA"/etl-server/{etmain,legacy,homepath} "$DATA"/etl-control-panel
+
+# The game server runs as uid 1000 and writes its XP database and logs here
+chown -R 1000:1000 "$DATA"/etl-server/homepath
 ```
 
 Two directories, deliberately siblings:
 
 ```
 $DATA/
-├── etl-server/                game data, mounted into FastDL
-│   ├── etmain/              maps and server config   (served over HTTP)
-│   └── legacy/              Legacy mod data          (served over HTTP)
-└── etl-control-panel/      admin account, config backups, activity history
+├── etl-server/               game data
+│   ├── etmain/             maps and server config    (served over HTTP)
+│   ├── legacy/             Legacy mod data           (served over HTTP)
+│   └── homepath/           XP database, game and attack logs, archived cvars
+└── etl-control-panel/        admin accounts, config backups, player history
 ```
 
 The split is the point: FastDL is the service you publish to the internet, and
-it only ever mounts `etmain/` and `legacy/`. Keeping control panel state out of that
+it only ever mounts `etmain/` and `legacy/` — never `homepath/`, which holds the
+database, or the control panel's own directory. Keeping control panel state out of that
 tree means the credential store is not merely blocked from being served — it is
 not present in the container at all.
 
@@ -380,9 +374,14 @@ getent group docker | cut -d: -f3
 
 # Owner of your etmain directory — the control panel must be able to write here
 stat -c '%u %g' "$DATA"/etl-server/etmain
+
+# The game server's home directory must be owned by uid 1000, or it cannot
+# write its XP database — and says nothing when it cannot
+stat -c '%u %g' "$DATA"/etl-server/homepath
 ```
 
-Put those in `DOCKER_GID`, and `PUID`/`PGID` respectively.
+Put the first two in `DOCKER_GID`, and `PUID`/`PGID` respectively. Diagnostics
+checks the last one for you and names the fix if it is wrong.
 
 > **`$` in the hash:** bcrypt hashes contain `$`. Docker Compose does not expand
 > variables inside a `.env` file, so pasting it plainly is fine. If you export it

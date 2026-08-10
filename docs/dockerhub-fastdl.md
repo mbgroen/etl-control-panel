@@ -83,7 +83,7 @@ is the quickest way to tell the two apart.
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `1.12.1` | An exact version. Never moves — use this to pin |
+| `1.12.2`, `1.11.0`, … | An exact release. Never moves — use one to pin. See the [releases](https://github.com/mbgroen/etl-control-panel/releases) |
 
 Every image records the commit it was built from:
 

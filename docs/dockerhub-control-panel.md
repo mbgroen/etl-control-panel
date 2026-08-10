@@ -66,7 +66,8 @@ since 2003, so the files are a free download.
 | `ETL_HOST` / `ETL_PORT` | `etl-server` / `27960` | How to reach the game server for status and RCON |
 | `ETL_CONTAINER` | `etl-server` | Container to start/stop and read logs from |
 | `ETMAIN_PATH` | `/data/etl-server/etmain` | Game data directory inside this container |
-| `STATE_PATH` | `/data/control-panel` | Admin account, config backups, activity history |
+| `STATE_PATH` | `/data/control-panel` | Admin accounts, config backups, player history |
+| `SERVER_HOME_PATH` | `/data/etl-server/homepath` | The game server's home directory. Only read, to check the server can write its XP database there |
 | `MAX_UPLOAD_MB` | `256` | Initial upload limit; editable under Settings afterwards, along with backup and visit retention |
 | `COOKIE_SECURE` | `false` | Set `true` only when serving over HTTPS |
 
@@ -78,12 +79,19 @@ file publishes it on 8085, since 8080 is heavily contended on home servers).
 Needs the game data directory mounted, a writable state directory, and the
 Docker socket for container control and log streaming.
 
+The game server alongside it needs one more mount than is obvious: its home
+directory, where it keeps the XP database, the game and attack logs and the
+cvars it archives itself. Without it those live in the container and vanish on
+the next `docker compose pull`. It must be owned by uid 1000 — Diagnostics
+checks this and names the fix, because a server that cannot write there says
+nothing about it.
+
 ## Tags
 
 | Tag | Meaning |
 |---|---|
 | `latest` | Newest release |
-| `1.12.1` | An exact version. Never moves — use this to pin |
+| `1.12.2`, `1.11.0`, … | An exact release. Never moves — use one to pin. See the [releases](https://github.com/mbgroen/etl-control-panel/releases) |
 
 Every image records the commit it was built from:
 
