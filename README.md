@@ -793,6 +793,20 @@ directory are not reachable.
 Restart the game server (or run `exec etl_server.cfg` in the console) so it
 picks up the new download settings.
 
+**The mod package matters as much as the maps.** A client whose ET: Legacy
+build differs from the server's must download that build's pk3 —
+`legacy/legacy_v2.85.0.pk3` and successors — exactly as it downloads a map. That
+file ships *inside* the game server image, and the `legacy/` directory FastDL
+serves is on the host, so out of the box the request 404s: the engine falls back
+to its in-game transfer and 34 MB at `sv_dlRate` is minutes of a progress bar
+that most players abandon. The server stays listed and answering the whole time,
+and simply keeps nobody.
+
+The control panel copies that file out for you — on start-up, and after it
+starts or restarts the game server, so an image update publishes the new version
+by itself. *FastDL → Mod package* shows what is published and can redo it, and
+Diagnostics fails the check if it is missing.
+
 **Did a client actually download?** *Logs → FastDL* answers that: nginx records
 every request there, with the status and the bytes it sent. The game server's
 log only shows that it *redirected* the client to the FastDL URL, which is not
@@ -916,6 +930,7 @@ envelope:
 | `GET` | `/api/fastdl` | FastDL state |
 | `POST` | `/api/fastdl/enable` | `{baseUrl, allowDisconnectedDownload}` |
 | `POST` | `/api/fastdl/disable` | Turns it off and stops the web server |
+| `POST` | `/api/fastdl/mod-package` | Copy the mod pk3 out of the game server for FastDL |
 | `POST` | `/api/fastdl/test` | Reachability probe through the public URL |
 
 ### System
@@ -981,6 +996,7 @@ curl -b jar -X POST http://localhost:8085/api/console/rcon \
 | FastDL test fails | The base URL is not reachable from outside the host. Use the LAN/public IP, not `localhost`, and check the port is published and forwarded |
 | FastDL returns 403 for maps that exist | The pk3 files are not world-readable, so nginx cannot open them. See [FastDL file permissions](#fastdl-file-permissions) |
 | Clients still download slowly | The game server has not re-read the config. Restart it, or run `exec etl_server.cfg` in the console |
+| Download stalls at 100%, nobody stays on the server | The client is fetching the **mod** pk3, not a map, and FastDL does not have it — check *FastDL → Mod package*, or `curl -I http://<your-address>:8081/legacy/legacy_v2.85.0.pk3`. Fixed automatically since 1.16.0; before that the fallback is the slow in-game transfer, which few players sit through |
 | Map rotation is ignored | The server is playing **Campaign**, which takes its map order from the campaign file, or **Map voting**, where the players choose. The rotation panel says so when either is running |
 | Game type does not change | `g_gametype` is latched: saving it parks the value until the next map loads, so the browser and the Overview page keep showing the old mode. Restart the game server from Overview to apply it now |
 | A setting does nothing at all | Check its scope badge on the Configuration page. A handful of settings — the Last Man Standing and Map voting sections, prestige, skill rating, the campaign votes — are read only in certain game types |

@@ -113,8 +113,18 @@ export interface MapsPayload {
   directory: string;
 }
 
+export interface ModPackage {
+  /** The mod pk3 the running game server ships, e.g. legacy_v2.85.0.pk3. */
+  name: string | null;
+  sizeBytes: number | null;
+  /** True when FastDL can already serve exactly this file. */
+  published: boolean;
+  error?: string;
+}
+
 export interface FastdlPayload {
   container: ContainerState;
+  modPackage: ModPackage;
   configured: boolean;
   baseUrl: string;
   fileCount: number;

@@ -1,5 +1,9 @@
 import Docker from 'dockerode';
-import type { Duplex } from 'node:stream';
+import { createWriteStream } from 'node:fs';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { PassThrough, type Duplex } from 'node:stream';
+import { extract as tarExtract } from 'tar-stream';
 import { env } from '../env.js';
 import { logger } from '../logger.js';
 
@@ -307,6 +311,105 @@ export function demultiplex(chunk: Buffer): string {
   }
 
   return parts.join('');
+}
+
+/**
+ * Runs a command inside a managed container and returns what it printed.
+ *
+ * Uses the daemon's own demultiplexer rather than the one in this file: that
+ * one assumes a chunk starts on a frame boundary, which is true for log
+ * batches and false for anything long enough to be split mid-frame.
+ */
+export async function exec(service: ManagedService, cmd: string[]): Promise<string> {
+  const container = resolve(service);
+  try {
+    const execution = await container.exec({
+      Cmd: cmd,
+      AttachStdout: true,
+      AttachStderr: true,
+    });
+    const stream = await execution.start({ hijack: true, stdin: false });
+
+    return await new Promise<string>((resolveOutput, reject) => {
+      const stdout = new PassThrough();
+      const stderr = new PassThrough();
+      const chunks: Buffer[] = [];
+
+      stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+      // Discarded on purpose: the callers here are `ls`-shaped, and a warning
+      // on stderr is not a reason to fail the read.
+      stderr.resume();
+
+      docker.modem.demuxStream(stream, stdout, stderr);
+      stream.on('end', () => resolveOutput(Buffer.concat(chunks).toString('utf8')));
+      stream.on('error', reject);
+    });
+  } catch (err) {
+    if (isNotFound(err)) throw new ContainerNotFoundError(CONTAINER_NAMES[service]);
+    throw err;
+  }
+}
+
+/**
+ * Copies one file out of a managed container onto the host.
+ *
+ * The daemon hands back a tar archive — the same thing `docker cp` consumes —
+ * so the single entry inside it is unpacked on the fly. Written to a temporary
+ * name and renamed, because a half-copied pk3 that nginx starts serving is
+ * worse than one that is missing: the client downloads it, fails the checksum
+ * and is sent round the loop again.
+ */
+export async function copyFileFrom(
+  service: ManagedService,
+  filePath: string,
+  destination: string,
+): Promise<number> {
+  const container = resolve(service);
+  const archive = (await container.getArchive({ path: filePath })) as unknown as NodeJS.ReadableStream;
+
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  const temp = `${destination}.part`;
+
+  try {
+    const bytes = await new Promise<number>((resolveBytes, reject) => {
+      const untar = tarExtract();
+      let written = 0;
+      let seen = false;
+
+      untar.on('entry', (header, stream, next) => {
+        if (seen || header.type !== 'file') {
+          stream.resume();
+          stream.on('end', next);
+          return;
+        }
+        seen = true;
+        written = header.size ?? 0;
+        const out = createWriteStream(temp, { mode: 0o644 });
+        stream.pipe(out);
+        out.on('error', reject);
+        out.on('close', next);
+        stream.on('error', reject);
+      });
+
+      untar.on('finish', () => {
+        if (!seen) reject(new Error(`No file at ${filePath} in ${CONTAINER_NAMES[service]}`));
+        else resolveBytes(written);
+      });
+      untar.on('error', reject);
+      archive.on('error', reject);
+      archive.pipe(untar);
+    });
+
+    // World-readable, because nginx serves as its own user and a pk3 it cannot
+    // open is a 403 that looks exactly like a missing file to a player.
+    await fs.chmod(temp, 0o644);
+    await fs.rename(temp, destination);
+    return bytes;
+  } catch (err) {
+    await fs.rm(temp, { force: true });
+    if (isNotFound(err)) throw new ContainerNotFoundError(CONTAINER_NAMES[service]);
+    throw err;
+  }
 }
 
 /** Verifies the control panel can actually talk to the Docker daemon. */

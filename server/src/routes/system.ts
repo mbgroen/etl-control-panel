@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { env } from '../env.js';
 import { asyncHandler } from '../http/errors.js';
 import * as docker from '../services/docker.js';
+import * as modFiles from '../services/modFiles.js';
 import {
   MAX_BACKUPS_CEILING,
   MAX_HISTORY_CEILING,
@@ -155,7 +156,7 @@ export const systemRouter = Router();
 systemRouter.get(
   '/health',
   asyncHandler(async (_req, res) => {
-    const [dockerPing, gameContainer, fastdlContainer, hasConfig, rconCheck, home] =
+    const [dockerPing, gameContainer, fastdlContainer, hasConfig, rconCheck, home, modPackage] =
       await Promise.all([
         docker.ping(),
         docker.inspect('game').catch(() => null),
@@ -163,6 +164,7 @@ systemRouter.get(
         configExists(),
         checkRcon(),
         checkServerHome(),
+        modFiles.status(),
       ]);
 
     const checks = [
@@ -211,6 +213,31 @@ systemRouter.get(
         ok: rconCheck.ok,
         detail: rconCheck.detail,
         remedy: rconCheck.remedy,
+      },
+      {
+        /*
+         * The one file every joining player needs and no installation has.
+         *
+         * The Legacy mod package ships inside the game server image, and FastDL
+         * serves a host directory, so out of the box the engine's redirect for
+         * legacy/legacy_v<version>.pk3 is a 404. The client then falls back to
+         * the in-game UDP transfer, where 34 MB at sv_dlRate is minutes of a
+         * progress bar that usually stalls — the server stays listed and
+         * answering while quietly turning away everyone who does not already
+         * have the exact mod build.
+         */
+        id: 'mod_package',
+        label: 'Mod package for FastDL',
+        ok: modPackage.published,
+        detail: modPackage.published
+          ? `${modPackage.name} is published for HTTP download`
+          : modPackage.error
+            ? `Cannot read it from the game server: ${modPackage.error}`
+            : `${modPackage.name ?? 'The mod package'} is not in ${env.LEGACY_PATH}, so joining players fall back to the slow in-game download`,
+        remedy: modPackage.published
+          ? null
+          : 'The control panel publishes it on start-up and after a restart. Retry now from the FastDL page, or copy it by hand: docker cp etl-server:/legacy/server/legacy/<file>.pk3 <data>/etl-server/legacy/',
+        optional: true,
       },
       {
         id: 'fastdl_container',

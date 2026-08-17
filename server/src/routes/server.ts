@@ -4,6 +4,7 @@ import { env } from '../env.js';
 import { ApiError, asyncHandler } from '../http/errors.js';
 import * as docker from '../services/docker.js';
 import { history } from '../services/metrics.js';
+import * as modFiles from '../services/modFiles.js';
 import { poller } from '../services/poller.js';
 import { parseRconStatus, rcon, RconError, stripColors } from '../services/q3protocol.js';
 import * as playerSessions from '../services/playerSessions.js';
@@ -33,6 +34,12 @@ serverRouter.post(
   asyncHandler(async (req, res) => {
     const { service, action } = lifecycleSchema.parse(req.body);
     await docker.lifecycle(service, action);
+
+    // A restart is how an operator applies a new image, which is exactly when
+    // the mod package gains a new version number and FastDL stops having it.
+    if (service === 'game' && action !== 'stop') {
+      modFiles.publishInBackground(`game ${action}`);
+    }
 
     // Give Docker a moment to settle so the refreshed snapshot reflects reality
     // rather than the transitional state.

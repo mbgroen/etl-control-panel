@@ -64,6 +64,27 @@ The allowlist is by extension rather than a deny-list of known-sensitive names,
 so anything else an operator drops into `etmain` — server configs containing
 the RCON password, logs, ban lists — is never downloadable.
 
+## The mod package
+
+Clients download two kinds of file from here: maps out of `etmain/`, and the
+**Legacy mod package** — `legacy/legacy_v2.85.0.pk3` and its successors — which
+any client whose ET: Legacy build differs from the server's must fetch before it
+can join.
+
+That file lives inside the game server image, not on the host, so nothing puts
+it in the `legacy/` directory this container serves unless something copies it
+there. Without it the request 404s, the engine falls back to its in-game
+transfer, and a 34 MB download crawls until the player gives up — on a server
+that looks healthy from every other angle. The
+[control panel](https://hub.docker.com/r/mbgroen/etl-control-panel) does the
+copy automatically; standalone, do it by hand after every image update:
+
+```bash
+docker cp etl-server:/legacy/server/legacy/legacy_v2.85.0.pk3 \
+  /srv/appdata/etl-server/legacy/
+chmod o+r /srv/appdata/etl-server/legacy/*.pk3
+```
+
 ## File permissions
 
 nginx runs its workers as the `nginx` user while the game server writes as a

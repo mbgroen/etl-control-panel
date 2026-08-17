@@ -6,6 +6,7 @@ import { logger } from './logger.js';
 import * as credentials from './services/credentials.js';
 import * as docker from './services/docker.js';
 import { history } from './services/metrics.js';
+import * as modFiles from './services/modFiles.js';
 import { poller } from './services/poller.js';
 
 async function main(): Promise<void> {
@@ -29,6 +30,13 @@ async function main(): Promise<void> {
   }
 
   poller.start();
+
+  // The mod package clients download when they join lives inside the game
+  // server image, where FastDL cannot see it. Copying it out is the difference
+  // between a 34 MB HTTP download and the in-game trickle that players give up
+  // on — and the filename changes with every image update, so it is checked at
+  // every start rather than once at install time.
+  modFiles.publishInBackground('startup');
 
   // Persist history periodically rather than on every sample: an 8-hour buffer
   // rewritten every 10 seconds is needless wear on the NAS disk.

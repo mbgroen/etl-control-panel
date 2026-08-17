@@ -6,6 +6,8 @@ import { logger } from '../logger.js';
 import * as docker from '../services/docker.js';
 import { baseUrlSchema } from '../services/fastdlUrl.js';
 import { listMaps } from '../services/maps.js';
+import * as modFiles from '../services/modFiles.js';
+import type { ModPakStatus } from '../services/modFiles.js';
 import { poller } from '../services/poller.js';
 import {
   applyCvarUpdates,
@@ -39,6 +41,8 @@ export interface FastdlState {
   totalBytes: number;
   /** Result of the last reachability probe, if one has been run. */
   health: { ok: boolean; message: string; checkedAt: string } | null;
+  /** The Legacy mod package, which lives inside the game image, not on disk. */
+  modPackage: ModPakStatus;
 }
 
 let lastHealth: FastdlState['health'] = null;
@@ -46,16 +50,18 @@ let lastHealth: FastdlState['health'] = null;
 fastdlRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
-    const [container, maps, config] = await Promise.all([
+    const [container, maps, config, modPackage] = await Promise.all([
       docker.inspect('fastdl'),
       listMaps(),
       readConfig().catch(() => null),
+      modFiles.status(),
     ]);
 
     const cvars = config ? cvarMap(config.content) : {};
 
     const state: FastdlState = {
       container,
+      modPackage,
       configured: cvars.sv_wwwdownload === '1',
       baseUrl: cvars.sv_wwwbaseurl ?? env.FASTDL_BASE_URL,
       fileCount: maps.length,
@@ -220,3 +226,25 @@ async function probeUrl(url: string, expectedBytes: number): Promise<{ ok: boole
     clearTimeout(timeout);
   }
 }
+
+/**
+ * Copies the mod package out of the game server so FastDL can serve it.
+ *
+ * Normally automatic — on start-up and after a restart — but exposed because
+ * the automatic copy has one failure mode an operator can fix and then wants to
+ * retry: a game container that was not running at the time.
+ */
+fastdlRouter.post(
+  '/mod-package',
+  asyncHandler(async (_req, res) => {
+    const result = await modFiles.publish();
+    if (result.error) {
+      throw new ApiError(
+        503,
+        'mod_package_unavailable',
+        `Could not read the mod package from the game server: ${result.error}`,
+      );
+    }
+    res.json(result);
+  }),
+);

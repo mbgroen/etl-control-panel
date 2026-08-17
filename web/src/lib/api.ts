@@ -6,6 +6,7 @@ import type {
   ConfigProblem,
   ControlPanelSettings,
   FastdlPayload,
+  ModPackage,
   HealthCheck,
   HistoryPayload,
   MapsPayload,
@@ -258,6 +259,8 @@ export const api = {
         method: 'POST',
         ...json(baseUrl ? { baseUrl } : {}),
       }),
+    publishModPackage: () =>
+      request<ModPackage & { copied: boolean }>('/fastdl/mod-package', { method: 'POST' }),
   },
 };
 

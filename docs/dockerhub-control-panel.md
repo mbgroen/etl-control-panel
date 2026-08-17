@@ -34,7 +34,11 @@ download (FastDL) server — all from a browser.
   are protected from deletion.
 - **FastDL** — enable HTTP map downloads in one action; it starts the web
   server *and* writes the matching cvars, then tests reachability. Every
-  download setting lives here, including the in-game transfer limits.
+  download setting lives here, including the in-game transfer limits. The
+  Legacy mod package — the file a client downloads when its build differs from
+  the server's — is copied out of the game server image automatically, because
+  it is the one thing FastDL cannot serve from disk and the one download every
+  joining player needs.
 - **Logs** — the game server's and FastDL's container output, streamed live,
   with filtering, pause-and-buffer and a download that saves a deeper tail than
   the pane holds. The engine's terminal colour codes are stripped, so what you

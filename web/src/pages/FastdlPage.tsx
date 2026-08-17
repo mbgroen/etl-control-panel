@@ -15,7 +15,7 @@ import { api, ApiError } from '../lib/api';
 import { formatBytes } from '../lib/format';
 import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
-import type { ConfigPayload, FastdlPayload } from '../lib/types';
+import type { ConfigPayload, FastdlPayload, ModPackage } from '../lib/types';
 
 /**
  * FastDL — how clients fetch maps they are missing.
@@ -119,6 +119,8 @@ export function FastdlPage() {
           await refresh();
         }}
       />
+
+      <ModPackagePanel state={state.modPackage} onPublished={load} />
 
       <TransferPanel config={config} onSaved={load} />
     </div>
@@ -432,6 +434,83 @@ function FastdlPanel({
           </ol>
         </aside>
       </div>
+    </Panel>
+  );
+}
+
+/**
+ * The mod package, which is the one file FastDL cannot get from disk.
+ *
+ * Every client joining a server whose ET: Legacy build it does not have must
+ * download that build's pk3 — the same way it downloads a map, from
+ * <base URL>/legacy/. But the mod ships *inside* the game server image, and
+ * bind-mounting over it would hide the game module the engine loads, so the
+ * directory FastDL serves is empty on every install. The redirect 404s, the
+ * engine falls back to its in-game transfer, and 34 MB at sv_dlRate is a
+ * progress bar most players abandon.
+ *
+ * The control panel copies it out on start-up and after each restart of the
+ * game server. This panel exists for the case that could not: a game container
+ * that was not running at the time.
+ */
+function ModPackagePanel({
+  state,
+  onPublished,
+}: {
+  state: ModPackage;
+  onPublished: () => Promise<void>;
+}) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const publish = async () => {
+    setBusy(true);
+    try {
+      const result = await api.fastdl.publishModPackage();
+      toast.success(
+        result.copied ? `Published ${result.name}` : 'Already published',
+        result.copied
+          ? 'Joining players now download the mod over HTTP instead of the slow in-game transfer.'
+          : 'FastDL already serves the running server\'s mod package.',
+      );
+      await onPublished();
+    } catch (err) {
+      toast.error(
+        'Could not publish the mod package',
+        err instanceof ApiError ? err.message : 'Unexpected error',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Panel
+      title="Mod package"
+      description="What a client downloads when its ET: Legacy build does not match the server's"
+      actions={
+        <Button size="sm" loading={busy} disabled={state.published} onClick={() => void publish()}>
+          {state.published ? 'Published' : 'Publish now'}
+        </Button>
+      }
+    >
+      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <Badge tone={state.published ? 'success' : 'warn'}>
+          {state.published ? 'Served over HTTP' : 'Missing'}
+        </Badge>
+        <span className="font-mono text-xs text-muted">
+          {state.name ?? 'unknown'}
+          {state.sizeBytes ? ` · ${formatBytes(state.sizeBytes)}` : ''}
+        </span>
+      </div>
+
+      <p className="mt-2 text-xs text-muted">
+        {state.error
+          ? `Could not read it from the game server: ${state.error}`
+          : state.published
+            ? 'Copied out of the game server image, where FastDL cannot reach it. It is re-checked at every start and after each restart, so an image update publishes the new version by itself.'
+            : 'Until this is published, every player whose build differs from the server\'s falls back to the in-game transfer — minutes of downloading that most abandon, on a server that looks perfectly healthy from the outside.'}
+      </p>
     </Panel>
   );
 }
