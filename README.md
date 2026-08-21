@@ -60,7 +60,7 @@ The game server itself comes from the official
 | **Players** | Who is playing — with slot, score, ping and one-click kick and ban — and who has played — duration, address and country with a flag, kept across restarts. Bot visits are hidden by default and can be deleted in one action |
 | **Settings** | Upload limit, and how many config backups and player visits to keep |
 | **Accounts** | Several administrators, each with their own login — add, remove, and set a password for someone who has lost theirs |
-| **Diagnostics** | Every dependency checked, each failure paired with the fix |
+| **Diagnostics** | Every dependency checked, each failure paired with the fix — including whether the public browser advertises the port your server is actually on |
 
 The UI is keyboard-navigable, screen-reader labelled, responsive down to phone
 width, and ships light and dark themes.
@@ -792,6 +792,22 @@ overridden. Remove the variable to manage accounts from the control panel.
 
 **Diagnostics** — dependency checks and the exact remedy for each failure.
 
+One of them looks outward rather than in. **Public server listing** asks
+`master.etlegacy.com` what it advertises for this host and compares it with the
+port the server binds. Those differ more easily than anyone expects: the
+heartbeat carries no port, so the master records the packet's source, and any
+NAT that rewrites it silently sends every player to a port nothing answers on.
+The server stays listed, keeps replying to `getstatus`, and simply never keeps
+anyone — the check exists because that failure has no symptom on the server
+itself.
+
+It runs only when the config says the server is meant to be public (`dedicated
+2` with `sv_advert` including the master servers), and it makes two outbound
+requests when it does: one to **ipwho.is** to learn this host's public address,
+one to the master for its list. Neither carries anything about players. The
+answer is cached for ten minutes, because the engine only heartbeats every
+five.
+
 ---
 
 ## FastDL — HTTP map downloads
@@ -872,6 +888,11 @@ or behind a VPN or an authenticating reverse proxy.
   Client-side cvar rules (`sv_cvar cl_maxpackets IN 60 125`) can go in the
   config file, but they are checked by the client, so treat them as a guardrail
   rather than a defence.
+- **Two outbound requests, both optional.** Country lookups go to ipwho.is one
+  player address at a time (`GEO_LOOKUP=false` stops them), and the public
+  listing check asks ipwho.is for this host's own address and the ET master for
+  its server list. Nothing about players is sent to either, and the listing
+  check is skipped entirely on a server that is not advertised.
 - **RCON is cleartext UDP** — that is the protocol, not this implementation.
   Keep the game server and control panel on the same host or a trusted network.
 - Sessions are httpOnly, `SameSite=Strict` JWT cookies. Login is rate-limited
@@ -1020,7 +1041,7 @@ curl -b jar -X POST http://localhost:8085/api/console/rcon \
 | "Container does not exist" | `ETL_CONTAINER` does not match `container_name` in the compose file |
 | Docker socket check fails | Socket not mounted, or `DOCKER_GID` is wrong. Check `getent group docker \| cut -d: -f3` |
 | Server shows offline but players are on it | The control panel cannot reach the game server. With the game server on the host network, `ETL_HOST` must be `host.docker.internal` (with the `extra_hosts` line) or the host's LAN IP |
-| Listed in the browser, but Join fails for everyone | The master has the wrong port. Ask it: `getservers 84 empty full` to `master.etlegacy.com:27950`, and compare what it holds for your address with `net_port`. A random high port means outbound NAT rewrote the heartbeat's source port — put the game server on the host network (`network_mode: host`), which is what the shipped compose files do since 1.17.0 |
+| Listed in the browser, but Join fails for everyone | **Diagnostics → Public server listing** names this outright. The master has the wrong port. Ask it: `getservers 84 empty full` to `master.etlegacy.com:27950`, and compare what it holds for your address with `net_port`. A random high port means outbound NAT rewrote the heartbeat's source port — put the game server on the host network (`network_mode: host`), which is what the shipped compose files do since 1.17.0 |
 | Console says RCON is not set | Set `rconpassword` on the Configuration page — it takes effect immediately, with no restart |
 | "Bad rconpassword" | The running server holds an older password than the config. Restart the game server so it re-reads the config |
 | Config saves fail with a permission error | `PUID`/`PGID` cannot write `etmain`. Compare with `stat -c '%u %g' …/etmain` |

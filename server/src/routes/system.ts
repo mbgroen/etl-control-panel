@@ -8,6 +8,7 @@ import { env } from '../env.js';
 import { asyncHandler } from '../http/errors.js';
 import * as docker from '../services/docker.js';
 import * as modFiles from '../services/modFiles.js';
+import * as publicListing from '../services/publicListing.js';
 import {
   MAX_BACKUPS_CEILING,
   MAX_HISTORY_CEILING,
@@ -156,7 +157,7 @@ export const systemRouter = Router();
 systemRouter.get(
   '/health',
   asyncHandler(async (_req, res) => {
-    const [dockerPing, gameContainer, fastdlContainer, hasConfig, rconCheck, home, modPackage] =
+    const [dockerPing, gameContainer, fastdlContainer, hasConfig, rconCheck, home, modPackage, listing] =
       await Promise.all([
         docker.ping(),
         docker.inspect('game').catch(() => null),
@@ -165,6 +166,7 @@ systemRouter.get(
         checkRcon(),
         checkServerHome(),
         modFiles.status(),
+        publicListing.status(),
       ]);
 
     const checks = [
@@ -237,6 +239,22 @@ systemRouter.get(
         remedy: modPackage.published
           ? null
           : 'The control panel publishes it on start-up and after a restart. Retry now from the FastDL page, or copy it by hand: docker cp etl-server:/legacy/server/legacy/<file>.pk3 <data>/etl-server/legacy/',
+        optional: true,
+      },
+      {
+        /*
+         * Where the public browser sends people.
+         *
+         * The heartbeat carries no port, so whatever NAT sits in front of the
+         * server decides what gets advertised. When that is wrong the server is
+         * listed, answers on its real port, and turns away every human who
+         * clicks Join — a failure with no symptom on the server itself.
+         */
+        id: 'public_listing',
+        label: 'Public server listing',
+        ok: listing.ok,
+        detail: listing.detail,
+        remedy: listing.remedy,
         optional: true,
       },
       {

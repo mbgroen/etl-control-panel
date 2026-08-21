@@ -49,7 +49,11 @@ download (FastDL) server — all from a browser.
 - **Accounts** — several administrators, each with their own login. Add and
   remove them, or set a password for someone who has lost theirs; removing an
   account ends its session at once.
-- **Diagnostics** — every dependency checked, each failure paired with its fix.
+- **Diagnostics** — every dependency checked, each failure paired with its fix,
+  including one that looks outward: it asks the ET master server what port it
+  advertises for you and compares it with the port your server binds. When NAT
+  rewrites the heartbeat those differ, and the result is a server that is
+  listed, answers queries, and turns away every player who clicks Join.
 
 ## Quick start
 
