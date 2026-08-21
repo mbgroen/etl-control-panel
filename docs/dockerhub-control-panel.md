@@ -77,7 +77,7 @@ since 2003, so the files are a free download.
 | Variable | Default | Purpose |
 |---|---|---|
 | `RCON_PASSWORD` | empty | Optional override. Normally left unset — the password is read from the server config |
-| `ETL_HOST` / `ETL_PORT` | `etl-server` / `27960` | How to reach the game server for status and RCON |
+| `ETL_HOST` / `ETL_PORT` | `host.docker.internal` / `27960` | How to reach the game server for status and RCON. It is `host.docker.internal` rather than a service name because the game server runs on the host network — add `extra_hosts: ["host.docker.internal:host-gateway"]` beside it, or use the host's LAN IP |
 | `ETL_CONTAINER` | `etl-server` | Container to start/stop and read logs from |
 | `ETMAIN_PATH` | `/data/etl-server/etmain` | Game data directory inside this container |
 | `STATE_PATH` | `/data/control-panel` | Admin accounts, config backups, player history |
@@ -87,6 +87,13 @@ since 2003, so the files are a free download.
 
 The full list is in
 [`.env.example`](https://github.com/mbgroen/etl-control-panel/blob/main/.env.example).
+
+**Why the game server is on the host network.** A server's heartbeat to the
+master carries no port number — the master reads it off the packet's source.
+Behind a Docker bridge that source port is rewritten to a random high one, so
+the public browser lists your server on a port nothing answers on: it appears
+in the list, and every Join fails. `network_mode: host` for the game server is
+what avoids that, and it is what the compose file in the repository does.
 
 **Ports and volumes.** Listens on **8080** inside the container (the compose
 file publishes it on 8085, since 8080 is heavily contended on home servers).

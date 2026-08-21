@@ -50,14 +50,31 @@ services:
       # game failed". The image itself says as much: it declares etmain as a
       # volume and legacy as not — the mod is image-managed and upgrades with
       # the image.
-    ports:
-      # Same number both sides on purpose. The engine reports the port it
-      # believes it is on when it heartbeats the master servers, so an
-      # asymmetric mapping leaves the server unlisted. Moving it means changing
-      # net_port in the server config to match.
-      - "${GAME_PORT:-27960}:${GAME_PORT:-27960}/udp"
-    networks:
-      - etl
+    # The game server runs on the HOST network, not a bridge, and this is not
+    # a preference — it is what makes the server joinable.
+    #
+    # The heartbeat a server sends to the master carries no port number; look
+    # at sv_main.c and all it writes is "heartbeat <msg>". The master takes the
+    # address *and the port* from where the packet appears to come from. On a
+    # bridge with a published port that is a lie: inbound DNAT delivers to
+    # 27960 correctly, but outbound the packet is masqueraded, and because
+    # docker-proxy already holds host UDP 27960 the masquerade cannot reuse it
+    # and picks a random high port instead. The master then advertises your
+    # server on a port nothing answers on. It is listed, it looks healthy, and
+    # every player who clicks Join gets a connection error.
+    #
+    # On the host network the engine binds 27960 itself, so the heartbeat
+    # leaves from 27960 and the master learns the truth.
+    #
+    # Consequences worth knowing: there is no "ports:" mapping any more — the
+    # port comes from net_port in the server config — and the container shares
+    # the host's interfaces, so nothing else may already be on 27960/udp. On
+    # Docker Desktop (macOS, Windows) host networking behaves differently; for
+    # a LAN-only test server there, swap this for:
+    #     ports: ["27960:27960/udp"]
+    #     networks: [etl]
+    # and accept that the public listing will carry the wrong port.
+    network_mode: host
     restart: unless-stopped
     stop_grace_period: 20s
     logging:
@@ -107,7 +124,7 @@ services:
       ETL_CONTAINER: etl-server
       FASTDL_CONTAINER: etl-fastdl
       # Service name on the shared network — not localhost, and not the host IP.
-      ETL_HOST: etl-server
+      ETL_HOST: ${ETL_HOST:-host.docker.internal}
       ETL_PORT: 27960
       RCON_PASSWORD: ${RCON_PASSWORD}
 
@@ -129,6 +146,11 @@ services:
       # The host's docker group, so the socket is usable without running as root.
       # Find it with: getent group docker | cut -d: -f3
       - "${DOCKER_GID:-999}"
+    # host.docker.internal has to be taught to a bridge container on Linux, and
+    # this is the only way it reaches the game server now that the game server
+    # lives on the host network.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - etl-server
     networks:

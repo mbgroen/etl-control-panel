@@ -1,25 +1,43 @@
 # =============================================================================
-# ET: Legacy server + control panel + FastDL — prebuilt images
+# ET: Legacy server + control panel + FastDL — for OpenMediaVault
 #
-# Runs the whole stack from published images, so this file is all you need on
-# the host: no source checkout, no build step. The control panel asks you to create
-# an admin account the first time you open it.
+# Paste into Services → Compose → Files → Add, then Up. Every host path uses
+# CHANGE_TO_COMPOSE_DATA_PATH, which OMV replaces with the Data shared folder
+# configured for the stack, so nothing here needs editing by hand.
 #
-#   docker compose up -d
+# Generated from deploy/docker-compose.yml with the variables collapsed to
+# their defaults: OMV has no .env file, so anything left as ${...} would
+# resolve to nothing.
 #
-# All three services keep their data under one directory, set by
-# COMPOSE_DATA_PATH and defaulting to ./data next to this file:
+# Directories under the Data shared folder:
 #
-#   COMPOSE_DATA_PATH=/srv/appdata docker compose up -d
+#   etl-server/etmain      server config and .pk3 map files
+#   etl-server/legacy      the mod package the control panel publishes for FastDL
+#   etl-server/homepath    XP database, game and attack logs — see below
+#   etl-control-panel/     admin accounts, config backups, player history
 #
-# or put COMPOSE_DATA_PATH=/srv/appdata in a .env file beside this one. Any
-# absolute path works. If your host's Docker UI substitutes its own data
-# directory into compose files, replace the variable with that token instead —
-# the layout underneath it is what matters, not how the path gets there.
+# ONE STEP BY HAND, before the first Up. The game server runs as uid 1000 and a
+# bind mount keeps the shared folder's ownership, so Docker would create this
+# directory as root and the server could not write its XP database or logs —
+# silently, which is the worst way to lose a week of everyone's XP:
 #
-# Ports:
+#   mkdir -p <Data shared folder>/etl-server/homepath
+#   chown -R 1000:1000 <Data shared folder>/etl-server/homepath
+#
+# Diagnostics in the control panel checks precisely this and names the fix.
+#
+# etl-control-panel/ is deliberately a SIBLING of etl-server/, not inside it.
+# The game data tree is mounted into the FastDL container, which is the one
+# service you may publish to the internet; the credential store staying outside
+# that tree means it is not there to be served, whatever nginx is told later.
+#
+# Ports — open in the OMV firewall if you use one. Forward 27960/udp and, only
+# if players come from the internet, 8081/tcp on your router. The game port is
+# not published by Docker at all: the game server is on the host network, so it
+# binds 27960 on the NAS itself (see the note on that service).
+#
 #   27960/udp  game server
-#   8085/tcp   control panel   (set CONTROL_PANEL_PORT to move it)
+#   8085/tcp   control panel
 #   8081/tcp   FastDL (map downloads)
 # =============================================================================
 
@@ -35,7 +53,7 @@ services:
     volumes:
       # Only etmain is bind-mounted. The image ships nothing here but config
       # templates, so the mount is what gives the server its map library.
-      - ${COMPOSE_DATA_PATH:-./data}/etl-server/etmain:/legacy/server/etmain
+      - CHANGE_TO_COMPOSE_DATA_PATH/etl-server/etmain:/legacy/server/etmain
       #
       # Everything the server writes that is not the config: the XP database
       # (etl.db), the game and attack logs, and the cvars it archives itself.
@@ -48,7 +66,7 @@ services:
       #   mkdir -p "$COMPOSE_DATA_PATH/etl-server/homepath"
       #   chown -R 1000:1000 "$COMPOSE_DATA_PATH/etl-server/homepath"
       # Diagnostics checks this and says so if it is wrong.
-      - ${COMPOSE_DATA_PATH:-./data}/etl-server/homepath:/legacy/homepath
+      - CHANGE_TO_COMPOSE_DATA_PATH/etl-server/homepath:/legacy/homepath
       #
       # Do NOT mount /legacy/server/legacy. The image bakes the whole Legacy
       # mod in there — qagame.mp.x86_64.so (the game module the engine dlopens),
@@ -107,10 +125,10 @@ services:
       # on a home server — NAS UIs, UniFi controllers and countless other
       # services claim it. The container still listens on 8080 inside; only the
       # host side moves, so nothing internal has to change.
-      - "${CONTROL_PANEL_PORT:-8085}:8080"
+      - "8085:8080"
     volumes:
       # Read-write: the control panel edits the server config and installs maps.
-      - ${COMPOSE_DATA_PATH:-./data}/etl-server:/data/etl-server
+      - CHANGE_TO_COMPOSE_DATA_PATH/etl-server:/data/etl-server
       # Control panel state: admin account, config backups, activity history.
       #
       # Deliberately a sibling of etl-server/ rather than a directory inside it.
@@ -118,7 +136,7 @@ services:
       # usually the one service published to the internet, so keeping the
       # credential store outside that tree means no nginx rule stands between
       # this file and the public — it is simply not there to be served.
-      - ${COMPOSE_DATA_PATH:-./data}/etl-control-panel:/data/control-panel
+      - CHANGE_TO_COMPOSE_DATA_PATH/etl-control-panel:/data/control-panel
       # Container start/stop/restart and log streaming.
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -128,26 +146,26 @@ services:
       # .env.example, which documents them. They are interpolated rather than
       # hard-coded so that file is telling the truth: a variable it describes
       # and this file ignores is worse than no documentation at all.
-      RCON_PASSWORD: "${RCON_PASSWORD:-}"
+      RCON_PASSWORD: ""
 
       # Optional: pre-fills the FastDL address. You can also just type it in the
       # control panel later. Use the NAS's LAN IP — not localhost.
-      FASTDL_BASE_URL: "${FASTDL_BASE_URL:-}"
+      FASTDL_BASE_URL: ""
 
       # Leave empty and the control panel runs its first-run setup wizard.
-      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
-      ADMIN_PASSWORD_HASH: "${ADMIN_PASSWORD_HASH:-}"
-      SESSION_SECRET: "${SESSION_SECRET:-}"
-      SESSION_TTL_HOURS: "${SESSION_TTL_HOURS:-12}"
+      ADMIN_USERNAME: "admin"
+      ADMIN_PASSWORD_HASH: ""
+      SESSION_SECRET: ""
+      SESSION_TTL_HOURS: "12"
       # Set to true only when the panel is served over HTTPS.
-      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      COOKIE_SECURE: "false"
 
-      POLL_INTERVAL_SEC: "${POLL_INTERVAL_SEC:-10}"
-      MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-256}"
-      GEO_LOOKUP: "${GEO_LOOKUP:-true}"
-      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      POLL_INTERVAL_SEC: "10"
+      MAX_UPLOAD_MB: "256"
+      GEO_LOOKUP: "true"
+      LOG_LEVEL: "info"
 
-      ETL_HOST: ${ETL_HOST:-host.docker.internal}
+      ETL_HOST: host.docker.internal
       ETL_PORT: 27960
       ETL_CONTAINER: etl-server
       FASTDL_CONTAINER: etl-fastdl
@@ -155,7 +173,7 @@ services:
       LEGACY_PATH: /data/etl-server/legacy
       SERVER_HOME_PATH: /data/etl-server/homepath
       STATE_PATH: /data/control-panel
-      SERVER_CONFIG_NAME: "${SERVER_CONFIG_NAME:-etl_server.cfg}"
+      SERVER_CONFIG_NAME: "etl_server.cfg"
 
     # Runs as root so it can use the Docker socket and write to the game data
     # directory whatever their ownership — which is what removes the PUID/PGID
@@ -194,7 +212,7 @@ services:
     ports:
       # Only the host side moves; nginx listens on 80 inside either way. Whatever
       # you choose has to appear in the FastDL base URL players are given.
-      - "${FASTDL_PORT:-8081}:80"
+      - "8081:80"
     volumes:
       # Read-only, and only the two directories nginx actually serves — not the
       # whole data tree. etl-control-panel/ lives alongside these and holds the
@@ -203,8 +221,8 @@ services:
       # serve them anyway (it allowlists .pk3 under these two paths), but a
       # mount is a stronger boundary than a location block: what is not mounted
       # cannot be served by a later misconfiguration.
-      - ${COMPOSE_DATA_PATH:-./data}/etl-server/etmain:/srv/fastdl/etmain:ro
-      - ${COMPOSE_DATA_PATH:-./data}/etl-server/legacy:/srv/fastdl/legacy:ro
+      - CHANGE_TO_COMPOSE_DATA_PATH/etl-server/etmain:/srv/fastdl/etmain:ro
+      - CHANGE_TO_COMPOSE_DATA_PATH/etl-server/legacy:/srv/fastdl/legacy:ro
     networks:
       - etl
     restart: unless-stopped

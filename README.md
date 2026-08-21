@@ -96,15 +96,38 @@ width, and ships light and dark themes.
                               └──────────────────┘
 ```
 
-Three containers on one bridge network:
+Three containers. The control panel and FastDL share a bridge network; the game
+server is on the host network, for the reason below:
 
-- **`etl-server`** — the game server, unchanged from the official image.
+- **`etl-server`** — the game server, unchanged from the official image, on the
+  **host network** so the master servers learn its real port.
 - **`etl-control-panel`** — this project. Talks to the Docker daemon for
   container lifecycle and logs, to the game server over UDP for status and
   RCON, and to the bind-mounted data directories for config, maps and its own
   state.
 - **`etl-fastdl`** — nginx serving `etmain/` and `legacy/` read-only over HTTP.
   Optional; the control panel starts and stops it on demand.
+
+#### Why the game server is not on a bridge
+
+`etl-server` uses `network_mode: host`, and that is not a preference — it is
+what makes the server joinable at all.
+
+The heartbeat a server sends to the master carries no port number. Look at
+`sv_main.c` and the whole message is `heartbeat <msg>`: the master takes the
+address **and the port** from where the packet appears to come from. On a bridge
+with a published port that is a lie. Inbound works — DNAT delivers to 27960
+correctly — but outbound the packet is masqueraded, and because `docker-proxy`
+already holds host UDP 27960, the masquerade cannot reuse it and picks a random
+high port. The master then advertises your server on a port nothing answers on.
+It is listed, it looks healthy, `getstatus` on the real port replies, and every
+player who clicks Join gets a connection error.
+
+On the host network the engine binds 27960 itself and the heartbeat leaves from
+27960, so the master learns the truth. Two consequences: there is no `ports:`
+mapping for the game server any more — the port comes from `net_port` in the
+server config — and the control panel reaches it at `host.docker.internal`,
+which the compose file maps to the host gateway.
 
 The control panel and FastDL both mount **the same host directories** the game
 server uses. There is no copying or syncing: what the server has installed is
@@ -126,7 +149,9 @@ store and the database are not merely unserved, they are absent.
 - **A host directory for persistent data**, on a data disk rather than the OS
   disk.
 - **UDP port 27960** reachable by players (port-forwarded on your router if the
-  server should be public).
+  server should be public). The game server runs on the **host network** rather
+  than a bridge — see [Why the game server is not on a bridge](#why-the-game-server-is-not-on-a-bridge) —
+  so nothing else on the host may already hold that port.
 - **TCP port 8085** for the control panel (moved off the much-contended 8080;
   change it with `CONTROL_PANEL_PORT`), and **8081** if you use FastDL.
 - Roughly **400 MB of disk** for the images, plus whatever your maps need.
@@ -428,6 +453,13 @@ If you drive Docker from a web interface rather than a shell, paste
 `docker-compose.yml` into its compose editor and put the contents of your `.env`
 into its environment box — most write that out as the `.env` beside the compose
 file. Set `COMPOSE_DATA_PATH` there like any other variable.
+
+**OpenMediaVault** has a ready-made variant:
+[`deploy/docker-compose.omv.yml`](deploy/docker-compose.omv.yml). It is the same
+stack with every variable collapsed to its default — the plugin has no `.env`
+to read them from — and the host paths written as `CHANGE_TO_COMPOSE_DATA_PATH`,
+the token the plugin replaces with the stack's Data shared folder. Paste it into
+*Services → Compose → Files → Add* and press Up.
 
 Two things catch people out with this route:
 
@@ -987,7 +1019,8 @@ curl -b jar -X POST http://localhost:8085/api/console/rcon \
 | Configuration page says no config exists | Press **Create default configuration**, or check that `ETMAIN_PATH` is the directory the game server mounts |
 | "Container does not exist" | `ETL_CONTAINER` does not match `container_name` in the compose file |
 | Docker socket check fails | Socket not mounted, or `DOCKER_GID` is wrong. Check `getent group docker \| cut -d: -f3` |
-| Server shows offline but players are on it | The control panel cannot reach `etl-server:27960`. Confirm both containers share the `etl` network |
+| Server shows offline but players are on it | The control panel cannot reach the game server. With the game server on the host network, `ETL_HOST` must be `host.docker.internal` (with the `extra_hosts` line) or the host's LAN IP |
+| Listed in the browser, but Join fails for everyone | The master has the wrong port. Ask it: `getservers 84 empty full` to `master.etlegacy.com:27950`, and compare what it holds for your address with `net_port`. A random high port means outbound NAT rewrote the heartbeat's source port — put the game server on the host network (`network_mode: host`), which is what the shipped compose files do since 1.17.0 |
 | Console says RCON is not set | Set `rconpassword` on the Configuration page — it takes effect immediately, with no restart |
 | "Bad rconpassword" | The running server holds an older password than the config. Restart the game server so it re-reads the config |
 | Config saves fail with a permission error | `PUID`/`PGID` cannot write `etmain`. Compare with `stat -c '%u %g' …/etmain` |
